@@ -1,0 +1,19 @@
+[Unit]
+Description=NorthAx background worker (APScheduler jobs)
+After=network-online.target postgresql.service redis-server.service northax-api.service
+Wants=network-online.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=northax
+Group=northax
+WorkingDirectory=@BACKEND_DIR@
+EnvironmentFile=@BACKEND_DIR@/.env
+ExecStart=@BACKEND_DIR@/.venv/bin/python -m app.jobs.worker
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

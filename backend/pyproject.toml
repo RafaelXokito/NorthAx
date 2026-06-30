@@ -2,7 +2,7 @@
 name = "northax-backend"
 version = "0.1.0"
 description = "NorthAx training OS backend — deterministic engines + Claude AI explanation layer"
-requires-python = ">=3.12"
+requires-python = ">=3.11"  # 3.11 = Raspberry Pi OS Bookworm default (prod target)
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
