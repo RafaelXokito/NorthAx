@@ -99,8 +99,15 @@ struct ActivitySwitcherView: View {
         )
 
         return Button {
+            // Instant: engine-built session (parity with the server). Then refine
+            // with the backend's AI rationale/recovery warnings when available.
             store.switchSession(to: .strength, strengthSession: session)
             dismiss()
+            Task {
+                if let enriched = await store.generateStrengthSession(for: groups) {
+                    store.switchSession(to: .strength, strengthSession: enriched)
+                }
+            }
         } label: {
             VStack(alignment: .leading, spacing: 14) {
                 // Header row

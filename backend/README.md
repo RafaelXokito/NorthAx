@@ -133,7 +133,11 @@ openssl rand -hex 32                     # → ENCRYPTION_KEY
 ## Tests
 
 ```bash
-pytest                       # engine parity tests (no DB required)
+pytest                       # unit + engine-parity tests (no DB required)
+
+# integration tests run the real app (ASGI) against Postgres; point DATABASE_URL
+# at one and they un-skip (otherwise they skip cleanly):
+DATABASE_URL=postgresql+asyncpg://northax@localhost:5432/northax pytest
 ```
 
 The parity tests pin the reference outputs from the Swift engines — e.g. the

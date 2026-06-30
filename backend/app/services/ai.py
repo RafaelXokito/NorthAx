@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import shlex
 from collections.abc import AsyncIterator
 
@@ -132,6 +133,22 @@ def _extract_json(text: str) -> dict | None:
         return json.loads(candidate[start : end + 1])
     except json.JSONDecodeError:
         return None
+
+
+def check_contradiction(narrative: str | None, score: int, tolerance: int = 5) -> bool:
+    """§8.5 guardrail: log (do not block) when the AI narrative states an
+    `N/100` score that contradicts the deterministic score by more than
+    `tolerance`. Returns True if a contradiction was found."""
+    if not narrative:
+        return False
+    for match in re.finditer(r"(\d{1,3})\s*/\s*100", narrative):
+        stated = int(match.group(1))
+        if abs(stated - score) > tolerance:
+            log.warning(
+                "AI narrative score %d/100 contradicts deterministic score %d/100", stated, score
+            )
+            return True
+    return False
 
 
 def _hrv_change_pct(m: Metrics) -> int:

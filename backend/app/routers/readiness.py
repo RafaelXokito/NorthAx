@@ -39,6 +39,8 @@ async def _compute(session: AsyncSession, user_id: str, date: dt.date) -> schema
             metrics, readiness_result, dt.datetime.now(dt.timezone.utc)
         )
         if ai_explanation is not None:
+            # §8.5: log (don't block) if the AI contradicts the deterministic score.
+            ai.check_contradiction(ai_explanation.get("narrative"), readiness_result.score)
             row.ai_explanation = ai_explanation  # cached for subsequent requests
 
     return mappers.readiness_response(date, readiness_result, ai_explanation)
