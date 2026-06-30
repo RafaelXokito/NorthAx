@@ -19,7 +19,7 @@ from sqlalchemy import delete
 from app.db import Base, engine, session_scope
 from app.main import app
 from app.models import User, UserPreferences
-from app.security import issue_access_token
+from app.security import hash_password, issue_access_token
 
 
 @pytest_asyncio.fixture
@@ -38,9 +38,9 @@ async def _db():
 @pytest_asyncio.fixture
 async def api(_db):
     """Yield (client, auth_headers, user_id) for a fresh throwaway user."""
-    apple_id = f"itest-{uuid.uuid4()}"
+    email = f"itest-{uuid.uuid4()}@northax.test"
     async with session_scope(None) as session:
-        user = User(apple_id=apple_id, name="ITest")
+        user = User(email=email, password_hash=hash_password("itest-password"), name="ITest")
         session.add(user)
         await session.flush()
         session.add(UserPreferences(user_id=user.id))
@@ -52,4 +52,12 @@ async def api(_db):
         yield client, headers, user_id
 
     async with session_scope(None) as session:
-        await session.execute(delete(User).where(User.apple_id == apple_id))
+        await session.execute(delete(User).where(User.email == email))
+
+
+@pytest_asyncio.fixture
+async def client(_db):
+    """An unauthenticated ASGI client — for the auth endpoints themselves."""
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://itest") as c:
+        yield c

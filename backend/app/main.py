@@ -41,15 +41,16 @@ Two layers (see BACKEND_SPEC.md §1):
   deterministic output with a natural-language explanation, coaching note, and
   chat. The AI never overrides the deterministic score; it only explains it.
 
-**Auth.** All routes except `POST /auth/apple`, `POST /auth/refresh`, and
-`GET /intervals/callback` require `Authorization: Bearer <accessToken>`.
+**Auth.** All routes except `POST /auth/register`, `POST /auth/login`,
+`POST /auth/refresh`, and `GET /intervals/callback` require
+`Authorization: Bearer <accessToken>`.
 
 **Errors.** Every error returns the envelope
 `{ "error": { "code", "message", "status" } }` (§11).
 """
 
 TAGS_METADATA = [
-    {"name": "auth", "description": "Sign in with Apple, token rotation, sign-out, account deletion (§7.1)."},
+    {"name": "auth", "description": "Email/password register + login, token rotation, sign-out, account deletion (§7.1)."},
     {"name": "user", "description": "User profile (§7.2)."},
     {"name": "metrics", "description": "Daily morning metrics that drive readiness (§7.3)."},
     {"name": "readiness", "description": "Deterministic readiness score + cached AI explanation (§7.4)."},
@@ -122,7 +123,7 @@ def custom_openapi() -> dict:
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "RS256 access token from POST /auth/apple or /auth/refresh.",
+        "description": "RS256 access token from POST /auth/login, /auth/register, or /auth/refresh.",
     }
 
     # Shared §11 error envelope schema.
@@ -144,7 +145,8 @@ def custom_openapi() -> dict:
 
     # Apply bearer auth globally; clear it on the public endpoints.
     public = {
-        ("/v1/auth/apple", "post"),
+        ("/v1/auth/register", "post"),
+        ("/v1/auth/login", "post"),
         ("/v1/auth/refresh", "post"),
         ("/v1/intervals/callback", "get"),
         ("/health", "get"),

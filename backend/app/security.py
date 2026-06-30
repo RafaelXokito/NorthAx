@@ -1,17 +1,19 @@
-"""Security primitives: RS256 JWTs, Apple identity-token verification, and
-AES-256-GCM encryption for Garmin tokens at rest (§3, §5.8)."""
+"""Security primitives: RS256 JWTs, Scrypt password hashing, and AES-256-GCM
+encryption for Garmin tokens at rest (§3, §5.8)."""
 from __future__ import annotations
 
 import base64
 import datetime as dt
+import hmac
 import os
 import uuid
 
 import jwt
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 from .config import settings
-from .errors import auth_invalid_apple_token, auth_token_expired
+from .errors import auth_token_expired
 
 _ALGO = "RS256"
 
@@ -60,34 +62,49 @@ def decode_token(token: str, expected_type: str) -> dict:
     return claims
 
 
-# ── Sign in with Apple ───────────────────────────────────────────────────────
-_apple_jwk_client: jwt.PyJWKClient | None = None
+# ── Password hashing (Scrypt, via `cryptography`) ────────────────────────────
+# Stored format: "scrypt$<n>$<r>$<p>$<salt_b64>$<hash_b64>". Scrypt is memory-
+# hard and ships with our existing `cryptography` dependency, so no extra
+# package is needed (§3.1).
+_SCRYPT_N = 2**14  # CPU/memory cost
+_SCRYPT_R = 8
+_SCRYPT_P = 1
+_SCRYPT_LEN = 32
 
 
-def _jwk_client() -> jwt.PyJWKClient:
-    global _apple_jwk_client
-    if _apple_jwk_client is None:
-        _apple_jwk_client = jwt.PyJWKClient(settings.apple_jwks_url)
-    return _apple_jwk_client
+def hash_password(password: str) -> str:
+    salt = os.urandom(16)
+    derived = Scrypt(salt=salt, length=_SCRYPT_LEN, n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P).derive(
+        password.encode()
+    )
+    return "scrypt${}${}${}${}${}".format(
+        _SCRYPT_N,
+        _SCRYPT_R,
+        _SCRYPT_P,
+        base64.b64encode(salt).decode(),
+        base64.b64encode(derived).decode(),
+    )
 
 
-def verify_apple_identity_token(identity_token: str) -> dict:
-    """Verify an Apple identity token against Apple's JWKS and return its claims
-    ({sub, email, ...}). Raises AUTH_INVALID_APPLE_TOKEN on any failure (§3.1)."""
+def verify_password(password: str, stored: str) -> bool:
+    """Constant-time check of a plaintext password against a stored Scrypt hash."""
     try:
-        signing_key = _jwk_client().get_signing_key_from_jwt(identity_token)
-        claims = jwt.decode(
-            identity_token,
-            signing_key.key,
-            algorithms=["RS256"],
-            audience=settings.apple_client_id,
-            issuer=settings.apple_issuer,
-        )
-    except Exception as exc:  # noqa: BLE001 — any verification failure is a 401
-        raise auth_invalid_apple_token(str(exc)) from exc
-    if not claims.get("sub"):
-        raise auth_invalid_apple_token("Token has no subject.")
-    return claims
+        scheme, n, r, p, salt_b64, hash_b64 = stored.split("$")
+        if scheme != "scrypt":
+            return False
+        salt = base64.b64decode(salt_b64)
+        expected = base64.b64decode(hash_b64)
+        derived = Scrypt(
+            salt=salt, length=len(expected), n=int(n), r=int(r), p=int(p)
+        ).derive(password.encode())
+    except Exception:  # noqa: BLE001 — a malformed hash never authenticates
+        return False
+    return hmac.compare_digest(derived, expected)
+
+
+# A throwaway hash used to equalise login timing when no user matches, so a
+# missing email can't be distinguished from a wrong password by response time.
+DUMMY_PASSWORD_HASH = hash_password("northax-timing-equaliser")
 
 
 # ── AES-256-GCM token encryption (§5.8) ──────────────────────────────────────

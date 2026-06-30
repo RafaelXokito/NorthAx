@@ -1,9 +1,8 @@
 import Foundation
-import AuthenticationServices
 import Observation
 
-/// Owns the authenticated session. Sign in with Apple yields an identity token
-/// that is exchanged with the backend (`POST /auth/apple`) for an access +
+/// Owns the authenticated session. Email/password credentials are exchanged with
+/// the backend (`POST /auth/login` or `POST /auth/register`) for an access +
 /// refresh JWT pair stored in the Keychain (§3). The session is restored on
 /// launch from those tokens, and dropped if the backend revokes them.
 @MainActor
@@ -25,51 +24,51 @@ class AuthService {
 
     var isAuthenticated: Bool { currentUser != nil }
 
-    // MARK: - Sign In with Apple
+    // MARK: - Email / Password
 
-    func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
+    /// Sign in with an existing account (§3.1).
+    func signIn(email: String, password: String) {
+        let email = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Self.isValidEmail(email) else {
+            authError = .invalidInput("Enter a valid email address.")
+            return
+        }
+        guard !password.isEmpty else {
+            authError = .invalidInput("Enter your password.")
+            return
+        }
         authError = nil
-        switch result {
-        case .success(let auth):
-            guard let cred = auth.credential as? ASAuthorizationAppleIDCredential,
-                  let identityTokenData = cred.identityToken,
-                  let identityToken = String(data: identityTokenData, encoding: .utf8) else {
-                authError = .failed
-                return
-            }
-            let authCode = cred.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
-            let fullName = AppleFullNameDTO(
-                givenName: cred.fullName?.givenName,
-                familyName: cred.fullName?.familyName
-            )
-            Task { await exchange(identityToken: identityToken, authCode: authCode, fullName: fullName) }
+        Task { await exchange(path: "auth/login", body: EmailSignInRequest(email: email, password: password)) }
+    }
 
-        case .failure(let err):
-            guard let appleErr = err as? ASAuthorizationError else {
-                authError = .unknown
-                return
-            }
-            switch appleErr.code {
-            case .canceled:      break            // user dismissed — not an error
-            case .unknown:       authError = .noAppleAccount   // code 1000: no Apple ID on device
-            case .notHandled, .failed, .invalidResponse:
-                authError = .failed
-            default:             authError = .unknown
-            }
+    /// Create a new account, then start an authenticated session (§3.1).
+    func register(name: String, email: String, password: String) {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            authError = .invalidInput("Enter your name.")
+            return
+        }
+        guard Self.isValidEmail(email) else {
+            authError = .invalidInput("Enter a valid email address.")
+            return
+        }
+        guard password.count >= 8 else {
+            authError = .invalidInput("Password must be at least 8 characters.")
+            return
+        }
+        authError = nil
+        Task {
+            await exchange(path: "auth/register", body: EmailSignUpRequest(name: name, email: email, password: password))
         }
     }
 
-    /// Exchange the Apple identity token for app tokens (§3.1).
-    private func exchange(identityToken: String, authCode: String?, fullName: AppleFullNameDTO?) async {
+    /// Exchange credentials for app tokens and open the session.
+    private func exchange(path: String, body: Encodable) async {
         isAuthenticating = true
         defer { isAuthenticating = false }
         do {
-            let body = AppleSignInRequest(
-                identityToken: identityToken,
-                authorizationCode: authCode,
-                fullName: fullName
-            )
-            let resp: AuthResponse = try await api.post("auth/apple", body: body, authenticated: false)
+            let resp: AuthResponse = try await api.post(path, body: body, authenticated: false)
             tokens.save(accessToken: resp.accessToken, refreshToken: resp.refreshToken)
             setUser(AuthUser(id: resp.user.id, name: resp.user.name, email: resp.user.email))
         } catch let error as APIError {
@@ -77,6 +76,11 @@ class AuthService {
         } catch {
             authError = .failed
         }
+    }
+
+    private static func isValidEmail(_ email: String) -> Bool {
+        // Pragmatic check: one @, non-empty local part, dotted domain.
+        email.range(of: #"^[^@\s]+@[^@\s]+\.[^@\s]+$"#, options: .regularExpression) != nil
     }
 
     // MARK: - Sign Out
@@ -144,15 +148,15 @@ class AuthService {
 // MARK: - Error type
 
 enum AuthSignInError: LocalizedError {
-    case noAppleAccount
+    case invalidInput(String)
     case failed
     case unknown
     case server(String)
 
     var errorDescription: String? {
         switch self {
-        case .noAppleAccount:
-            return "No Apple ID is signed in on this device. Go to Settings → Apple ID and sign in, then try again."
+        case .invalidInput(let message):
+            return message
         case .failed:
             return "Sign in failed. Please try again."
         case .unknown:

@@ -3,15 +3,15 @@ import Foundation
 // Auth DTOs mirroring the OpenAPI schemas (§6.1). Property names match the
 // camelCase wire keys 1:1, so no CodingKeys are needed.
 
-struct AppleFullNameDTO: Encodable {
-    var givenName: String?
-    var familyName: String?
+struct EmailSignInRequest: Encodable {
+    var email: String
+    var password: String
 }
 
-struct AppleSignInRequest: Encodable {
-    var identityToken: String
-    var authorizationCode: String?
-    var fullName: AppleFullNameDTO?
+struct EmailSignUpRequest: Encodable {
+    var name: String
+    var email: String
+    var password: String
 }
 
 struct UserSummaryDTO: Decodable {

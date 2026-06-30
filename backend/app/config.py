@@ -25,11 +25,6 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 60
 
-    # Sign in with Apple
-    apple_client_id: str = "app.northax.client"
-    apple_jwks_url: str = "https://appleid.apple.com/auth/keys"
-    apple_issuer: str = "https://appleid.apple.com"
-
     # AI transport.
     # The AI layer shells out to the Hermes agent CLI (`hermes -z`) rather than
     # the Anthropic HTTP API, so no API key is required — the host just needs an

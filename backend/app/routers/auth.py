@@ -1,4 +1,5 @@
-"""Auth endpoints (§7.1): Sign in with Apple, refresh rotation, sign out, delete."""
+"""Auth endpoints (§7.1): email/password register + login, refresh rotation,
+sign out, delete."""
 from __future__ import annotations
 
 import datetime as dt
@@ -10,14 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..deps import get_current_user_id, get_db, get_unscoped_db
-from ..errors import auth_token_revoked
+from ..errors import auth_email_taken, auth_invalid_credentials, auth_token_revoked
 from ..models import RefreshToken, User, UserPreferences
 from ..rate_limit import limit
 from ..security import (
+    DUMMY_PASSWORD_HASH,
     decode_token,
+    hash_password,
     issue_access_token,
     issue_refresh_token,
-    verify_apple_identity_token,
+    verify_password,
 )
 from ..services.plan_service import regenerate_plans
 
@@ -31,42 +34,51 @@ async def _issue_pair(session: AsyncSession, user_id: uuid.UUID) -> tuple[str, s
     return access, refresh
 
 
-@router.post("/apple", response_model=schemas.AuthResponse, dependencies=[Depends(limit("auth_apple", 10, 60, by="ip"))])
-async def sign_in_with_apple(
-    body: schemas.AppleSignInRequest, session: AsyncSession = Depends(get_unscoped_db)
-) -> schemas.AuthResponse:
-    claims = verify_apple_identity_token(body.identity_token)
-    apple_id = claims["sub"]
-    email = claims.get("email")
-
-    result = await session.execute(select(User).where(User.apple_id == apple_id))
-    user = result.scalar_one_or_none()
-    created = False
-    if user is None:
-        # fullName is only sent by Apple on first sign-in (§3.1).
-        name = "Athlete"
-        if body.full_name and (body.full_name.given_name or body.full_name.family_name):
-            name = " ".join(
-                p for p in [body.full_name.given_name, body.full_name.family_name] if p
-            ).strip()
-        user = User(apple_id=apple_id, name=name, email=email)
-        session.add(user)
-        await session.flush()
-        session.add(UserPreferences(user_id=user.id))
-        created = True
-
-    access, refresh = await _issue_pair(session, user.id)
-
-    if created:
-        # generate-plans job (§10): 4 weeks from the current Monday.
-        await session.flush()
-        await regenerate_plans(session, str(user.id), dt.date.today(), weeks=4)
-
+def _auth_response(user: User, access: str, refresh: str) -> schemas.AuthResponse:
     return schemas.AuthResponse(
         access_token=access,
         refresh_token=refresh,
         user=schemas.UserSummary(id=user.id, name=user.name, email=user.email),
     )
+
+
+@router.post("/register", response_model=schemas.AuthResponse, dependencies=[Depends(limit("auth_register", 5, 60, by="ip"))])
+async def register(
+    body: schemas.EmailSignUpRequest, session: AsyncSession = Depends(get_unscoped_db)
+) -> schemas.AuthResponse:
+    existing = await session.execute(select(User.id).where(User.email == body.email))
+    if existing.scalar_one_or_none() is not None:
+        raise auth_email_taken()
+
+    user = User(email=body.email, password_hash=hash_password(body.password), name=body.name)
+    session.add(user)
+    await session.flush()
+    session.add(UserPreferences(user_id=user.id))
+
+    access, refresh = await _issue_pair(session, user.id)
+
+    # generate-plans job (§10): 4 weeks from the current Monday.
+    await session.flush()
+    await regenerate_plans(session, str(user.id), dt.date.today(), weeks=4)
+
+    return _auth_response(user, access, refresh)
+
+
+@router.post("/login", response_model=schemas.AuthResponse, dependencies=[Depends(limit("auth_login", 10, 60, by="ip"))])
+async def login(
+    body: schemas.EmailSignInRequest, session: AsyncSession = Depends(get_unscoped_db)
+) -> schemas.AuthResponse:
+    result = await session.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+    if user is None:
+        # Hash anyway so a missing email and a wrong password take the same time.
+        verify_password(body.password, DUMMY_PASSWORD_HASH)
+        raise auth_invalid_credentials()
+    if not verify_password(body.password, user.password_hash):
+        raise auth_invalid_credentials()
+
+    access, refresh = await _issue_pair(session, user.id)
+    return _auth_response(user, access, refresh)
 
 
 @router.post("/refresh", response_model=schemas.RefreshResponse, dependencies=[Depends(limit("auth_refresh", 20, 60, by="ip"))])

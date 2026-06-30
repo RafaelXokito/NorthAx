@@ -3,10 +3,20 @@ snake_case via an alias generator so either form is accepted on input."""
 from __future__ import annotations
 
 import datetime as dt
+import re
 import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _normalize_email(value: str) -> str:
+    value = value.strip().lower()
+    if not _EMAIL_RE.match(value):
+        raise ValueError("Enter a valid email address.")
+    return value
 
 
 class _Base(BaseModel):
@@ -16,15 +26,25 @@ class _Base(BaseModel):
 
 
 # ── Auth (§6.1, §6.2) ────────────────────────────────────────────────────────
-class AppleFullName(_Base):
-    given_name: str | None = None
-    family_name: str | None = None
+class EmailSignInRequest(_Base):
+    email: str
+    password: str
+
+    @field_validator("email")
+    @classmethod
+    def _norm_email(cls, v: str) -> str:
+        return _normalize_email(v)
 
 
-class AppleSignInRequest(_Base):
-    identity_token: str
-    authorization_code: str | None = None
-    full_name: AppleFullName | None = None
+class EmailSignUpRequest(_Base):
+    name: str = Field(min_length=1, max_length=100)
+    email: str
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def _norm_email(cls, v: str) -> str:
+        return _normalize_email(v)
 
 
 class UserSummary(_Base):

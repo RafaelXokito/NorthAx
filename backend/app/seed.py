@@ -19,10 +19,11 @@ from .config import settings
 from .db import Base, engine, session_scope
 from .jobs.tasks import intervals_sync
 from .models import IntervalsConnection, User, UserPreferences
-from .security import encrypt_token
+from .security import encrypt_token, hash_password
 from .services.plan_service import regenerate_plans
 
-DEV_APPLE_ID = "dev-seed-user"
+DEV_EMAIL = "dev@northax.app"
+DEV_PASSWORD = "northax-dev"  # local-only seed credential
 
 
 async def main() -> None:
@@ -36,10 +37,14 @@ async def main() -> None:
 
     # 1. Upsert the dev user + preferences.
     async with session_scope(None) as session:
-        res = await session.execute(select(User).where(User.apple_id == DEV_APPLE_ID))
+        res = await session.execute(select(User).where(User.email == DEV_EMAIL))
         user = res.scalar_one_or_none()
         if user is None:
-            user = User(apple_id=DEV_APPLE_ID, name="Rafael (dev)")
+            user = User(
+                email=DEV_EMAIL,
+                password_hash=hash_password(DEV_PASSWORD),
+                name="Rafael (dev)",
+            )
             session.add(user)
             await session.flush()
             session.add(UserPreferences(user_id=user.id))

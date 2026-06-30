@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -24,8 +25,12 @@ class AppError(Exception):
 
 
 # ── Error-code factories (the codes listed in §11) ──────────────────────────
-def auth_invalid_apple_token(msg="Apple identity token could not be verified."):
-    return AppError("AUTH_INVALID_APPLE_TOKEN", msg, 401)
+def auth_invalid_credentials(msg="Email or password is incorrect."):
+    return AppError("AUTH_INVALID_CREDENTIALS", msg, 401)
+
+
+def auth_email_taken(msg="An account with this email already exists."):
+    return AppError("AUTH_EMAIL_TAKEN", msg, 409)
 
 
 def auth_token_expired(msg="Access token has expired."):
@@ -102,7 +107,9 @@ async def validation_error_handler(_: Request, exc: RequestValidationError) -> J
                 "code": "VALIDATION_ERROR",
                 "message": "Request validation failed.",
                 "status": 400,
-                "details": exc.errors(),
+                # jsonable_encoder so a validator's raised ValueError (carried in
+                # each error's `ctx`) is serialised rather than crashing the encoder.
+                "details": jsonable_encoder(exc.errors()),
             }
         },
     )
