@@ -51,13 +51,21 @@ falls back to deterministic-only. To use the Anthropic SDK instead:
 
 ## Exposing it to the iOS app
 
-On the same LAN, the app reaches the Pi over plain HTTP at `http://<pi-ip>:8080`
-— the app's Info.plist sets `NSAllowsLocalNetworking` so ATS permits private-IP
-HTTP. For remote/secure access, terminate TLS:
+The app defaults (DEBUG) to the mDNS domain **`http://rafaelpereira.local:8080`**,
+which works at home; its Info.plist sets `NSAllowsLocalNetworking` so ATS allows
+`.local` over HTTP.
 
-- **Tailscale** (simplest): `tailscale up` on the Pi + phone; use the Pi's
-  `*.ts.net` name. HTTPS via Tailscale certs.
-- **Caddy** reverse proxy with a domain + Let's Encrypt, proxying `:8080`.
+**Away from home — Tailscale (the plan):** put the Pi and the iPhone on the same
+tailnet (`tailscale up`). Then reach the Pi by its MagicDNS name from anywhere:
+
+- **Preferred — HTTPS, no ATS exception:** `tailscale serve` issues a real
+  `*.ts.net` cert. e.g. `sudo tailscale serve --bg 8080`, then set the app's
+  `NORTHAX_API_BASE_URL=https://rafaelpereira.<tailnet>.ts.net/v1`.
+- Plain HTTP over the tailnet works too, but the `100.x`/`ts.net` host isn't
+  "local", so it needs an `NSExceptionDomains` entry (or use the HTTPS option).
+
+Because MagicDNS resolves the same name at home and away, a single
+`https://…ts.net/v1` URL can serve both once Tailscale is always-on on the phone.
 
 ## Notes / hardening
 

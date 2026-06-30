@@ -75,5 +75,6 @@ sleep 3
 
 echo "==> health: $(curl -s http://localhost:8080/health || echo FAIL)"
 echo "==> api=$(systemctl is-active northax-api) worker=$(systemctl is-active northax-worker)"
-echo "==> reach from the LAN at http://<pi-ip>:8080  (set the app's NORTHAX_API_BASE_URL to http://<pi-ip>:8080/v1)"
+echo "==> at home: http://$(hostname).local:8080  (the iOS app defaults to this)"
+echo "==> away: reach over Tailscale's MagicDNS name; prefer 'tailscale serve' HTTPS (no ATS exception needed)"
 echo "==> optional initial intervals.icu sync: .venv/bin/python -m app.seed"

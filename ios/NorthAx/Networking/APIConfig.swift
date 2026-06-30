@@ -1,9 +1,11 @@
 import Foundation
 
-/// Backend connection configuration. The base URL differs per build:
-/// DEBUG points at the Raspberry Pi production server on the LAN (by IP; ATS is
-/// permitted via `NSAllowsLocalNetworking` in Info.plist). Release points at the
-/// public domain. Override at runtime via the `NORTHAX_API_BASE_URL` env var.
+/// Backend connection configuration (Raspberry Pi "rafaelpereira").
+/// DEBUG uses the mDNS domain `rafaelpereira.local` — works at home, and ATS
+/// permits it via `NSAllowsLocalNetworking` in Info.plist.
+/// Away from home, reach the Pi over Tailscale: set `NORTHAX_API_BASE_URL` to its
+/// MagicDNS name, ideally HTTPS via `tailscale serve` (a valid cert needs no ATS
+/// exception), e.g. `https://rafaelpereira.<tailnet>.ts.net/v1`.
 enum APIConfig {
     static let baseURL: URL = {
         if let override = ProcessInfo.processInfo.environment["NORTHAX_API_BASE_URL"],
@@ -11,7 +13,7 @@ enum APIConfig {
             return url
         }
         #if DEBUG
-        return URL(string: "http://192.168.1.203:8080/v1")!   // Raspberry Pi (rafaelpereira)
+        return URL(string: "http://rafaelpereira.local:8080/v1")!
         #else
         return URL(string: "https://api.northax.app/v1")!
         #endif
