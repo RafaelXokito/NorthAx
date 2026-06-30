@@ -2,6 +2,13 @@
 from __future__ import annotations
 
 import datetime as dt
+import uuid
+
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+from app.db import session_scope
+from app.models import Activity
 
 VALID_METRICS = {
     "hrv": 58.0,
@@ -132,3 +139,34 @@ async def test_create_manual_activity(api):
     assert r.status_code == 201, r.text
     assert r.json()["source"] == "manual"
     assert (await client.get("/v1/activities", headers=headers)).json()["total"] == 1
+
+
+async def test_garmin_activity_upsert(api):
+    # Exercises the Garmin upsert ON CONFLICT against the *partial* unique index
+    # (regression for the full-constraint vs partial-index mismatch found on the
+    # Pi). Two upserts of the same external_id must collapse to one row.
+    _, _, uid = api
+
+    def stmt(load: float):
+        values = {
+            "user_id": uuid.UUID(uid), "external_id": "g-1", "source": "garmin",
+            "name": "Ride", "domain": "Cycling",
+            "start_time": dt.datetime(2026, 6, 30, 7, 0), "duration_seconds": 3600,
+            "training_load": load,
+        }
+        return (
+            pg_insert(Activity).values(**values).on_conflict_do_update(
+                index_elements=[Activity.user_id, Activity.source, Activity.external_id],
+                index_where=Activity.external_id.isnot(None),
+                set_={"training_load": load},
+            )
+        )
+
+    async with session_scope(uid) as s:
+        await s.execute(stmt(10))
+        await s.execute(stmt(20))
+    async with session_scope(uid) as s:
+        n = await s.scalar(select(func.count()).select_from(Activity).where(Activity.user_id == uuid.UUID(uid)))
+        load = await s.scalar(select(Activity.training_load).where(Activity.user_id == uuid.UUID(uid)))
+    assert n == 1
+    assert float(load) == 20.0

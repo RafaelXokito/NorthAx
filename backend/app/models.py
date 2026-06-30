@@ -14,12 +14,14 @@ from sqlalchemy import (
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import (
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 
 # Native Postgres enums (match sql/schema.sql). create_type defaults True so
@@ -117,7 +119,12 @@ class UserPreferences(Base):
 class Activity(Base):
     __tablename__ = "activities"
     __table_args__ = (
-        UniqueConstraint("user_id", "source", "external_id", name="activities_external_uq"),
+        # Partial unique index — matches sql/schema.sql exactly so create_all and
+        # schema.sql agree, and ON CONFLICT (with index_where) can infer it.
+        Index(
+            "activities_external_uq", "user_id", "source", "external_id",
+            unique=True, postgresql_where=text("external_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = _uuid_pk()

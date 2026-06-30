@@ -110,6 +110,7 @@ async def intervals_sync(user_id: str) -> dict:
                 .values(**values)
                 .on_conflict_do_update(
                     index_elements=[Activity.user_id, Activity.source, Activity.external_id],
+                    index_where=Activity.external_id.isnot(None),  # matches the partial unique index
                     set_={k: values[k] for k in ("name", "start_time", "duration_seconds", "training_load")},
                 )
             )
