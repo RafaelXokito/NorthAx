@@ -161,6 +161,16 @@ async def push_workout(
     event = planned_session_to_intervals_event(
         body.session.model_dump(by_alias=True), body.date.isoformat()
     )
+    from ..engines.workouts import to_intervals_text
+
+    # If the session carries structured steps, push them as an executable
+    # intervals.icu workout (their workout-builder syntax in `description`).
+    workout = body.session.model_dump(by_alias=True).get("workout")
+    if workout and workout.get("targetMode") not in (None, "none"):
+        text = to_intervals_text(workout)
+        if text:
+            event["description"] = text
+
     from ..jobs.tasks import _valid_access_token
 
     client = IntervalsClient()

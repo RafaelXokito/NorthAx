@@ -111,6 +111,8 @@ class UserPreferences(Base):
     )
     domain_frequencies: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     muscle_group_split: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    # Structured-workout target for cycling: "hr" (default) or "power".
+    cycling_target: Mapped[str] = mapped_column(String, nullable=False, default="hr")
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

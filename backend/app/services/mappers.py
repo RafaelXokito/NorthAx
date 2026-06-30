@@ -11,6 +11,7 @@ from ..engines.enums import (
     TrainingFrequency,
     WeeklyMuscleGroupSplit,
 )
+from ..engines import workouts
 from ..engines.plan import WeeklyPlan, monday_of
 from ..engines.readiness import Metrics, ReadinessResult
 from ..models import DailyMetrics
@@ -106,17 +107,24 @@ def split_from_prefs(muscle_group_split: list[dict]) -> WeeklyMuscleGroupSplit:
 
 
 # ── Plan serialization ───────────────────────────────────────────────────────
-def plan_days_to_json(plan: WeeklyPlan) -> list[dict]:
+def plan_days_to_json(plan: WeeklyPlan, cycling_target: str = "hr") -> list[dict]:
     out: list[dict] = []
     for day in plan.days:
         session = None
         if day.session is not None:
+            s = day.session
+            workout = workouts.workout_to_dict(
+                workouts.build_workout(
+                    s.domain.value, s.title, s.intensity_label, s.duration, cycling_target
+                )
+            )
             session = {
-                "domain": day.session.domain.value,
-                "title": day.session.title,
-                "subtitle": day.session.subtitle,
-                "duration": day.session.duration,
-                "intensityLabel": day.session.intensity_label,
+                "domain": s.domain.value,
+                "title": s.title,
+                "subtitle": s.subtitle,
+                "duration": s.duration,
+                "intensityLabel": s.intensity_label,
+                "workout": workout,
             }
         out.append({"date": day.date.isoformat(), "isRest": day.is_rest, "session": session})
     return out
@@ -141,6 +149,7 @@ def plan_dto_from_row(
                 subtitle=s.get("subtitle"),
                 duration=s["duration"],
                 intensity_label=s["intensityLabel"],
+                workout=s.get("workout"),
             )
             if s
             else None

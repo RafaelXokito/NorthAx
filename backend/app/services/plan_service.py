@@ -25,11 +25,12 @@ async def regenerate_plans(
     prefs = await _load_prefs(session, user_id)
     frequency = mappers.frequency_from_prefs(prefs.domain_frequencies if prefs else [])
     split = mappers.split_from_prefs(prefs.muscle_group_split if prefs else [])
+    cycling_target = getattr(prefs, "cycling_target", "hr") if prefs else "hr"
 
     plans = generate_plans(from_date, weeks, frequency, split)
     rows: list[WeeklyPlanRow] = []
     for plan in plans:
-        days_json = mappers.plan_days_to_json(plan)
+        days_json = mappers.plan_days_to_json(plan, cycling_target)
         stmt = (
             pg_insert(WeeklyPlanRow)
             .values(

@@ -31,6 +31,7 @@ def _to_dto(prefs: UserPreferences) -> schemas.UserPreferencesDTO:
         enabled_domains=list(prefs.enabled_domains),
         domain_frequencies=[schemas.DomainFrequencyDTO(**f) for f in prefs.domain_frequencies],
         muscle_group_split=[schemas.DaySplitDTO(**d) for d in prefs.muscle_group_split],
+        cycling_target=getattr(prefs, "cycling_target", "hr"),
     )
 
 
@@ -72,8 +73,27 @@ async def replace_preferences(
     prefs.enabled_domains = body.enabled_domains
     prefs.domain_frequencies = _freq_json(body.domain_frequencies)
     prefs.muscle_group_split = _split_json(body.muscle_group_split)
+    if body.cycling_target in ("hr", "power"):
+        prefs.cycling_target = body.cycling_target
     await session.flush()
     await regenerate_plans(session, user_id, dt.date.today(), weeks=4)
+    return _to_dto(prefs)
+
+
+@router.patch("/target", response_model=schemas.UserPreferencesDTO)
+async def patch_cycling_target(
+    body: schemas.CyclingTargetPatch,
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> schemas.UserPreferencesDTO:
+    if body.cycling_target not in ("hr", "power"):
+        from ..errors import AppError
+
+        raise AppError("PREFERENCES_INVALID_TARGET", "cyclingTarget must be 'hr' or 'power'.", 422)
+    prefs = await _get_or_create(session, user_id)
+    prefs.cycling_target = body.cycling_target
+    await session.flush()
+    await regenerate_plans(session, user_id, dt.date.today(), weeks=4)  # rebuild structured workouts
     return _to_dto(prefs)
 
 

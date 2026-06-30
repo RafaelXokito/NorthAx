@@ -172,6 +172,11 @@ class UserPreferencesDTO(_Base):
     enabled_domains: list[str] = Field(default_factory=lambda: ["Cycling", "Strength"])
     domain_frequencies: list[DomainFrequencyDTO] = Field(default_factory=list)
     muscle_group_split: list[DaySplitDTO] = Field(default_factory=list)
+    cycling_target: str = "hr"  # "hr" | "power"
+
+
+class CyclingTargetPatch(_Base):
+    cycling_target: str  # "hr" | "power"
 
 
 class DomainsPatch(_Base):
@@ -242,12 +247,30 @@ class PaginatedActivities(_Base):
 
 
 # ── Plan (§6.7) ──────────────────────────────────────────────────────────────
+class WorkoutStepDTO(_Base):
+    cue: str
+    minutes: int
+    target: str          # human label, e.g. "Z2 endurance (HR)"
+    icu: str             # intervals.icu token, e.g. "Z2 HR"
+
+
+class WorkoutBlockDTO(_Base):
+    repeat: int
+    steps: list[WorkoutStepDTO]
+
+
+class StructuredWorkoutDTO(_Base):
+    target_mode: str     # "hr" | "power" | "pace" | "none"
+    blocks: list[WorkoutBlockDTO]
+
+
 class PlannedSessionDTO(_Base):
     domain: str
     title: str
     subtitle: str | None = None
     duration: int
     intensity_label: str
+    workout: StructuredWorkoutDTO | None = None
 
 
 class PlannedDayDTO(_Base):

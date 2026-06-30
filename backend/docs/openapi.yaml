@@ -976,6 +976,77 @@ paths:
               schema: *id001
       security:
       - bearerAuth: []
+  /v1/preferences/target:
+    patch:
+      tags:
+      - preferences
+      summary: Patch Cycling Target
+      operationId: patch_cycling_target_v1_preferences_target_patch
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CyclingTargetPatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
   /v1/preferences/domains:
     patch:
       tags:
@@ -3073,6 +3144,15 @@ components:
       - load
       - recovery
       title: ComponentScores
+    CyclingTargetPatch:
+      properties:
+        cyclingTarget:
+          type: string
+          title: Cyclingtarget
+      type: object
+      required:
+      - cyclingTarget
+      title: CyclingTargetPatch
     DailyMetricsInput:
       properties:
         date:
@@ -3561,6 +3641,10 @@ components:
         intensityLabel:
           type: string
           title: Intensitylabel
+        workout:
+          anyOf:
+          - $ref: '#/components/schemas/StructuredWorkoutDTO'
+          - type: 'null'
       type: object
       required:
       - domain
@@ -3651,6 +3735,21 @@ components:
       - recoveryWarnings
       - exercises
       title: StrengthSessionResponse
+    StructuredWorkoutDTO:
+      properties:
+        targetMode:
+          type: string
+          title: Targetmode
+        blocks:
+          items:
+            $ref: '#/components/schemas/WorkoutBlockDTO'
+          type: array
+          title: Blocks
+      type: object
+      required:
+      - targetMode
+      - blocks
+      title: StructuredWorkoutDTO
     SuggestedSessionDTO:
       properties:
         domain:
@@ -3709,6 +3808,10 @@ components:
             $ref: '#/components/schemas/DaySplitDTO'
           type: array
           title: Musclegroupsplit
+        cyclingTarget:
+          type: string
+          title: Cyclingtarget
+          default: hr
       type: object
       title: UserPreferencesDTO
     UserProfile:
@@ -3815,6 +3918,42 @@ components:
       - days
       - generatedAt
       title: WeeklyPlanDTO
+    WorkoutBlockDTO:
+      properties:
+        repeat:
+          type: integer
+          title: Repeat
+        steps:
+          items:
+            $ref: '#/components/schemas/WorkoutStepDTO'
+          type: array
+          title: Steps
+      type: object
+      required:
+      - repeat
+      - steps
+      title: WorkoutBlockDTO
+    WorkoutStepDTO:
+      properties:
+        cue:
+          type: string
+          title: Cue
+        minutes:
+          type: integer
+          title: Minutes
+        target:
+          type: string
+          title: Target
+        icu:
+          type: string
+          title: Icu
+      type: object
+      required:
+      - cue
+      - minutes
+      - target
+      - icu
+      title: WorkoutStepDTO
     ApiError:
       type: object
       properties:

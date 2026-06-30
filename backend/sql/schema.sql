@@ -74,8 +74,11 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   enabled_domains      TEXT[] NOT NULL DEFAULT ARRAY['Cycling','Strength'],
   domain_frequencies   JSONB NOT NULL DEFAULT '[]',
   muscle_group_split   JSONB NOT NULL DEFAULT '[]',
+  cycling_target       TEXT NOT NULL DEFAULT 'hr',   -- 'hr' (default) | 'power'
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Migration for existing DBs (idempotent):
+ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS cycling_target TEXT NOT NULL DEFAULT 'hr';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- activities
