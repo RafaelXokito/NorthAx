@@ -25,11 +25,26 @@ struct SessionOverride {
 
 // MARK: - Store
 
+/// Central view-model. When a backend session exists it loads live data
+/// (readiness, metrics, plan, coach, preferences) and reconciles optimistic
+/// local engine output with the server; offline (or debug) it falls back to the
+/// client engines and mock seed so the UI always has data.
+@MainActor
 @Observable
 class AthleteStore {
     var athleteName: String = "Athlete"
-    var enabledDomains: [TrainingDomain] = [.cycling, .strength]
-    var muscleGroupSplit: WeeklyMuscleGroupSplit = .pushPullLegs
+    var enabledDomains: [TrainingDomain] = [.cycling, .strength] {
+        didSet {
+            guard enabledDomains != oldValue, !suppressServerSync, TokenStore.shared.hasSession else { return }
+            Task { _ = try? await api.updateDomains(enabledDomains) }
+        }
+    }
+    var muscleGroupSplit: WeeklyMuscleGroupSplit = .pushPullLegs {
+        didSet {
+            guard !suppressServerSync, TokenStore.shared.hasSession else { return }
+            Task { await syncSplitToServer() }
+        }
+    }
     var metrics: TrainingMetrics = .mockFresh
     var readiness: DailyReadiness
     var messages: [CoachMessage] = [.opening]
@@ -40,7 +55,10 @@ class AthleteStore {
         didSet {
             if trainingFrequency != oldValue {
                 AthleteStore.saveFrequency(trainingFrequency)
-                regeneratePlan()
+                regeneratePlan()  // optimistic local update
+                if !suppressServerSync, TokenStore.shared.hasSession {
+                    Task { await syncFrequencyToServer() }
+                }
             }
         }
     }
@@ -50,7 +68,11 @@ class AthleteStore {
         didSet { UserDefaults.standard.set(hasSetFrequency, forKey: "northax.hasSetFrequency") }
     }
 
-    let garmin = GarminService()
+    let intervals = IntervalsService()
+
+    private let api = NorthAxAPI.shared
+    /// Set while applying server state so property `didSet`s don't echo back.
+    private var suppressServerSync = false
 
     var useFatiguedScenario: Bool = false {
         didSet {
@@ -71,6 +93,7 @@ class AthleteStore {
     // Called by ContentView when the signed-in user changes
     func configure(with user: AuthUser) {
         if !user.name.isEmpty { athleteName = user.name }
+        Task { await loadFromBackend() }
     }
 
     func resetForSignOut() {
@@ -78,6 +101,63 @@ class AthleteStore {
         trainingFrequency = .defaultFrequency
         messages = [.opening]
         sessionOverride = nil
+    }
+
+    // MARK: - Backend loading
+
+    /// Pull live data when authenticated; no-op (engine/mock) otherwise.
+    func loadFromBackend() async {
+        guard TokenStore.shared.hasSession else { return }
+        await loadPreferences()
+        await loadMetricsAndReadiness()
+        await loadPlans()
+        await loadCoachHistory()
+        await intervals.refreshStatus()
+    }
+
+    func loadPreferences() async {
+        guard let prefs = try? await api.preferences() else { return }
+        suppressServerSync = true
+        if !prefs.enabledDomains.isEmpty { enabledDomains = prefs.enabledDomains }
+        muscleGroupSplit = prefs.split
+        trainingFrequency = prefs.frequency
+        suppressServerSync = false
+    }
+
+    func loadMetricsAndReadiness() async {
+        if let m = try? await api.metricsToday() { metrics = m }
+        if let r = try? await api.readinessToday() {
+            readiness = r
+        } else {
+            recalculate()  // engine fallback from whatever metrics we have
+        }
+    }
+
+    func loadPlans() async {
+        if let plans = try? await api.plans(weeks: 4), !plans.isEmpty {
+            weeklyPlans = plans
+        }
+    }
+
+    func loadCoachHistory() async {
+        if let history = try? await api.coachHistory(limit: 50), !history.isEmpty {
+            messages = history
+        }
+    }
+
+    private func syncFrequencyToServer() async {
+        if let prefs = try? await api.updateFrequency(trainingFrequency) {
+            suppressServerSync = true
+            muscleGroupSplit = prefs.split
+            suppressServerSync = false
+            await loadPlans()  // server regenerated forward weeks (§7.6)
+        }
+    }
+
+    private func syncSplitToServer() async {
+        if (try? await api.updateMuscleSplit(muscleGroupSplit)) != nil {
+            await loadPlans()
+        }
     }
 
     // MARK: - Persistence helpers
@@ -138,6 +218,19 @@ class AthleteStore {
         sessionOverride = nil
     }
 
+    /// Backend-generated strength session (§8.4) with engine fallback. Used by
+    /// the activity switcher when the user picks a strength session.
+    func generateStrengthSession(for muscleGroups: [MuscleGroup]) async -> StrengthSession? {
+        if TokenStore.shared.hasSession {
+            if let session = try? await api.strengthSession(
+                muscleGroups: muscleGroups, readinessScore: readiness.score
+            ) {
+                return session
+            }
+        }
+        return nil  // caller falls back to StrengthEngine
+    }
+
     private func standardOverride(for domain: TrainingDomain) -> SessionOverride {
         let score = readiness.score
         switch domain {
@@ -168,10 +261,40 @@ class AthleteStore {
 
     // MARK: - Coaching responses
 
+    /// Stream a coach reply over SSE when authenticated (§8.2); fall back to the
+    /// local templated response offline. The caller has already appended the
+    /// user's message to `messages`.
     func respond(to question: String) async {
-        let response = buildResponse(for: question)
-        try? await Task.sleep(for: .seconds(1.2))
-        messages.append(CoachMessage(content: response, isCoach: true, timestamp: Date()))
+        guard TokenStore.shared.hasSession else {
+            let response = buildResponse(for: question)
+            try? await Task.sleep(for: .seconds(0.8))
+            messages.append(CoachMessage(content: response, isCoach: true, timestamp: Date()))
+            return
+        }
+
+        messages.append(CoachMessage(content: "", isCoach: true, timestamp: Date()))
+        let index = messages.count - 1
+        let stream = SSEClient.shared.coachStream(
+            path: "ai/coach/message", body: CoachMessageRequest(content: question)
+        )
+        do {
+            for try await event in stream {
+                switch event {
+                case .delta(let text):
+                    messages[index].content += text
+                case .done(_, let full):
+                    if !full.isEmpty { messages[index].content = full }
+                case .failed:
+                    if messages[index].content.isEmpty {
+                        messages[index].content = "The coach is unavailable right now. Please try again."
+                    }
+                }
+            }
+        } catch {
+            if messages[index].content.isEmpty {
+                messages[index].content = buildResponse(for: question)
+            }
+        }
     }
 
     private func intensityLabelFor(_ readiness: DailyReadiness) -> String {
@@ -226,10 +349,10 @@ class AthleteStore {
             return "Your Training Stress Balance (TSB) is currently \(sign)\(Int(tsb)).\n\nTSB = Fitness (CTL) minus Fatigue (ATL). Positive means fresh; negative means carrying fatigue. The optimal performance window is roughly −10 to +5.\n\nAt \(Int(tsb)), you're \(abs(tsb) < 10 ? "in a great training window" : (tsb < 0 ? "carrying meaningful fatigue" : "quite fresh — consider adding some load"))."
         }
 
-        if q.contains("garmin") || q.contains("sync") {
-            return garmin.connectionState.isConnected
-                ? "Garmin is connected and syncing. Your recent activities are being used to improve load calculations and recovery estimates."
-                : "Garmin isn't connected yet. Head to Settings → Garmin Connect to link your account. Once connected, your actual training history will replace the mock data."
+        if q.contains("garmin") || q.contains("intervals") || q.contains("sync") {
+            return intervals.connectionState.isConnected
+                ? "intervals.icu is connected and syncing. Your Garmin activities and wellness are being used to improve load calculations and recovery estimates."
+                : "intervals.icu isn't connected yet. Head to Settings → Connect to link your account (it brings in your Garmin data). Once connected, your real training history replaces the sample data."
         }
 
         if q.contains("gym") || q.contains("muscle") || q.contains("strength") || q.contains("lift") {

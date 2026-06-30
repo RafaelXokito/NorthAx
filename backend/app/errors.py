@@ -64,12 +64,12 @@ def activity_garmin_immutable():
     )
 
 
-def garmin_not_connected():
-    return AppError("GARMIN_NOT_CONNECTED", "Garmin is not connected for this account.", 400)
+def intervals_not_connected():
+    return AppError("INTERVALS_NOT_CONNECTED", "intervals.icu is not connected for this account.", 400)
 
 
-def garmin_sync_in_progress():
-    return AppError("GARMIN_SYNC_IN_PROGRESS", "A Garmin sync is already running.", 409)
+def intervals_sync_in_progress():
+    return AppError("INTERVALS_SYNC_IN_PROGRESS", "An intervals.icu sync is already running.", 409)
 
 
 def ai_unavailable():

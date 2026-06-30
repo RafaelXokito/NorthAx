@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "NorthAx API",
-    "description": "\nNorthAx training-OS backend.\n\nTwo layers (see BACKEND_SPEC.md \u00a71):\n\n* **Deterministic engines** \u2014 readiness scoring, weekly plan generation, and\n  strength-session assembly. Ported from the iOS Swift engines; identical inputs\n  produce identical outputs.\n* **AI explanation layer** \u2014 Claude (via the Hermes agent CLI) wraps each\n  deterministic output with a natural-language explanation, coaching note, and\n  chat. The AI never overrides the deterministic score; it only explains it.\n\n**Auth.** All routes except `POST /auth/apple`, `POST /auth/refresh`,\n`GET /garmin/callback`, and `POST /garmin/webhook` require\n`Authorization: Bearer <accessToken>`.\n\n**Errors.** Every error returns the envelope\n`{ \"error\": { \"code\", \"message\", \"status\" } }` (\u00a711).\n",
+    "description": "\nNorthAx training-OS backend.\n\nTwo layers (see BACKEND_SPEC.md \u00a71):\n\n* **Deterministic engines** \u2014 readiness scoring, weekly plan generation, and\n  strength-session assembly. Ported from the iOS Swift engines; identical inputs\n  produce identical outputs.\n* **AI explanation layer** \u2014 Claude (via the Hermes agent CLI) wraps each\n  deterministic output with a natural-language explanation, coaching note, and\n  chat. The AI never overrides the deterministic score; it only explains it.\n\n**Auth.** All routes except `POST /auth/apple`, `POST /auth/refresh`, and\n`GET /intervals/callback` require `Authorization: Bearer <accessToken>`.\n\n**Errors.** Every error returns the envelope\n`{ \"error\": { \"code\", \"message\", \"status\" } }` (\u00a711).\n",
     "contact": {
       "name": "NorthAx",
       "email": "api@northax.app"
@@ -3535,13 +3535,13 @@
         ]
       }
     },
-    "/v1/garmin/status": {
+    "/v1/intervals/status": {
       "get": {
         "tags": [
-          "garmin"
+          "intervals"
         ],
         "summary": "Status ",
-        "operationId": "status__v1_garmin_status_get",
+        "operationId": "status__v1_intervals_status_get",
         "parameters": [
           {
             "name": "authorization",
@@ -3566,7 +3566,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GarminStatus"
+                  "$ref": "#/components/schemas/IntervalsStatus"
                 }
               }
             }
@@ -3659,13 +3659,13 @@
         ]
       }
     },
-    "/v1/garmin/connect": {
+    "/v1/intervals/connect": {
       "post": {
         "tags": [
-          "garmin"
+          "intervals"
         ],
         "summary": "Connect",
-        "operationId": "connect_v1_garmin_connect_post",
+        "operationId": "connect_v1_intervals_connect_post",
         "parameters": [
           {
             "name": "authorization",
@@ -3690,7 +3690,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GarminConnectResponse"
+                  "$ref": "#/components/schemas/IntervalsConnectResponse"
                 }
               }
             }
@@ -3783,17 +3783,152 @@
         ]
       }
     },
-    "/v1/garmin/callback": {
-      "get": {
+    "/v1/intervals/connect/apikey": {
+      "post": {
         "tags": [
-          "garmin"
+          "intervals"
         ],
-        "summary": "Callback",
-        "description": "OAuth redirect handler (server-side only). Stores encrypted tokens, then\nbounces the user back into the app via the universal link (\u00a79.1).",
-        "operationId": "callback_v1_garmin_callback_get",
+        "summary": "Connect With Api Key",
+        "description": "Connect using a personal intervals.icu API key (HTTP Basic). Validates the\nkey, then stores it encrypted with auth_mode='apikey'.",
+        "operationId": "connect_with_api_key_v1_intervals_connect_apikey_post",
         "parameters": [
           {
-            "name": "oauth_token",
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntervalsApiKeyConnect"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntervalsStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/intervals/callback": {
+      "get": {
+        "tags": [
+          "intervals"
+        ],
+        "summary": "Callback",
+        "description": "OAuth redirect handler (no bearer token). Exchanges the code, stores\nencrypted tokens scoped to the user in `state`, then bounces back into the\napp via the universal link (\u00a79.1).",
+        "operationId": "callback_v1_intervals_callback_get",
+        "parameters": [
+          {
+            "name": "code",
             "in": "query",
             "required": false,
             "schema": {
@@ -3805,11 +3940,11 @@
                   "type": "null"
                 }
               ],
-              "title": "Oauth Token"
+              "title": "Code"
             }
           },
           {
-            "name": "oauth_verifier",
+            "name": "state",
             "in": "query",
             "required": false,
             "schema": {
@@ -3821,25 +3956,25 @@
                   "type": "null"
                 }
               ],
-              "title": "Oauth Verifier"
+              "title": "State"
             }
           }
         ],
         "responses": {
           "307": {
-            "description": "Redirect to `northax://garmin/connected` (or `/error`)."
+            "description": "Redirect to `northax://intervals/connected` (or `/error`)."
           }
         },
         "security": []
       }
     },
-    "/v1/garmin/sync": {
+    "/v1/intervals/sync": {
       "post": {
         "tags": [
-          "garmin"
+          "intervals"
         ],
         "summary": "Sync",
-        "operationId": "sync_v1_garmin_sync_post",
+        "operationId": "sync_v1_intervals_sync_post",
         "parameters": [
           {
             "name": "authorization",
@@ -3955,13 +4090,13 @@
         ]
       }
     },
-    "/v1/garmin/disconnect": {
+    "/v1/intervals/disconnect": {
       "delete": {
         "tags": [
-          "garmin"
+          "intervals"
         ],
         "summary": "Disconnect",
-        "operationId": "disconnect_v1_garmin_disconnect_delete",
+        "operationId": "disconnect_v1_intervals_disconnect_delete",
         "parameters": [
           {
             "name": "authorization",
@@ -4072,20 +4207,60 @@
         ]
       }
     },
-    "/v1/garmin/webhook": {
+    "/v1/intervals/workouts/push": {
       "post": {
         "tags": [
-          "garmin"
+          "intervals"
         ],
-        "summary": "Webhook",
-        "description": "Garmin push notifications. Validate the HMAC-SHA1 signature (\u00a79.2).",
-        "operationId": "webhook_v1_garmin_webhook_post",
+        "summary": "Push Workout",
+        "description": "Push a planned session to intervals.icu as a calendar workout, which it\nschedules to Garmin (\u00a79.4).",
+        "operationId": "push_workout_v1_intervals_workouts_push_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntervalsWorkoutPushRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IntervalsWorkoutPushResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           },
@@ -4139,16 +4314,6 @@
               }
             }
           },
-          "422": {
-            "description": "Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
           "429": {
             "description": "Error",
             "content": {
@@ -4170,7 +4335,11 @@
             }
           }
         },
-        "security": []
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/ai/coach/message": {
@@ -5881,7 +6050,38 @@
         ],
         "title": "FrequencyPatch"
       },
-      "GarminConnectResponse": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IntervalsApiKeyConnect": {
+        "properties": {
+          "athleteId": {
+            "type": "string",
+            "title": "Athleteid"
+          },
+          "apiKey": {
+            "type": "string",
+            "title": "Apikey"
+          }
+        },
+        "type": "object",
+        "required": [
+          "athleteId",
+          "apiKey"
+        ],
+        "title": "IntervalsApiKeyConnect"
+      },
+      "IntervalsConnectResponse": {
         "properties": {
           "authorizationUrl": {
             "type": "string",
@@ -5892,9 +6092,9 @@
         "required": [
           "authorizationUrl"
         ],
-        "title": "GarminConnectResponse"
+        "title": "IntervalsConnectResponse"
       },
-      "GarminStatus": {
+      "IntervalsStatus": {
         "properties": {
           "connected": {
             "type": "boolean",
@@ -5928,20 +6128,44 @@
         "required": [
           "connected"
         ],
-        "title": "GarminStatus"
+        "title": "IntervalsStatus"
       },
-      "HTTPValidationError": {
+      "IntervalsWorkoutPushRequest": {
         "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "session": {
+            "$ref": "#/components/schemas/PlannedSessionDTO"
           }
         },
         "type": "object",
-        "title": "HTTPValidationError"
+        "required": [
+          "date",
+          "session"
+        ],
+        "title": "IntervalsWorkoutPushRequest"
+      },
+      "IntervalsWorkoutPushResponse": {
+        "properties": {
+          "workoutId": {
+            "type": "string",
+            "title": "Workoutid"
+          },
+          "scheduledDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Scheduleddate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workoutId",
+          "scheduledDate"
+        ],
+        "title": "IntervalsWorkoutPushResponse"
       },
       "KeyInsight": {
         "properties": {
@@ -6551,8 +6775,8 @@
       "description": "Manual + Garmin-synced activities (\u00a77.7)."
     },
     {
-      "name": "garmin",
-      "description": "Garmin OAuth proxy + webhook receiver (\u00a77.8 / \u00a79)."
+      "name": "intervals",
+      "description": "intervals.icu OAuth connection + sync + workout push (\u00a77.8 / \u00a79)."
     },
     {
       "name": "ai",

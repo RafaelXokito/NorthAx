@@ -311,12 +311,27 @@ class StrengthGenerateRequest(_Base):
     recent_activity_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
-# ── Garmin (§6.11) ───────────────────────────────────────────────────────────
-class GarminStatus(_Base):
+# ── intervals.icu (§6.11) ────────────────────────────────────────────────────
+class IntervalsStatus(_Base):
     connected: bool
     display_name: str | None = None
     last_sync_at: dt.datetime | None = None
 
 
-class GarminConnectResponse(_Base):
+class IntervalsConnectResponse(_Base):
     authorization_url: str
+
+
+class IntervalsApiKeyConnect(_Base):
+    athlete_id: str
+    api_key: str
+
+
+class IntervalsWorkoutPushRequest(_Base):
+    date: dt.date
+    session: PlannedSessionDTO
+
+
+class IntervalsWorkoutPushResponse(_Base):
+    workout_id: str
+    scheduled_date: dt.date

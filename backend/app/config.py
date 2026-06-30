@@ -50,11 +50,21 @@ class Settings(BaseSettings):
     ai_cli_fast_timeout: float = 60.0
     ai_cli_default_timeout: float = 90.0
 
-    # Garmin
-    garmin_consumer_key: str = ""
-    garmin_consumer_secret: str = ""
-    garmin_callback_url: str = "https://api.northax.app/v1/garmin/callback"
-    garmin_webhook_secret: str = ""
+    # intervals.icu (OAuth 2.0) — the "man in the middle" that aggregates
+    # Garmin/Strava/etc. and exposes wellness, activities, and a calendar for
+    # pushing planned workouts. The client secret never leaves the server.
+    intervals_client_id: str = ""
+    intervals_client_secret: str = ""
+    intervals_redirect_uri: str = "https://api.northax.app/v1/intervals/callback"
+    intervals_oauth_authorize_url: str = "https://intervals.icu/oauth/authorize"
+    intervals_oauth_token_url: str = "https://intervals.icu/api/oauth/token"
+    intervals_api_base: str = "https://intervals.icu/api/v1"
+    intervals_scopes: str = "WELLNESS:READ,ACTIVITY:READ,CALENDAR:WRITE"
+    # Personal API key (HTTP Basic) — dev / single-athlete fallback. The normal
+    # per-user connect flow stores keys in the DB; these let the backend use a
+    # default key from the environment (e.g. for a dev seed).
+    intervals_api_key: str = ""
+    intervals_athlete_id: str = ""
 
     # Token-at-rest encryption (AES-256-GCM, 32-byte hex key)
     encryption_key: str = ""

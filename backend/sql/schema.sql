@@ -138,11 +138,12 @@ CREATE TABLE IF NOT EXISTS coach_messages (
 CREATE INDEX IF NOT EXISTS coach_messages_user_created_idx ON coach_messages(user_id, created_at DESC);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- garmin_connections
+-- intervals_connections  (OAuth to intervals.icu — the MITM data source)
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS garmin_connections (
+CREATE TABLE IF NOT EXISTS intervals_connections (
   user_id          UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  garmin_user_id   TEXT NOT NULL,
+  athlete_id       TEXT NOT NULL,
+  auth_mode        TEXT NOT NULL DEFAULT 'oauth',   -- 'oauth' | 'apikey'
   access_token     TEXT NOT NULL,   -- AES-256-GCM ciphertext
   refresh_token    TEXT NOT NULL,   -- AES-256-GCM ciphertext
   token_expires_at TIMESTAMPTZ NOT NULL,
@@ -160,7 +161,7 @@ DECLARE t TEXT;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
     'refresh_tokens', 'daily_metrics', 'user_preferences',
-    'activities', 'weekly_plans', 'coach_messages', 'garmin_connections'
+    'activities', 'weekly_plans', 'coach_messages', 'intervals_connections'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS user_isolation ON %I', t);

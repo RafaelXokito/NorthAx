@@ -25,7 +25,7 @@ from .errors import (
     http_exception_handler,
     validation_error_handler,
 )
-from .routers import activities, ai, auth, garmin, metrics, plan, preferences, readiness, user
+from .routers import activities, ai, auth, intervals, metrics, plan, preferences, readiness, user
 
 logging.basicConfig(level=settings.log_level.upper())
 
@@ -41,9 +41,8 @@ Two layers (see BACKEND_SPEC.md §1):
   deterministic output with a natural-language explanation, coaching note, and
   chat. The AI never overrides the deterministic score; it only explains it.
 
-**Auth.** All routes except `POST /auth/apple`, `POST /auth/refresh`,
-`GET /garmin/callback`, and `POST /garmin/webhook` require
-`Authorization: Bearer <accessToken>`.
+**Auth.** All routes except `POST /auth/apple`, `POST /auth/refresh`, and
+`GET /intervals/callback` require `Authorization: Bearer <accessToken>`.
 
 **Errors.** Every error returns the envelope
 `{ "error": { "code", "message", "status" } }` (§11).
@@ -57,7 +56,7 @@ TAGS_METADATA = [
     {"name": "preferences", "description": "Domains, frequency, and muscle-group split (§7.5)."},
     {"name": "plan", "description": "Weekly training plans (§7.6)."},
     {"name": "activities", "description": "Manual + Garmin-synced activities (§7.7)."},
-    {"name": "garmin", "description": "Garmin OAuth proxy + webhook receiver (§7.8 / §9)."},
+    {"name": "intervals", "description": "intervals.icu OAuth connection + sync + workout push (§7.8 / §9)."},
     {"name": "ai", "description": "Coach chat (SSE), session suggestion, strength generation (§7.9–7.10)."},
     {"name": "meta", "description": "Health and service metadata."},
 ]
@@ -93,7 +92,7 @@ app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 V1 = "/v1"
-for module in (auth, user, metrics, readiness, preferences, plan, activities, garmin, ai):
+for module in (auth, user, metrics, readiness, preferences, plan, activities, intervals, ai):
     app.include_router(module.router, prefix=V1)
 
 
@@ -147,8 +146,7 @@ def custom_openapi() -> dict:
     public = {
         ("/v1/auth/apple", "post"),
         ("/v1/auth/refresh", "post"),
-        ("/v1/garmin/callback", "get"),
-        ("/v1/garmin/webhook", "post"),
+        ("/v1/intervals/callback", "get"),
         ("/health", "get"),
     }
     error_ref = {"$ref": "#/components/schemas/ApiError"}
@@ -190,11 +188,11 @@ def custom_openapi() -> dict:
             },
         }
 
-    # Garmin OAuth callback (§9.1) is a redirect into the app via universal link.
-    callback = schema["paths"].get("/v1/garmin/callback", {}).get("get")
+    # intervals.icu OAuth callback (§9.1) is a redirect into the app via universal link.
+    callback = schema["paths"].get("/v1/intervals/callback", {}).get("get")
     if callback is not None:
         callback["responses"] = {
-            "307": {"description": "Redirect to `northax://garmin/connected` (or `/error`)."}
+            "307": {"description": "Redirect to `northax://intervals/connected` (or `/error`)."}
         }
 
     app.openapi_schema = schema

@@ -8,9 +8,9 @@ info:
     \ the Hermes agent CLI) wraps each\n  deterministic output with a natural-language\
     \ explanation, coaching note, and\n  chat. The AI never overrides the deterministic\
     \ score; it only explains it.\n\n**Auth.** All routes except `POST /auth/apple`,\
-    \ `POST /auth/refresh`,\n`GET /garmin/callback`, and `POST /garmin/webhook` require\n\
-    `Authorization: Bearer <accessToken>`.\n\n**Errors.** Every error returns the\
-    \ envelope\n`{ \"error\": { \"code\", \"message\", \"status\" } }` (§11).\n"
+    \ `POST /auth/refresh`, and\n`GET /intervals/callback` require `Authorization:\
+    \ Bearer <accessToken>`.\n\n**Errors.** Every error returns the envelope\n`{ \"\
+    error\": { \"code\", \"message\", \"status\" } }` (§11).\n"
   contact:
     name: NorthAx
     email: api@northax.app
@@ -1902,12 +1902,12 @@ paths:
               schema: *id001
       security:
       - bearerAuth: []
-  /v1/garmin/status:
+  /v1/intervals/status:
     get:
       tags:
-      - garmin
+      - intervals
       summary: 'Status '
-      operationId: status__v1_garmin_status_get
+      operationId: status__v1_intervals_status_get
       parameters:
       - name: authorization
         in: header
@@ -1923,7 +1923,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GarminStatus'
+                $ref: '#/components/schemas/IntervalsStatus'
         '422':
           description: Validation Error
           content:
@@ -1967,12 +1967,12 @@ paths:
               schema: *id001
       security:
       - bearerAuth: []
-  /v1/garmin/connect:
+  /v1/intervals/connect:
     post:
       tags:
-      - garmin
+      - intervals
       summary: Connect
-      operationId: connect_v1_garmin_connect_post
+      operationId: connect_v1_intervals_connect_post
       parameters:
       - name: authorization
         in: header
@@ -1988,7 +1988,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GarminConnectResponse'
+                $ref: '#/components/schemas/IntervalsConnectResponse'
         '422':
           description: Validation Error
           content:
@@ -2032,43 +2032,120 @@ paths:
               schema: *id001
       security:
       - bearerAuth: []
-  /v1/garmin/callback:
+  /v1/intervals/connect/apikey:
+    post:
+      tags:
+      - intervals
+      summary: Connect With Api Key
+      description: 'Connect using a personal intervals.icu API key (HTTP Basic). Validates
+        the
+
+        key, then stores it encrypted with auth_mode=''apikey''.'
+      operationId: connect_with_api_key_v1_intervals_connect_apikey_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntervalsApiKeyConnect'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntervalsStatus'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/intervals/callback:
     get:
       tags:
-      - garmin
+      - intervals
       summary: Callback
-      description: 'OAuth redirect handler (server-side only). Stores encrypted tokens,
-        then
+      description: 'OAuth redirect handler (no bearer token). Exchanges the code,
+        stores
 
-        bounces the user back into the app via the universal link (§9.1).'
-      operationId: callback_v1_garmin_callback_get
+        encrypted tokens scoped to the user in `state`, then bounces back into the
+
+        app via the universal link (§9.1).'
+      operationId: callback_v1_intervals_callback_get
       parameters:
-      - name: oauth_token
+      - name: code
         in: query
         required: false
         schema:
           anyOf:
           - type: string
           - type: 'null'
-          title: Oauth Token
-      - name: oauth_verifier
+          title: Code
+      - name: state
         in: query
         required: false
         schema:
           anyOf:
           - type: string
           - type: 'null'
-          title: Oauth Verifier
+          title: State
       responses:
         '307':
-          description: Redirect to `northax://garmin/connected` (or `/error`).
+          description: Redirect to `northax://intervals/connected` (or `/error`).
       security: []
-  /v1/garmin/sync:
+  /v1/intervals/sync:
     post:
       tags:
-      - garmin
+      - intervals
       summary: Sync
-      operationId: sync_v1_garmin_sync_post
+      operationId: sync_v1_intervals_sync_post
       parameters:
       - name: authorization
         in: header
@@ -2127,12 +2204,12 @@ paths:
               schema: *id001
       security:
       - bearerAuth: []
-  /v1/garmin/disconnect:
+  /v1/intervals/disconnect:
     delete:
       tags:
-      - garmin
+      - intervals
       summary: Disconnect
-      operationId: disconnect_v1_garmin_disconnect_delete
+      operationId: disconnect_v1_intervals_disconnect_delete
       parameters:
       - name: authorization
         in: header
@@ -2188,19 +2265,44 @@ paths:
               schema: *id001
       security:
       - bearerAuth: []
-  /v1/garmin/webhook:
+  /v1/intervals/workouts/push:
     post:
       tags:
-      - garmin
-      summary: Webhook
-      description: Garmin push notifications. Validate the HMAC-SHA1 signature (§9.2).
-      operationId: webhook_v1_garmin_webhook_post
+      - intervals
+      summary: Push Workout
+      description: 'Push a planned session to intervals.icu as a calendar workout,
+        which it
+
+        schedules to Garmin (§9.4).'
+      operationId: push_workout_v1_intervals_workouts_push_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntervalsWorkoutPushRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/IntervalsWorkoutPushResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
         '400':
           description: Error
           content:
@@ -2226,11 +2328,6 @@ paths:
           content:
             application/json:
               schema: *id001
-        '422':
-          description: Error
-          content:
-            application/json:
-              schema: *id001
         '429':
           description: Error
           content:
@@ -2241,7 +2338,8 @@ paths:
           content:
             application/json:
               schema: *id001
-      security: []
+      security:
+      - bearerAuth: []
   /v1/ai/coach/message:
     post:
       tags:
@@ -3265,7 +3363,29 @@ components:
       required:
       - domainFrequencies
       title: FrequencyPatch
-    GarminConnectResponse:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    IntervalsApiKeyConnect:
+      properties:
+        athleteId:
+          type: string
+          title: Athleteid
+        apiKey:
+          type: string
+          title: Apikey
+      type: object
+      required:
+      - athleteId
+      - apiKey
+      title: IntervalsApiKeyConnect
+    IntervalsConnectResponse:
       properties:
         authorizationUrl:
           type: string
@@ -3273,8 +3393,8 @@ components:
       type: object
       required:
       - authorizationUrl
-      title: GarminConnectResponse
-    GarminStatus:
+      title: IntervalsConnectResponse
+    IntervalsStatus:
       properties:
         connected:
           type: boolean
@@ -3293,16 +3413,34 @@ components:
       type: object
       required:
       - connected
-      title: GarminStatus
-    HTTPValidationError:
+      title: IntervalsStatus
+    IntervalsWorkoutPushRequest:
       properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
+        date:
+          type: string
+          format: date
+          title: Date
+        session:
+          $ref: '#/components/schemas/PlannedSessionDTO'
       type: object
-      title: HTTPValidationError
+      required:
+      - date
+      - session
+      title: IntervalsWorkoutPushRequest
+    IntervalsWorkoutPushResponse:
+      properties:
+        workoutId:
+          type: string
+          title: Workoutid
+        scheduledDate:
+          type: string
+          format: date
+          title: Scheduleddate
+      type: object
+      required:
+      - workoutId
+      - scheduledDate
+      title: IntervalsWorkoutPushResponse
     KeyInsight:
       properties:
         label:
@@ -3719,8 +3857,8 @@ tags:
   description: Weekly training plans (§7.6).
 - name: activities
   description: Manual + Garmin-synced activities (§7.7).
-- name: garmin
-  description: Garmin OAuth proxy + webhook receiver (§7.8 / §9).
+- name: intervals
+  description: intervals.icu OAuth connection + sync + workout push (§7.8 / §9).
 - name: ai
   description: Coach chat (SSE), session suggestion, strength generation (§7.9–7.10).
 - name: meta

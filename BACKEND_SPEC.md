@@ -677,7 +677,8 @@ Deleting a Garmin-sourced activity returns `403` — Garmin activities can only 
 | GET | `/garmin/status` | Bearer | Get connection state |
 | POST | `/garmin/connect` | Bearer | Begin OAuth flow — returns authorization URL |
 | GET | `/garmin/callback` | None | OAuth redirect handler (server-side only) |
-| POST | `/garmin/sync` | Bearer | Trigger manual activity sync |
+| POST | `/garmin/sync` | Bearer | Trigger manual wellness + activity sync |
+| POST | `/garmin/workouts/push` | Bearer | Push a planned session to Garmin as a scheduled workout |
 | DELETE | `/garmin/disconnect` | Bearer | Disconnect and delete tokens |
 | POST | `/garmin/webhook` | HMAC | Receive push notifications from Garmin |
 
@@ -880,9 +881,19 @@ These fields are merged into the `StrengthSessionResponse` DTO (§6.10).
 
 ---
 
-## 9. Garmin OAuth Proxy
+## 9. intervals.icu Connection (man-in-the-middle)
 
-The Garmin Health API uses OAuth 1.0a. The client secret **must never be in the iOS app**.
+> **This version uses intervals.icu (OAuth 2.0) as the data source rather than
+> connecting to Garmin directly.** The athlete links Garmin (and/or Strava) to
+> intervals.icu once, outside the app. intervals.icu aggregates wellness +
+> activities, computes Fitness/Fatigue (CTL/ATL), and exposes a calendar that
+> syncs planned workouts back to Garmin. The backend therefore talks only to
+> `https://intervals.icu/api/v1` (athlete id `0` = the authenticated athlete),
+> using a server-side OAuth 2.0 client whose secret never reaches the app. The
+> flow below describes that OAuth 2.0 exchange; the OAuth 1.0a notes are retained
+> only as historical context for a future direct-Garmin path.
+
+The client secret **must never be in the iOS app**.
 
 ### 9.1 Connect flow
 
@@ -926,6 +937,48 @@ On manual sync (`POST /garmin/sync`) or webhook notification, the backend:
 4. Updates `last_sync_at` in `garmin_connections`.
 
 **`POST /garmin/webhook`** — Receives Garmin push notifications. Validate the HMAC-SHA1 signature using the consumer secret before processing.
+
+### 9.3 Wellness ingestion → `daily_metrics`
+
+Garmin is the source of the morning metrics that drive readiness. On sync (manual, scheduled, or webhook), in addition to activities the backend fetches **wellness** data from the Garmin Health API and assembles the `daily_metrics` row:
+
+1. Fetch daily wellness summaries since `last_sync_at` (or 30 days): HRV summary, sleep summary, and the daily summary (resting HR, stress, body battery).
+2. For each affected calendar day, map Garmin fields onto `daily_metrics`:
+   - HRV summary → `hrv`
+   - Sleep summary → `sleep_duration`, `sleep_score`, `rem_sleep`, `deep_sleep`
+   - Daily summary → `resting_hr`
+3. Derive the fields Garmin does not provide directly, from the user's stored history:
+   - `hrv_baseline` — mean of the last 7 days' `hrv` (inclusive). Until 7 days exist, seed from Garmin's HRV baseline if present, else use the available days.
+   - `hrv_trend` — the last 7 `hrv` values, oldest→newest (length 7).
+   - `resting_hr_baseline` — mean of the last 7 days' `resting_hr`.
+   - `sleep_debt` — accumulated shortfall vs an 8 h target.
+   - `acute_load` (7-day) / `chronic_load` (42-day) / `weekly_load_change` — from activity `training_load` values (per §9.2).
+4. Upsert the row (`UNIQUE(user_id, date)`). `POST /metrics/daily` remains for manual/debug submission and writes the same row.
+
+### 9.4 Workout push → Garmin Training API
+
+**`POST /garmin/workouts/push`** — Maps a planned session to a Garmin scheduled workout and creates it via the Garmin Training API.
+
+Request body:
+```json
+{
+  "date": "2026-06-30",
+  "session": {
+    "domain": "Cycling",
+    "title": "Zone 3 Intervals",
+    "subtitle": "70–85% FTP · 5×8 min efforts",
+    "duration": 75,
+    "intensityLabel": "Threshold"
+  }
+}
+```
+
+Response:
+```json
+{ "workoutId": "garmin-workout-9911", "scheduledDate": "2026-06-30" }
+```
+
+Returns `400 GARMIN_NOT_CONNECTED` if the user has no connection. The returned `workoutId` should be retained so the workout can later be updated or unscheduled (idempotent re-push).
 
 ---
 
@@ -1025,11 +1078,14 @@ JWT_PUBLIC_KEY=<base64-encoded PEM>
 # Anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Garmin Health API
-GARMIN_CONSUMER_KEY=...
-GARMIN_CONSUMER_SECRET=...          # Never expose to clients
-GARMIN_CALLBACK_URL=https://api.northax.app/v1/garmin/callback
-GARMIN_WEBHOOK_SECRET=...
+# intervals.icu (OAuth 2.0) — man-in-the-middle aggregator over Garmin/Strava
+INTERVALS_CLIENT_ID=...
+INTERVALS_CLIENT_SECRET=...         # Never expose to clients
+INTERVALS_REDIRECT_URI=https://api.northax.app/v1/intervals/callback
+INTERVALS_OAUTH_AUTHORIZE_URL=https://intervals.icu/oauth/authorize
+INTERVALS_OAUTH_TOKEN_URL=https://intervals.icu/api/oauth/token
+INTERVALS_API_BASE=https://intervals.icu/api/v1
+INTERVALS_SCOPES=WELLNESS:READ,ACTIVITY:READ,CALENDAR:WRITE
 
 # Token encryption (for Garmin OAuth tokens at rest)
 ENCRYPTION_KEY=<32-byte hex string>

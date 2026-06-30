@@ -63,13 +63,14 @@ app/
     strength.py      StrengthEngine
   services/
     ai.py            Claude AI layer via Hermes CLI (`hermes -z`) (§8)
-    garmin.py        Garmin OAuth proxy + HMAC webhook verify (§9)
+    intervals.py     intervals.icu OAuth client + wellness/activity/event mapping (§9)
+    metrics_assembly.py  intervals.icu wellness → daily_metrics (§9.3)
     plan_service.py  Plan regeneration shared by routers + jobs
     mappers.py       ORM ⇄ engine ⇄ DTO conversions
   routers/           auth, user, metrics, readiness, preferences, plan,
-                     activities, garmin, ai
+                     activities, intervals, ai
   jobs/
-    tasks.py         generate-plans, compute-readiness, garmin-sync, prune (§10)
+    tasks.py         generate-plans, compute-readiness, intervals-sync, prune (§10)
     worker.py        APScheduler entrypoint
 sql/schema.sql       Full schema + RLS policies (§5, §4)
 tests/               Engine parity tests
@@ -146,7 +147,10 @@ Fully implemented: auth (Apple verify + RS256 + refresh rotation), all CRUD
 routes, the three deterministic engines, the AI layer over `hermes -z`, RLS,
 rate limiting, the error envelope, and the job logic + scheduler.
 
-Marked integration points (isolated, with clear errors until wired):
-- Garmin's three external OAuth 1.0a / activity calls (`services/garmin.py`).
-  HMAC webhook verification and encrypted token storage are complete.
-- Per-user-local-time job triggers (the worker schedules in UTC; see §10).
+Data source: **intervals.icu** (OAuth 2.0, `services/intervals.py`) as the
+man-in-the-middle over Garmin/Strava — wellness + activities in, CTL/ATL
+computed by intervals.icu, planned workouts pushed out as calendar events. The
+OAuth + REST calls are fully implemented (real `httpx`); they raise
+`INTERVALS_NOT_CONFIGURED` until `INTERVALS_CLIENT_ID/SECRET` are set.
+
+Remaining: per-user-local-time job triggers (the worker schedules in UTC; §10).

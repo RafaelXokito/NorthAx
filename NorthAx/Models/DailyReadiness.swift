@@ -66,4 +66,11 @@ struct DailyReadiness {
     var suggestedIntensityDescription: String
 
     var keyInsights: [MetricInsight]
+
+    /// One-line server verdict (§6.4). Falls back to the local `status.verdict`.
+    var serverVerdict: String? = nil
+    /// Natural-language explanation from the AI layer (§8.1), when available.
+    var aiNarrative: String? = nil
+
+    var displayVerdict: String { serverVerdict ?? status.verdict }
 }

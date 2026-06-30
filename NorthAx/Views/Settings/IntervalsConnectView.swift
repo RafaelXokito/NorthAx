@@ -1,16 +1,19 @@
 import SwiftUI
 
-struct GarminConnectView: View {
+struct IntervalsConnectView: View {
     @Environment(AthleteStore.self) private var store
+    @State private var athleteId: String = ""
+    @State private var apiKey: String = ""
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 statusCard
-                if store.garmin.connectionState.isConnected {
+                if store.intervals.connectionState.isConnected {
                     activityList
                 } else {
                     aboutCard
+                    apiKeyCard
                 }
             }
             .padding(.horizontal, 20)
@@ -18,7 +21,7 @@ struct GarminConnectView: View {
             .padding(.bottom, 40)
         }
         .background(Color.axBackground)
-        .navigationTitle("Garmin Connect")
+        .navigationTitle("intervals.icu")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -40,26 +43,26 @@ struct GarminConnectView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(store.garmin.connectionState.connectedName ?? "Garmin Connect")
+                    Text(store.intervals.connectionState.connectedName ?? "intervals.icu")
                         .font(.headline)
                         .foregroundStyle(.white)
-                    Text(store.garmin.connectionState.displayLabel)
+                    Text(store.intervals.connectionState.displayLabel)
                         .font(.subheadline)
                         .foregroundStyle(statusColor)
                 }
 
                 Spacer()
 
-                if store.garmin.isSyncing {
+                if store.intervals.isSyncing {
                     ProgressView()
                         .tint(.axAccent)
                 }
             }
 
-            if store.garmin.connectionState.isConnected {
+            if store.intervals.connectionState.isConnected {
                 HStack(spacing: 10) {
                     Button {
-                        Task { await store.garmin.syncActivities() }
+                        Task { await store.intervals.syncActivities() }
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.clockwise")
@@ -75,7 +78,7 @@ struct GarminConnectView: View {
                     }
 
                     Button {
-                        store.garmin.disconnect()
+                        store.intervals.disconnect()
                     } label: {
                         Text("Disconnect")
                             .font(.subheadline.weight(.semibold))
@@ -89,15 +92,15 @@ struct GarminConnectView: View {
                 }
             } else {
                 Button {
-                    Task { await store.garmin.connect() }
+                    Task { await store.intervals.connect() }
                 } label: {
                     HStack(spacing: 8) {
-                        if case .connecting = store.garmin.connectionState {
+                        if case .connecting = store.intervals.connectionState {
                             ProgressView().tint(.black)
                         } else {
                             Image(systemName: "link")
                         }
-                        Text(store.garmin.connectionState == .connecting ? "Connecting…" : "Connect to Garmin")
+                        Text(store.intervals.connectionState == .connecting ? "Connecting…" : "Connect intervals.icu")
                     }
                     .font(.headline)
                     .foregroundStyle(.black)
@@ -106,7 +109,7 @@ struct GarminConnectView: View {
                     .background(Color.axAccent)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
-                .disabled(store.garmin.connectionState == .connecting)
+                .disabled(store.intervals.connectionState == .connecting)
             }
         }
         .padding(20)
@@ -116,7 +119,7 @@ struct GarminConnectView: View {
     }
 
     private var statusColor: Color {
-        switch store.garmin.connectionState {
+        switch store.intervals.connectionState {
         case .connected:     return .axGreen
         case .connecting:    return .axAccent
         case .disconnected:  return .axSecondary
@@ -125,7 +128,7 @@ struct GarminConnectView: View {
     }
 
     private var statusIcon: String {
-        switch store.garmin.connectionState {
+        switch store.intervals.connectionState {
         case .connected:     return "checkmark.circle.fill"
         case .connecting:    return "arrow.clockwise"
         case .disconnected:  return "wifi.slash"
@@ -140,7 +143,7 @@ struct GarminConnectView: View {
             sectionLabel("SYNCED ACTIVITIES")
 
             VStack(spacing: 10) {
-                ForEach(store.garmin.syncedActivities) { activity in
+                ForEach(store.intervals.syncedActivities) { activity in
                     activityRow(activity)
                 }
             }
@@ -194,11 +197,51 @@ struct GarminConnectView: View {
             sectionLabel("HOW IT WORKS")
 
             VStack(spacing: 12) {
-                infoRow(icon: "arrow.down.circle", text: "Automatically imports your rides, runs, and gym sessions from Garmin Connect")
-                infoRow(icon: "chart.line.uptrend.xyaxis", text: "Uses your training history to improve readiness calculations and load tracking")
-                infoRow(icon: "calendar.badge.plus", text: "Pushes planned sessions to your Garmin device as structured workouts")
-                infoRow(icon: "lock.shield", text: "Connection requires authorisation through Garmin's secure OAuth flow — your credentials are never stored in the app")
+                infoRow(icon: "arrow.down.circle", text: "Imports your rides, runs, and gym sessions via intervals.icu, which syncs with Garmin")
+                infoRow(icon: "chart.line.uptrend.xyaxis", text: "Uses your wellness (HRV, sleep, resting HR) and training load to drive readiness")
+                infoRow(icon: "calendar.badge.plus", text: "Pushes planned sessions to your Garmin device through the intervals.icu calendar")
+                infoRow(icon: "lock.shield", text: "Connects through intervals.icu's secure OAuth flow — credentials are never stored in the app")
             }
+        }
+        .padding(20)
+        .background(Color.axSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
+    }
+
+    // MARK: - API-key entry
+
+    private var apiKeyCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("OR CONNECT WITH AN API KEY")
+            Text("Paste your intervals.icu athlete id and API key (Settings → Developer).")
+                .font(.caption)
+                .foregroundStyle(.axSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            TextField("Athlete id (e.g. i557412)", text: $athleteId)
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            SecureField("API key", text: $apiKey)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+
+            Button {
+                let id = athleteId.trimmingCharacters(in: .whitespaces)
+                let key = apiKey.trimmingCharacters(in: .whitespaces)
+                Task { await store.intervals.connectWithAPIKey(athleteId: id, apiKey: key) }
+            } label: {
+                Text("Connect with API key")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.axAccent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Color.axAccent.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axAccent.opacity(0.25), lineWidth: 1))
+            }
+            .disabled(athleteId.isEmpty || apiKey.isEmpty)
         }
         .padding(20)
         .background(Color.axSurface)

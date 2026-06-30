@@ -9,7 +9,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(spacing: 20) {
                 profileSection
-                garminSection
+                intervalsSection
                 frequencySection
                 strengthSection
                 domainsSection
@@ -49,13 +49,13 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Garmin
+    // MARK: - intervals.icu
 
-    private var garminSection: some View {
+    private var intervalsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionLabel("INTEGRATIONS")
 
-            NavigationLink(destination: GarminConnectView()) {
+            NavigationLink(destination: IntervalsConnectView()) {
                 HStack(spacing: 14) {
                     Image(systemName: "applewatch.watchface")
                         .font(.subheadline)
@@ -65,12 +65,12 @@ struct SettingsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Garmin Connect")
+                        Text("intervals.icu")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
-                        Text(store.garmin.connectionState.displayLabel)
+                        Text(store.intervals.connectionState.displayLabel)
                             .font(.caption)
-                            .foregroundStyle(store.garmin.connectionState.isConnected ? .axGreen : .axSecondary)
+                            .foregroundStyle(store.intervals.connectionState.isConnected ? .axGreen : .axSecondary)
                     }
 
                     Spacer()

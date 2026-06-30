@@ -95,7 +95,7 @@ struct ActivitySwitcherView: View {
         let session   = StrengthEngine.generateSession(
             muscleGroups: groups,
             readiness: store.readiness,
-            recentActivities: store.garmin.syncedActivities
+            recentActivities: store.intervals.syncedActivities
         )
 
         return Button {

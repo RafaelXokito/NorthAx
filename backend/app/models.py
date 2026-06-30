@@ -159,15 +159,19 @@ class CoachMessage(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class GarminConnection(Base):
-    __tablename__ = "garmin_connections"
+class IntervalsConnection(Base):
+    """OAuth connection to intervals.icu (the man-in-the-middle data source)."""
+
+    __tablename__ = "intervals_connections"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    garmin_user_id: Mapped[str] = mapped_column(Text, nullable=False)
-    access_token: Mapped[str] = mapped_column(Text, nullable=False)
-    refresh_token: Mapped[str] = mapped_column(Text, nullable=False)
+    athlete_id: Mapped[str] = mapped_column(Text, nullable=False)
+    # "oauth" (access+refresh tokens) or "apikey" (personal key in access_token).
+    auth_mode: Mapped[str] = mapped_column(String, nullable=False, default="oauth")
+    access_token: Mapped[str] = mapped_column(Text, nullable=False)   # AES-256-GCM
+    refresh_token: Mapped[str] = mapped_column(Text, nullable=False)  # AES-256-GCM
     token_expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     display_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_sync_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

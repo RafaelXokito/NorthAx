@@ -81,7 +81,7 @@ struct GarminActivity: Identifiable, Codable {
 
 // MARK: - Connection state
 
-enum GarminConnectionState: Equatable {
+enum IntervalsConnectionState: Equatable {
     case disconnected
     case connecting
     case connected(displayName: String, lastSync: Date)
