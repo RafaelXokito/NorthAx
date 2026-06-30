@@ -150,31 +150,31 @@ struct PlanView: View {
     private func dotFill(_ day: PlannedDay) -> Color {
         if day.isPast && !day.isToday { return Color.white.opacity(0.06) }
         if day.isRest { return Color.white.opacity(0.04) }
-        if let domain = day.session?.domain { return domain.color.opacity(day.isToday ? 0.22 : 0.14) }
+        if let domain = day.sessions.first?.domain { return domain.color.opacity(day.isToday ? 0.22 : 0.14) }
         return Color.white.opacity(0.04)
     }
 
     private func dotIcon(_ day: PlannedDay) -> String {
         if day.isRest { return "moon" }
-        return day.session?.domain.icon ?? "moon"
+        return day.sessions.count > 1 ? "square.stack.fill" : (day.sessions.first?.domain.icon ?? "moon")
     }
 
     private func dotIconColor(_ day: PlannedDay) -> Color {
         if day.isPast && !day.isToday { return .axTertiary }
         if day.isToday { return .axAccent }
         if day.isRest { return .axTertiary }
-        return day.session?.domain.color ?? .axTertiary
+        return day.sessions.first?.domain.color ?? .axTertiary
     }
 
     // MARK: - Upcoming sessions list
 
     private func upcomingSessions(_ week: WeeklyPlan) -> some View {
-        let sessions = week.days.filter { !$0.isRest && $0.session != nil }
+        let trainingDays = week.days.filter { !$0.isRest && !$0.sessions.isEmpty }
 
         return VStack(alignment: .leading, spacing: 14) {
             sectionLabel(week.isCurrentWeek ? "UPCOMING SESSIONS" : "PLANNED SESSIONS")
 
-            if sessions.isEmpty {
+            if trainingDays.isEmpty {
                 Text("No training days this week.")
                     .font(.subheadline)
                     .foregroundStyle(.axTertiary)
@@ -182,8 +182,8 @@ struct PlanView: View {
                     .padding(.vertical, 20)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(sessions) { day in
-                        if let session = day.session {
+                    ForEach(trainingDays) { day in
+                        ForEach(day.sessions) { session in
                             sessionRow(day: day, session: session)
                         }
                     }
@@ -193,6 +193,7 @@ struct PlanView: View {
     }
 
     private func sessionRow(day: PlannedDay, session: PlannedSession) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
         HStack(spacing: 14) {
             Image(systemName: session.domain.icon)
                 .font(.title3)
@@ -233,6 +234,15 @@ struct PlanView: View {
                     .font(.caption)
                     .foregroundStyle(.axTertiary)
             }
+        }
+
+        if let workout = session.workout {
+            WorkoutEffortGraphView(
+                workout: workout,
+                sport: session.domain,
+                cyclingTarget: store.cyclingTarget
+            )
+        }
         }
         .padding(16)
         .background(day.isToday ? Color.axAccent.opacity(0.07) : Color.axSurface)

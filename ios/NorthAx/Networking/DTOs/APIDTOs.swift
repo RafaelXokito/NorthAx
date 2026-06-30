@@ -69,6 +69,13 @@ struct DailyMetricsResponse: Decodable {
     var todayLoad: Double
     var weeklyLoadChange: Double
     var bodyWeight: Double?
+    // Aligned daily series for the detail graphs (oldest→newest, up to 90 days).
+    // Only the by-date GET endpoints populate these; optional for compatibility.
+    var trendDates: [Date]?
+    var hrvSeries: [Double]?
+    var restingHrSeries: [Double]?
+    var sleepSeries: [Double]?
+    var tsbSeries: [Double]?
 }
 
 // MARK: - Plan (§6.7) + structured workouts
@@ -106,7 +113,7 @@ struct PlannedDayDTO: Decodable {
     var isRest: Bool
     var isToday: Bool
     var isPast: Bool
-    var session: PlannedSessionDTO?
+    var sessions: [PlannedSessionDTO]
 }
 
 struct WeeklyPlanResponse: Decodable {
@@ -120,9 +127,19 @@ struct WeeklyPlanResponse: Decodable {
 
 // MARK: - Preferences (§6.5)
 
-struct DomainFrequencyDTO: Codable {
+struct DomainScheduleDTO: Codable {
     var domain: String
-    var daysPerWeek: Int
+    var weekdays: [Int]   // sorted ascending, 0=Mon … 6=Sun
+}
+
+struct AthleteThresholdsDTO: Codable {
+    var ftpWatts: Int?
+    var thresholdHr: Int?
+    var maxHr: Int?
+    var runThresholdPaceSecPerKm: Int?
+    var paceUnit: String = "km"          // "km" | "mile"
+    var swimThresholdPaceSecPer100m: Int?
+    var poolUnit: String = "pool25m"     // "pool25m" | "pool50m" | "openWater"
 }
 
 struct DaySplitDTO: Codable {
@@ -132,9 +149,10 @@ struct DaySplitDTO: Codable {
 
 struct UserPreferencesDTO: Codable {
     var enabledDomains: [String]
-    var domainFrequencies: [DomainFrequencyDTO]
+    var domainSchedules: [DomainScheduleDTO]
     var muscleGroupSplit: [DaySplitDTO]
     var cyclingTarget: String = "hr"   // "hr" | "power"
+    var thresholds: AthleteThresholdsDTO = AthleteThresholdsDTO()
 }
 
 struct CyclingTargetPatch: Encodable {
@@ -145,8 +163,12 @@ struct DomainsPatch: Encodable {
     var enabledDomains: [String]
 }
 
-struct FrequencyPatch: Encodable {
-    var domainFrequencies: [DomainFrequencyDTO]
+struct SchedulePatch: Encodable {
+    var domainSchedules: [DomainScheduleDTO]
+}
+
+struct ThresholdsPatch: Encodable {
+    var thresholds: AthleteThresholdsDTO
 }
 
 struct MuscleSplitPatch: Encodable {

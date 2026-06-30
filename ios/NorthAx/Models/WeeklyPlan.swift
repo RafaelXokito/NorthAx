@@ -26,7 +26,7 @@ struct PlannedSession: Identifiable, Equatable {
 struct PlannedDay: Identifiable, Equatable {
     var id: Date { date }
     var date: Date
-    var session: PlannedSession?
+    var sessions: [PlannedSession]   // empty + isRest == rest day
     var isRest: Bool
 
     var weekdayShort: String {

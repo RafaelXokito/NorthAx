@@ -21,89 +21,27 @@ struct PlanEngine {
 
     // MARK: - Week generation
 
+    /// Places one session per (sport, weekday) pair. A weekday with several
+    /// sports gets several sessions, ordered by the schedules' sport order. A
+    /// weekday with no sessions is a rest day.
     private static func generateWeek(
         start: Date,
         frequency: TrainingFrequency,
         split: WeeklyMuscleGroupSplit
     ) -> WeeklyPlan {
-        let totalSessions = min(frequency.totalTrainingDays, 6) // always ≥1 rest day
-        let restSlots = restDayPositions(restCount: 7 - totalSessions)
-        var queue = makeSessionQueue(frequency: frequency, targetCount: totalSessions)
-
-        let days: [PlannedDay] = (0..<7).map { offset in
+        let days: [PlannedDay] = (0..<7).map { offset in   // 0=Mon … 6=Sun
             let date    = Calendar.current.date(byAdding: .day, value: offset, to: start)!
             let weekday = Calendar.current.component(.weekday, from: date)
 
-            if restSlots.contains(offset) || queue.isEmpty {
-                return PlannedDay(date: date, session: nil, isRest: true)
-            } else {
-                let domain  = queue.removeFirst()
-                let session = makeSession(domain: domain, slot: offset,
-                                          weekday: weekday, split: split)
-                return PlannedDay(date: date, session: session, isRest: false)
-            }
+            // Sports scheduled on this weekday, in the schedules' declared order.
+            let sessions = frequency.schedules
+                .filter { $0.weekdays.contains(offset) }
+                .map { makeSession(domain: $0.domain, slot: offset, weekday: weekday, split: split) }
+
+            return PlannedDay(date: date, sessions: sessions, isRest: sessions.isEmpty)
         }
 
         return WeeklyPlan(weekStart: start, days: days)
-    }
-
-    // MARK: - Rest day placement
-
-    /// Places rest days at positions that maximize recovery gaps.
-    /// Index 0 = Monday, 6 = Sunday.
-    private static func restDayPositions(restCount: Int) -> Set<Int> {
-        switch restCount {
-        case 0:  return []
-        case 1:  return [6]                  // Sun
-        case 2:  return [3, 6]               // Thu, Sun
-        case 3:  return [1, 4, 6]            // Tue, Fri, Sun → Mon, Wed, Thu, Sat train
-        case 4:  return [1, 3, 5, 6]         // 3-day week: Mon, Wed, Fri
-        case 5:  return [1, 2, 4, 5, 6]      // 2-day week: Mon, Thu
-        case 6:  return [1, 2, 3, 4, 5, 6]   // 1-day week: Mon only
-        default: return Set(0..<7)
-        }
-    }
-
-    // MARK: - Session queue (greedy interleaving to avoid back-to-back same sport)
-
-    private static func makeSessionQueue(
-        frequency: TrainingFrequency,
-        targetCount: Int
-    ) -> [TrainingDomain] {
-        // Build a remaining-count table, sorted descending
-        var remaining: [(domain: TrainingDomain, left: Int)] = frequency.domainFrequencies
-            .filter { $0.daysPerWeek > 0 }
-            .map { (domain: $0.domain, left: min($0.daysPerWeek, targetCount)) }
-            .sorted { $0.left > $1.left }
-
-        var queue:  [TrainingDomain] = []
-        var last:   TrainingDomain? = nil
-
-        while queue.count < targetCount, !remaining.isEmpty {
-            // Pick highest-remaining domain, preferring one different from `last`
-            let idx = pickNext(remaining: remaining, avoidDomain: last)
-            queue.append(remaining[idx].domain)
-            last = remaining[idx].domain
-            remaining[idx].left -= 1
-            remaining.removeAll { $0.left <= 0 }
-        }
-
-        return queue
-    }
-
-    private static func pickNext(
-        remaining: [(domain: TrainingDomain, left: Int)],
-        avoidDomain: TrainingDomain?
-    ) -> Int {
-        // Prefer a domain different from avoidDomain; among ties, pick highest count
-        if let avoidDomain = avoidDomain,
-           let alt = remaining.enumerated()
-               .filter({ $0.element.domain != avoidDomain })
-               .max(by: { $0.element.left < $1.element.left }) {
-            return alt.offset
-        }
-        // Fallback: highest count regardless
-        return remaining.enumerated().max(by: { $0.element.left < $1.element.left })?.offset ?? 0
     }
 
     // MARK: - Session building

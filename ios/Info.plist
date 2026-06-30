@@ -7,5 +7,9 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSHealthShareUsageDescription</key>
+	<string>NorthAx reads your recovery metrics — resting heart rate, HRV, sleep, VO2 Max, activity, and body measurements — to calculate your daily readiness score when no other data source is connected.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>NorthAx writes your completed training sessions to Apple Health as workouts, including duration, distance, and active calories.</string>
 </dict>
 </plist>

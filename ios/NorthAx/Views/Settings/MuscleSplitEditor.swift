@@ -1,30 +1,23 @@
 import SwiftUI
 
-struct MuscleGroupSplitView: View {
+/// Reusable inline editor for the weekly muscle-group split (preset picker +
+/// tap-to-edit day grid + per-day muscle toggles). Embedded in the Gym config
+/// block of TrainingPlanView. (The former standalone MuscleGroupSplitView screen
+/// has been removed; this is now an inline component.)
+struct MuscleSplitEditor: View {
     @Environment(AthleteStore.self) private var store
     @State private var editingDayIndex: Int? = nil
 
     private let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                presetPicker
-                weekGrid
-                if let idx = editingDayIndex {
-                    dayEditor(for: idx)
-                }
+        VStack(spacing: 16) {
+            presetPicker
+            weekGrid
+            if let idx = editingDayIndex {
+                dayEditor(for: idx)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 40)
         }
-        .background(Color.axBackground)
-        .navigationTitle("Muscle Group Split")
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
-        .scrollIndicators(.hidden)
         .animation(.spring(duration: 0.3), value: editingDayIndex)
     }
 
@@ -75,7 +68,6 @@ struct MuscleGroupSplitView: View {
     }
 
     private func weekRow(for idx: Int) -> some View {
-        @Bindable var bindable = store
         let split = store.muscleGroupSplit.days[idx]
         let isEditing = editingDayIndex == idx
 
@@ -207,8 +199,10 @@ struct MuscleGroupSplitView: View {
 }
 
 #Preview {
-    NavigationStack {
-        MuscleGroupSplitView()
-            .environment(AthleteStore())
+    ScrollView {
+        MuscleSplitEditor()
+            .padding(20)
     }
+    .background(Color.axBackground)
+    .environment(AthleteStore())
 }

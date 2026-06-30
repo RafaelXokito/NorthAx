@@ -105,7 +105,7 @@ struct FrequencyOnboardingView: View {
                     }
                     .padding(.top, 32)
 
-                    // Steppers
+                    // Per-sport weekday toggles
                     VStack(spacing: 0) {
                         ForEach(domains) { domain in
                             onboardingDomainRow(domain)
@@ -157,57 +157,46 @@ struct FrequencyOnboardingView: View {
         .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
     }
 
+    // 0=Mon … 6=Sun (wire weekday encoding).
+    private let weekdayLabels = ["M", "T", "W", "T", "F", "S", "S"]
+
     private func onboardingDomainRow(_ domain: TrainingDomain) -> some View {
-        let current = localFrequency.days(for: domain)
-        return HStack(spacing: 12) {
-            Image(systemName: domain.icon)
-                .font(.subheadline)
-                .foregroundStyle(current > 0 ? domain.color : .axTertiary)
-                .frame(width: 32, height: 32)
-                .background((current > 0 ? domain.color : Color.white).opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+        let days = localFrequency.weekdays(for: domain)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: domain.icon)
+                    .font(.subheadline)
+                    .foregroundStyle(days.isEmpty ? .axTertiary : domain.color)
+                    .frame(width: 32, height: 32)
+                    .background((days.isEmpty ? Color.white : domain.color).opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            Text(domain.rawValue)
-                .font(.subheadline)
-                .foregroundStyle(current > 0 ? .axPrimary : .axSecondary)
+                Text(domain.rawValue)
+                    .font(.subheadline)
+                    .foregroundStyle(days.isEmpty ? .axSecondary : .axPrimary)
 
-            Spacer()
-
-            HStack(spacing: 0) {
-                Button {
-                    if current > 0 { localFrequency.setDays(current - 1, for: domain) }
-                } label: {
-                    Image(systemName: "minus")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(current > 0 ? .axPrimary : .axTertiary)
-                        .frame(width: 36, height: 36)
-                }
-                .disabled(current == 0)
-
-                Text("\(current)")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(current > 0 ? domain.color : .axTertiary)
-                    .frame(width: 28)
-                    .contentTransition(.numericText())
-                    .animation(.spring(duration: 0.2), value: current)
-
-                Button {
-                    if localFrequency.totalTrainingDays < 6 {
-                        localFrequency.setDays(current + 1, for: domain)
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(localFrequency.totalTrainingDays < 6 ? .axPrimary : .axTertiary)
-                        .frame(width: 36, height: 36)
-                }
-                .disabled(localFrequency.totalTrainingDays >= 6)
+                Spacer()
             }
-            .background(Color.white.opacity(0.05))
-            .clipShape(Capsule())
+
+            HStack(spacing: 6) {
+                ForEach(0..<7, id: \.self) { wd in
+                    let on = days.contains(wd)
+                    Button {
+                        localFrequency.toggle(wd, for: domain)
+                    } label: {
+                        Text(weekdayLabels[wd])
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(on ? .black : .axSecondary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 34)
+                            .background(on ? domain.color : Color.white.opacity(0.05))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
     }
 }
 

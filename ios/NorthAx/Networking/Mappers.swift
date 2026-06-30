@@ -56,7 +56,12 @@ extension DailyMetricsResponse {
             remSleep: remSleep, deepSleep: deepSleep, sleepDebt: sleepDebt,
             acuteLoad: acuteLoad, chronicLoad: chronicLoad,
             todayLoad: todayLoad, weeklyLoadChange: weeklyLoadChange,
-            bodyWeight: bodyWeight
+            bodyWeight: bodyWeight,
+            trendDates: trendDates ?? [],
+            hrvSeries: hrvSeries ?? [],
+            restingHRSeries: restingHrSeries ?? [],
+            sleepSeries: sleepSeries ?? [],
+            tsbSeries: tsbSeries ?? []
         )
     }
 }
@@ -77,7 +82,13 @@ extension WeeklyPlanResponse {
     func toDomain() -> WeeklyPlan {
         WeeklyPlan(
             weekStart: weekStart,
-            days: days.map { PlannedDay(date: $0.date, session: $0.session?.toDomain(), isRest: $0.isRest) }
+            days: days.map { day in
+                PlannedDay(
+                    date: day.date,
+                    sessions: day.sessions.compactMap { $0.toDomain() },
+                    isRest: day.isRest
+                )
+            }
         )
     }
 }
@@ -89,14 +100,15 @@ struct ParsedPreferences {
     var frequency: TrainingFrequency
     var split: WeeklyMuscleGroupSplit
     var cyclingTarget: String
+    var thresholds: AthleteThresholds
 }
 
 extension UserPreferencesDTO {
     func toDomain() -> ParsedPreferences {
         let domains = enabledDomains.compactMap { TrainingDomain(rawValue: $0) }
-        let freqs = domainFrequencies.compactMap { df -> DomainFrequency? in
-            guard let d = TrainingDomain(rawValue: df.domain) else { return nil }
-            return DomainFrequency(domain: d, daysPerWeek: df.daysPerWeek)
+        let scheds = domainSchedules.compactMap { ds -> DomainSchedule? in
+            guard let d = TrainingDomain(rawValue: ds.domain) else { return nil }
+            return DomainSchedule(domain: d, weekdays: Set(ds.weekdays.filter { (0...6).contains($0) }))
         }
         let split: WeeklyMuscleGroupSplit
         if muscleGroupSplit.count == 7 {
@@ -111,16 +123,45 @@ extension UserPreferencesDTO {
         }
         return ParsedPreferences(
             enabledDomains: domains,
-            frequency: TrainingFrequency(domainFrequencies: freqs),
+            frequency: TrainingFrequency(schedules: scheds),
             split: split,
-            cyclingTarget: cyclingTarget
+            cyclingTarget: cyclingTarget,
+            thresholds: thresholds.toDomain()
         )
     }
 }
 
 extension TrainingFrequency {
-    func toDTO() -> [DomainFrequencyDTO] {
-        domainFrequencies.map { DomainFrequencyDTO(domain: $0.domain.rawValue, daysPerWeek: $0.daysPerWeek) }
+    func toDTO() -> [DomainScheduleDTO] {
+        schedules.map { DomainScheduleDTO(domain: $0.domain.rawValue, weekdays: $0.weekdays.sorted()) }
+    }
+}
+
+extension AthleteThresholdsDTO {
+    func toDomain() -> AthleteThresholds {
+        AthleteThresholds(
+            ftpWatts: ftpWatts,
+            thresholdHr: thresholdHr,
+            maxHr: maxHr,
+            runThresholdPaceSecPerKm: runThresholdPaceSecPerKm,
+            paceUnit: PaceUnit(rawValue: paceUnit) ?? .km,
+            swimThresholdPaceSecPer100m: swimThresholdPaceSecPer100m,
+            poolUnit: PoolUnit(rawValue: poolUnit) ?? .pool25m
+        )
+    }
+}
+
+extension AthleteThresholds {
+    func toDTO() -> AthleteThresholdsDTO {
+        AthleteThresholdsDTO(
+            ftpWatts: ftpWatts,
+            thresholdHr: thresholdHr,
+            maxHr: maxHr,
+            runThresholdPaceSecPerKm: runThresholdPaceSecPerKm,
+            paceUnit: paceUnit.rawValue,
+            swimThresholdPaceSecPer100m: swimThresholdPaceSecPer100m,
+            poolUnit: poolUnit.rawValue
+        )
     }
 }
 

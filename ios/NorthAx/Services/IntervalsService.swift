@@ -43,7 +43,11 @@ class IntervalsService {
             connectionState = try await api.intervalsStatus()
             await syncActivities()
         } catch let error as APIError {
-            connectionState = .error(error.userMessage)
+            if error.isIntervalsNotConfigured {
+                connectionState = .error("intervals.icu isn’t enabled on this server yet. Please contact support.")
+            } else {
+                connectionState = .error(error.userMessage)
+            }
         } catch {
             connectionState = .error("Couldn’t connect to intervals.icu.")
         }

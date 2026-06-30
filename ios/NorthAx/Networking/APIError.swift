@@ -23,6 +23,7 @@ struct APIError: Error, Equatable {
     var isTokenRevoked: Bool { code == "AUTH_TOKEN_REVOKED" }
     var isMetricsMissing: Bool { code == "METRICS_NOT_FOUND" }
     var isIntervalsNotConnected: Bool { code == "INTERVALS_NOT_CONNECTED" }
+    var isIntervalsNotConfigured: Bool { code == "INTERVALS_NOT_CONFIGURED" }
     var isAIUnavailable: Bool { code == "AI_UNAVAILABLE" }
 
     var userMessage: String { message }

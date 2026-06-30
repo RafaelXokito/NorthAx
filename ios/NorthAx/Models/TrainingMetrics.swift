@@ -26,6 +26,14 @@ struct TrainingMetrics {
     // Optional
     var bodyWeight: Double?    // kg
 
+    // Daily history for the detail graphs (oldest→newest, aligned with `trendDates`).
+    // Empty when no backend history is available (e.g. HealthKit-only sessions).
+    var trendDates: [Date] = []
+    var hrvSeries: [Double] = []
+    var restingHRSeries: [Double] = []
+    var sleepSeries: [Double] = []
+    var tsbSeries: [Double] = []   // Fitness − Fatigue (chronicLoad − acuteLoad)
+
     // Derived
     var trainingBalance: Double { chronicLoad - acuteLoad }  // positive = fresh
     var trainingRatio: Double   { acuteLoad / max(1, chronicLoad) }
@@ -43,7 +51,12 @@ struct TrainingMetrics {
             remSleep: 1.8, deepSleep: 1.4, sleepDebt: 0.3,
             acuteLoad: 68, chronicLoad: 72,
             todayLoad: 0, weeklyLoadChange: 0.08,
-            bodyWeight: 78.2
+            bodyWeight: 78.2,
+            trendDates: mockDates(),
+            hrvSeries: ramp(from: 49, to: 58, wiggle: 2.5),
+            restingHRSeries: ramp(from: 49, to: 46, wiggle: 1),
+            sleepSeries: ramp(from: 6.6, to: 7.5, wiggle: 0.45),
+            tsbSeries: ramp(from: -3, to: 4, wiggle: 3)
         )
     }
 
@@ -56,7 +69,28 @@ struct TrainingMetrics {
             remSleep: 1.0, deepSleep: 0.8, sleepDebt: 3.2,
             acuteLoad: 98, chronicLoad: 72,
             todayLoad: 0, weeklyLoadChange: 0.28,
-            bodyWeight: 78.8
+            bodyWeight: 78.8,
+            trendDates: mockDates(),
+            hrvSeries: ramp(from: 55, to: 42, wiggle: 2.5),
+            restingHRSeries: ramp(from: 47, to: 54, wiggle: 1),
+            sleepSeries: ramp(from: 7.2, to: 5.8, wiggle: 0.5),
+            tsbSeries: ramp(from: 3, to: -26, wiggle: 3.5)
         )
+    }
+
+    /// Last `count` calendar days, oldest→newest, for mock graph series.
+    static func mockDates(_ count: Int = 30) -> [Date] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        return (0..<count).reversed().compactMap { cal.date(byAdding: .day, value: -$0, to: today) }
+    }
+
+    /// Believable synthetic series: a linear drift from `from`→`to` with a gentle
+    /// sinusoidal wiggle so the mock graphs don't look like straight lines.
+    private static func ramp(from a: Double, to b: Double, count: Int = 30, wiggle: Double) -> [Double] {
+        (0..<count).map { i in
+            let t = Double(i) / Double(count - 1)
+            return a + (b - a) * t + sin(Double(i) * 1.3) * wiggle
+        }
     }
 }

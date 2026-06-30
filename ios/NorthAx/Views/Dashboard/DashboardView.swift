@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     @Environment(AthleteStore.self) private var store
     @State private var showSwitcher = false
+    @State private var sessionDone = false
 
     var body: some View {
         ZStack {
@@ -215,19 +216,27 @@ struct DashboardView: View {
                 // Action row
                 HStack(spacing: 10) {
                     Button {
-                        // start session
+                        // Mark today's session done → write it to Apple Health
+                        // (if write is enabled). One-tap, no separate timer.
+                        sessionDone = true
+                        Task {
+                            await store.markSessionDone(
+                                domain: activeDomain, title: activeTitle, durationMin: activeDuration
+                            )
+                        }
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: "play.fill")
-                            Text("Start Session")
+                            Image(systemName: sessionDone ? "checkmark" : "play.fill")
+                            Text(sessionDone ? "Session Done" : "Start Session")
                         }
                         .font(.headline)
                         .foregroundStyle(Color.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(activeDomain.color)
+                        .background(sessionDone ? Color.axGreen : activeDomain.color)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
+                    .disabled(sessionDone)
 
                     // Switch / Reset button
                     if store.sessionOverride != nil {

@@ -38,9 +38,19 @@ struct NorthAxAPI {
         return dto.toDomain()
     }
 
-    func updateFrequency(_ frequency: TrainingFrequency) async throws -> ParsedPreferences {
+    /// Replace the per-sport weekly schedule; the server regenerates forward weeks.
+    func updateSchedule(_ schedules: [DomainSchedule]) async throws -> ParsedPreferences {
+        let dtos = schedules.map { DomainScheduleDTO(domain: $0.domain.rawValue, weekdays: $0.weekdays.sorted()) }
         let dto: UserPreferencesDTO = try await client.patch(
-            "preferences/frequency", body: FrequencyPatch(domainFrequencies: frequency.toDTO())
+            "preferences/schedule", body: SchedulePatch(domainSchedules: dtos)
+        )
+        return dto.toDomain()
+    }
+
+    /// Partial merge of athlete thresholds; does NOT regenerate plans.
+    func updateThresholds(_ partial: AthleteThresholds) async throws -> ParsedPreferences {
+        let dto: UserPreferencesDTO = try await client.patch(
+            "preferences/thresholds", body: ThresholdsPatch(thresholds: partial.toDTO())
         )
         return dto.toDomain()
     }

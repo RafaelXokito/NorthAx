@@ -52,6 +52,14 @@ class AthleteStore {
             Task { await syncCyclingTargetToServer() }
         }
     }
+    /// Athlete physiological thresholds. PATCHes a partial merge; does NOT
+    /// regenerate plans (zones are render-time only).
+    var thresholds: AthleteThresholds = AthleteThresholds() {
+        didSet {
+            guard thresholds != oldValue, !suppressServerSync, TokenStore.shared.hasSession else { return }
+            Task { await syncThresholdsToServer() }
+        }
+    }
     /// Live wellness data — nil means "no data yet" (no integration connected /
     /// nothing synced). The UI shows an empty state rather than fabricated values.
     var metrics: TrainingMetrics? = nil
@@ -85,6 +93,7 @@ class AthleteStore {
     }
 
     let intervals = IntervalsService()
+    let health = HealthKitService()
 
     private let api = NorthAxAPI.shared
     /// Set while applying server state so property `didSet`s don't echo back.
@@ -168,6 +177,7 @@ class AthleteStore {
         muscleGroupSplit = prefs.split
         trainingFrequency = prefs.frequency
         cyclingTarget = prefs.cyclingTarget
+        thresholds = prefs.thresholds
         suppressServerSync = false
     }
 
@@ -175,11 +185,56 @@ class AthleteStore {
         // No mock fallback: when the backend has no data, metrics/readiness stay
         // nil and the UI shows an empty state instead of fabricated numbers.
         metrics = try? await api.metricsToday()
+
+        // HealthKit fallback (§4): Garmin/intervals data takes precedence. Only
+        // when there's no server metrics AND Garmin isn't connected do we supply
+        // metrics from Apple Health so readiness can still be computed.
+        if metrics == nil, !intervals.connectionState.isConnected, health.readEnabled {
+            metrics = await metricsFromHealthKit()
+        }
+
         if let r = try? await api.readinessToday() {
             readiness = r
         } else {
             recalculate()  // engine result from real metrics, or nil if none
         }
+    }
+
+    /// Build `TrainingMetrics` from Apple Health readings. Returns nil unless at
+    /// least one core recovery signal (RHR or HRV) is present, so we never
+    /// fabricate a readiness score from nothing. Training-load fields (ATL/CTL)
+    /// aren't available from HealthKit, so they default to a neutral balance.
+    private func metricsFromHealthKit() async -> TrainingMetrics? {
+        let rhr = await health.latestRestingHR()
+        let hrv = await health.latestHRV()
+        guard rhr != nil || hrv != nil else { return nil }
+
+        let sleep = await health.lastNightSleepHours()
+        let weight = await health.latestWeight()
+        let hrvValue = hrv ?? 0
+
+        return TrainingMetrics(
+            hrv: hrvValue,
+            hrvBaseline: hrvValue,           // single reading → treat as its own baseline
+            hrvTrend: hrvValue > 0 ? [hrvValue] : [],
+            restingHR: rhr ?? 0,
+            restingHRBaseline: rhr ?? 0,
+            sleepDuration: sleep ?? 0,
+            sleepScore: sleep.map { min(100, Int($0 / 8.0 * 100)) } ?? 0,
+            remSleep: 0, deepSleep: 0, sleepDebt: 0,
+            acuteLoad: 0, chronicLoad: 0,    // no HealthKit load model → neutral balance
+            todayLoad: 0, weeklyLoadChange: 0,
+            bodyWeight: weight
+        )
+    }
+
+    /// Marks today's resolved session as done. When HealthKit write is enabled,
+    /// also logs it as an `HKWorkout` (§4). `start`/`end` bracket the session by
+    /// its planned duration ending now.
+    func markSessionDone(domain: TrainingDomain, title: String, durationMin: Int) async {
+        let end = Date()
+        let start = Calendar.current.date(byAdding: .minute, value: -durationMin, to: end) ?? end
+        await health.saveWorkout(domain: domain, title: title, start: start, end: end)
     }
 
     func loadPlans() async {
@@ -195,12 +250,17 @@ class AthleteStore {
     }
 
     private func syncFrequencyToServer() async {
-        if let prefs = try? await api.updateFrequency(trainingFrequency) {
+        if let prefs = try? await api.updateSchedule(trainingFrequency.schedules) {
             suppressServerSync = true
             muscleGroupSplit = prefs.split
             suppressServerSync = false
             await loadPlans()  // server regenerated forward weeks (§7.6)
         }
+    }
+
+    private func syncThresholdsToServer() async {
+        // Partial merge only — no plan regeneration (zones are render-time).
+        _ = try? await api.updateThresholds(thresholds)
     }
 
     private func syncSplitToServer() async {
