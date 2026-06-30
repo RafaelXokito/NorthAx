@@ -8,10 +8,10 @@ Type=simple
 User=@APP_USER@
 WorkingDirectory=@BACKEND_DIR@
 EnvironmentFile=@BACKEND_DIR@/.env
-# Bind dual-stack (::) so LAN clients reaching the Pi over IPv6 (e.g. the iOS
-# app resolving rafaelpereira.local to an AAAA record) connect too; with
-# net.ipv6.bindv6only=0 (the Linux default) this one socket also serves IPv4.
-ExecStart=@BACKEND_DIR@/.venv/bin/uvicorn app.main:app --host :: --port 8080
+# IPv4 (0.0.0.0). uvicorn's `--host ::` binds IPv6-ONLY here (not dual-stack),
+# so we serve IPv4 and keep mDNS IPv4-only (avahi use-ipv6=no, see README) so
+# the iOS app reaches rafaelpereira.local over IPv4 rather than a global AAAA.
+ExecStart=@BACKEND_DIR@/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
 Restart=on-failure
 RestartSec=3
 # Hardening

@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		89069ABA2FF4636300083FA1 /* Plan.txt in Resources */ = {isa = PBXBuildFile; fileRef = 89069AB92FF4635900083FA1 /* Plan.txt */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		89D8F8A82FF1DE3300BD3588 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		89069AB92FF4635900083FA1 /* Plan.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Plan.txt; sourceTree = "<group>"; };
 		89D8F89A2FF1DE3100BD3588 /* NorthAx.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NorthAx.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		89D8F8A72FF1DE3300BD3588 /* NorthAxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NorthAxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		89D8F8B12FF1DE3300BD3588 /* NorthAxUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NorthAxUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -75,6 +80,7 @@
 		89D8F8912FF1DE3100BD3588 = {
 			isa = PBXGroup;
 			children = (
+				89069AB92FF4635900083FA1 /* Plan.txt */,
 				89D8F89C2FF1DE3100BD3588 /* NorthAx */,
 				89D8F8AA2FF1DE3300BD3588 /* NorthAxTests */,
 				89D8F8B42FF1DE3300BD3588 /* NorthAxUITests */,
@@ -212,6 +218,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				89069ABA2FF4636300083FA1 /* Plan.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

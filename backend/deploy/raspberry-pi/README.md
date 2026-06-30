@@ -78,6 +78,13 @@ The app defaults (DEBUG) to the mDNS domain **`http://rafaelpereira.local:8080`*
 which works at home; its Info.plist sets `NSAllowsLocalNetworking` so ATS allows
 `.local` over HTTP.
 
+> **mDNS must be IPv4-only.** The API binds IPv4 (`uvicorn --host 0.0.0.0`;
+> `--host ::` is IPv6-only here, not dual-stack). If avahi advertises the Pi's
+> global IPv6 (AAAA), iOS will prefer it and every request gets a TCP RST. Set
+> `use-ipv6=no` under `[server]` in `/etc/avahi/avahi-daemon.conf` and
+> `sudo systemctl restart avahi-daemon` so `rafaelpereira.local` resolves to
+> IPv4 only.
+
 **Away from home — Tailscale (the plan):** put the Pi and the iPhone on the same
 tailnet (`tailscale up`). Then reach the Pi by its MagicDNS name from anywhere:
 
