@@ -27,7 +27,7 @@ struct SessionOverride {
 
 @Observable
 class AthleteStore {
-    var athleteName: String = "Rafael"
+    var athleteName: String = "Athlete"
     var enabledDomains: [TrainingDomain] = [.cycling, .strength]
     var muscleGroupSplit: WeeklyMuscleGroupSplit = .pushPullLegs
     var metrics: TrainingMetrics = .mockFresh
@@ -35,13 +35,20 @@ class AthleteStore {
     var messages: [CoachMessage] = [.opening]
     var sessionOverride: SessionOverride? = nil
 
-    // Training frequency + plan
-    var trainingFrequency: TrainingFrequency = .defaultFrequency {
-        didSet { if trainingFrequency != oldValue { regeneratePlan() } }
+    // Training frequency + plan — persisted across launches
+    var trainingFrequency: TrainingFrequency = AthleteStore.loadFrequency() {
+        didSet {
+            if trainingFrequency != oldValue {
+                AthleteStore.saveFrequency(trainingFrequency)
+                regeneratePlan()
+            }
+        }
     }
     var weeklyPlans: [WeeklyPlan] = []
     var planWasRecentlyUpdated: Bool = false
-    var hasSetFrequency: Bool = false
+    var hasSetFrequency: Bool = UserDefaults.standard.bool(forKey: "northax.hasSetFrequency") {
+        didSet { UserDefaults.standard.set(hasSetFrequency, forKey: "northax.hasSetFrequency") }
+    }
 
     let garmin = GarminService()
 
@@ -59,6 +66,34 @@ class AthleteStore {
             frequency: trainingFrequency,
             muscleGroupSplit: muscleGroupSplit
         )
+    }
+
+    // Called by ContentView when the signed-in user changes
+    func configure(with user: AuthUser) {
+        if !user.name.isEmpty { athleteName = user.name }
+    }
+
+    func resetForSignOut() {
+        hasSetFrequency = false
+        trainingFrequency = .defaultFrequency
+        messages = [.opening]
+        sessionOverride = nil
+    }
+
+    // MARK: - Persistence helpers
+
+    private static func loadFrequency() -> TrainingFrequency {
+        guard let data = UserDefaults.standard.data(forKey: "northax.trainingFrequency"),
+              let freq = try? JSONDecoder().decode(TrainingFrequency.self, from: data) else {
+            return .defaultFrequency
+        }
+        return freq
+    }
+
+    private static func saveFrequency(_ freq: TrainingFrequency) {
+        if let data = try? JSONEncoder().encode(freq) {
+            UserDefaults.standard.set(data, forKey: "northax.trainingFrequency")
+        }
     }
 
     func recalculate() {

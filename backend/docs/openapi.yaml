@@ -1,0 +1,3727 @@
+openapi: 3.1.0
+info:
+  title: NorthAx API
+  description: "\nNorthAx training-OS backend.\n\nTwo layers (see BACKEND_SPEC.md\
+    \ §1):\n\n* **Deterministic engines** — readiness scoring, weekly plan generation,\
+    \ and\n  strength-session assembly. Ported from the iOS Swift engines; identical\
+    \ inputs\n  produce identical outputs.\n* **AI explanation layer** — Claude (via\
+    \ the Hermes agent CLI) wraps each\n  deterministic output with a natural-language\
+    \ explanation, coaching note, and\n  chat. The AI never overrides the deterministic\
+    \ score; it only explains it.\n\n**Auth.** All routes except `POST /auth/apple`,\
+    \ `POST /auth/refresh`,\n`GET /garmin/callback`, and `POST /garmin/webhook` require\n\
+    `Authorization: Bearer <accessToken>`.\n\n**Errors.** Every error returns the\
+    \ envelope\n`{ \"error\": { \"code\", \"message\", \"status\" } }` (§11).\n"
+  contact:
+    name: NorthAx
+    email: api@northax.app
+  license:
+    name: Proprietary
+  version: 0.1.0
+servers:
+- url: https://api.northax.app/v1
+  description: Production
+- url: http://localhost:8080/v1
+  description: Local development
+paths:
+  /v1/auth/apple:
+    post:
+      tags:
+      - auth
+      summary: Sign In With Apple
+      operationId: sign_in_with_apple_v1_auth_apple_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppleSignInRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: &id001
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security: []
+  /v1/auth/refresh:
+    post:
+      tags:
+      - auth
+      summary: Refresh Tokens
+      operationId: refresh_tokens_v1_auth_refresh_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security: []
+  /v1/auth/session:
+    delete:
+      tags:
+      - auth
+      summary: Sign Out
+      operationId: sign_out_v1_auth_session_delete
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/auth/account:
+    delete:
+      tags:
+      - auth
+      summary: Delete Account
+      operationId: delete_account_v1_auth_account_delete
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/user/profile:
+    get:
+      tags:
+      - user
+      summary: Get Profile
+      operationId: get_profile_v1_user_profile_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+    patch:
+      tags:
+      - user
+      summary: Update Profile
+      operationId: update_profile_v1_user_profile_patch
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/metrics/daily:
+    post:
+      tags:
+      - metrics
+      summary: Submit Daily
+      operationId: submit_daily_v1_metrics_daily_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DailyMetricsInput'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyMetricsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - metrics
+      summary: Get Today
+      operationId: get_today_v1_metrics_daily_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyMetricsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/metrics/daily/{date}:
+    get:
+      tags:
+      - metrics
+      summary: Get For Date
+      operationId: get_for_date_v1_metrics_daily__date__get
+      parameters:
+      - name: date
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+          title: Date
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyMetricsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/metrics/history:
+    get:
+      tags:
+      - metrics
+      summary: Get History
+      operationId: get_history_v1_metrics_history_get
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: From
+      - name: to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: To
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 90
+          default: 42
+          title: Limit
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailyMetricsResponse'
+                title: Response Get History V1 Metrics History Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/readiness/today:
+    get:
+      tags:
+      - readiness
+      summary: Readiness Today
+      operationId: readiness_today_v1_readiness_today_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReadinessResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/readiness/{date}:
+    get:
+      tags:
+      - readiness
+      summary: Readiness For Date
+      operationId: readiness_for_date_v1_readiness__date__get
+      parameters:
+      - name: date
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+          title: Date
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReadinessResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/preferences:
+    get:
+      tags:
+      - preferences
+      summary: Get Preferences
+      operationId: get_preferences_v1_preferences_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+    put:
+      tags:
+      - preferences
+      summary: Replace Preferences
+      operationId: replace_preferences_v1_preferences_put
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPreferencesDTO'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/preferences/domains:
+    patch:
+      tags:
+      - preferences
+      summary: Patch Domains
+      operationId: patch_domains_v1_preferences_domains_patch
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DomainsPatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/preferences/frequency:
+    patch:
+      tags:
+      - preferences
+      summary: Patch Frequency
+      operationId: patch_frequency_v1_preferences_frequency_patch
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FrequencyPatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/preferences/muscle-split:
+    patch:
+      tags:
+      - preferences
+      summary: Patch Muscle Split
+      operationId: patch_muscle_split_v1_preferences_muscle_split_patch
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MuscleSplitPatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/plan/weeks:
+    get:
+      tags:
+      - plan
+      summary: List Weeks
+      operationId: list_weeks_v1_plan_weeks_get
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: From
+      - name: weeks
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 12
+          minimum: 1
+          default: 4
+          title: Weeks
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WeeklyPlanDTO'
+                title: Response List Weeks V1 Plan Weeks Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/plan/week/{week_start}:
+    get:
+      tags:
+      - plan
+      summary: Get Week
+      operationId: get_week_v1_plan_week__week_start__get
+      parameters:
+      - name: week_start
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+          title: Week Start
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyPlanDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/plan/generate:
+    post:
+      tags:
+      - plan
+      summary: Generate
+      operationId: generate_v1_plan_generate_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WeeklyPlanDTO'
+                title: Response Generate V1 Plan Generate Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/plan/week/{week_start}/day/{date}:
+    patch:
+      tags:
+      - plan
+      summary: Override Day
+      operationId: override_day_v1_plan_week__week_start__day__date__patch
+      parameters:
+      - name: week_start
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+          title: Week Start
+      - name: date
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+          title: Date
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DayOverrideRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyPlanDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/activities:
+    get:
+      tags:
+      - activities
+      summary: List Activities
+      operationId: list_activities_v1_activities_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      - name: domain
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+      - name: source
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source
+      - name: from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: From
+      - name: to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: To
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedActivities'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - activities
+      summary: Create Activity
+      operationId: create_activity_v1_activities_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityInput'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/activities/{activity_id}:
+    get:
+      tags:
+      - activities
+      summary: Get Activity
+      operationId: get_activity_v1_activities__activity_id__get
+      parameters:
+      - name: activity_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Activity Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+    patch:
+      tags:
+      - activities
+      summary: Update Activity
+      operationId: update_activity_v1_activities__activity_id__patch
+      parameters:
+      - name: activity_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Activity Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityPatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - activities
+      summary: Delete Activity
+      operationId: delete_activity_v1_activities__activity_id__delete
+      parameters:
+      - name: activity_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Activity Id
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/garmin/status:
+    get:
+      tags:
+      - garmin
+      summary: 'Status '
+      operationId: status__v1_garmin_status_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarminStatus'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/garmin/connect:
+    post:
+      tags:
+      - garmin
+      summary: Connect
+      operationId: connect_v1_garmin_connect_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarminConnectResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/garmin/callback:
+    get:
+      tags:
+      - garmin
+      summary: Callback
+      description: 'OAuth redirect handler (server-side only). Stores encrypted tokens,
+        then
+
+        bounces the user back into the app via the universal link (§9.1).'
+      operationId: callback_v1_garmin_callback_get
+      parameters:
+      - name: oauth_token
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Oauth Token
+      - name: oauth_verifier
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Oauth Verifier
+      responses:
+        '307':
+          description: Redirect to `northax://garmin/connected` (or `/error`).
+      security: []
+  /v1/garmin/sync:
+    post:
+      tags:
+      - garmin
+      summary: Sync
+      operationId: sync_v1_garmin_sync_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/garmin/disconnect:
+    delete:
+      tags:
+      - garmin
+      summary: Disconnect
+      operationId: disconnect_v1_garmin_disconnect_delete
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/garmin/webhook:
+    post:
+      tags:
+      - garmin
+      summary: Webhook
+      description: Garmin push notifications. Validate the HMAC-SHA1 signature (§9.2).
+      operationId: webhook_v1_garmin_webhook_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security: []
+  /v1/ai/coach/message:
+    post:
+      tags:
+      - ai
+      summary: Coach Message
+      operationId: coach_message_v1_ai_coach_message_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoachMessageRequest'
+      responses:
+        '200':
+          description: 'Server-Sent Events stream. Emits `event: delta` frames with
+            `data: {"text": "..."}`, then a terminal `event: done` frame with `data:
+            {"messageId": "uuid", "fullContent": "..."}`. On AI failure, emits `event:
+            error` with `data: {"code": "AI_UNAVAILABLE"}`.'
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: 'event: delta
+
+                data: {"text": "Based on your"}
+
+
+                event: done
+
+                data: {"messageId": "…", "fullContent": "Based on your…"}
+
+
+                '
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/ai/coach/history:
+    get:
+      tags:
+      - ai
+      summary: Coach History
+      operationId: coach_history_v1_ai_coach_history_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CoachMessageDTO'
+                title: Response Coach History V1 Ai Coach History Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - ai
+      summary: Clear History
+      operationId: clear_history_v1_ai_coach_history_delete
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/ai/session/suggest:
+    get:
+      tags:
+      - ai
+      summary: Session Suggest
+      operationId: session_suggest_v1_ai_session_suggest_get
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestedSessionDTO'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /v1/ai/strength/generate:
+    post:
+      tags:
+      - ai
+      summary: Strength Generate
+      operationId: strength_generate_v1_ai_strength_generate_post
+      parameters:
+      - name: authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrengthGenerateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrengthSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      tags:
+      - meta
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Health Health Get
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '401':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '403':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '409':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '429':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+        '503':
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+      security: []
+components:
+  schemas:
+    ActivityDTO:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        externalId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Externalid
+        source:
+          type: string
+          title: Source
+        name:
+          type: string
+          title: Name
+        domain:
+          type: string
+          title: Domain
+        startTime:
+          type: string
+          format: date-time
+          title: Starttime
+        durationSeconds:
+          type: integer
+          title: Durationseconds
+        distanceMeters:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Distancemeters
+        elevationGain:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Elevationgain
+        avgHeartRate:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Avgheartrate
+        maxHeartRate:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Maxheartrate
+        calories:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Calories
+        trainingLoad:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Trainingload
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+        createdAt:
+          type: string
+          format: date-time
+          title: Createdat
+      type: object
+      required:
+      - id
+      - source
+      - name
+      - domain
+      - startTime
+      - durationSeconds
+      - createdAt
+      title: ActivityDTO
+    ActivityInput:
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Name
+        domain:
+          type: string
+          title: Domain
+        startTime:
+          type: string
+          format: date-time
+          title: Starttime
+        durationSeconds:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Durationseconds
+        distanceMeters:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Distancemeters
+        elevationGain:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Elevationgain
+        avgHeartRate:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Avgheartrate
+        maxHeartRate:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Maxheartrate
+        calories:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Calories
+        trainingLoad:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Trainingload
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+      type: object
+      required:
+      - name
+      - domain
+      - startTime
+      - durationSeconds
+      title: ActivityInput
+    ActivityPatch:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        domain:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+        startTime:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Starttime
+        durationSeconds:
+          anyOf:
+          - type: integer
+            exclusiveMinimum: 0.0
+          - type: 'null'
+          title: Durationseconds
+        distanceMeters:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Distancemeters
+        elevationGain:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Elevationgain
+        avgHeartRate:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Avgheartrate
+        maxHeartRate:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Maxheartrate
+        calories:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Calories
+        trainingLoad:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Trainingload
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+      type: object
+      title: ActivityPatch
+    AiExplanation:
+      properties:
+        narrative:
+          type: string
+          title: Narrative
+        generatedAt:
+          type: string
+          format: date-time
+          title: Generatedat
+        model:
+          type: string
+          title: Model
+      type: object
+      required:
+      - narrative
+      - generatedAt
+      - model
+      title: AiExplanation
+    AppleFullName:
+      properties:
+        givenName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Givenname
+        familyName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Familyname
+      type: object
+      title: AppleFullName
+    AppleSignInRequest:
+      properties:
+        identityToken:
+          type: string
+          title: Identitytoken
+        authorizationCode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorizationcode
+        fullName:
+          anyOf:
+          - $ref: '#/components/schemas/AppleFullName'
+          - type: 'null'
+      type: object
+      required:
+      - identityToken
+      title: AppleSignInRequest
+    AuthResponse:
+      properties:
+        accessToken:
+          type: string
+          title: Accesstoken
+        refreshToken:
+          type: string
+          title: Refreshtoken
+        user:
+          $ref: '#/components/schemas/UserSummary'
+      type: object
+      required:
+      - accessToken
+      - refreshToken
+      - user
+      title: AuthResponse
+    CoachMessageDTO:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        role:
+          type: string
+          title: Role
+        content:
+          type: string
+          title: Content
+        createdAt:
+          type: string
+          format: date-time
+          title: Createdat
+      type: object
+      required:
+      - id
+      - role
+      - content
+      - createdAt
+      title: CoachMessageDTO
+    CoachMessageRequest:
+      properties:
+        content:
+          type: string
+          maxLength: 4000
+          minLength: 1
+          title: Content
+      type: object
+      required:
+      - content
+      title: CoachMessageRequest
+    ComponentScores:
+      properties:
+        hrv:
+          type: integer
+          title: Hrv
+        sleep:
+          type: integer
+          title: Sleep
+        load:
+          type: integer
+          title: Load
+        recovery:
+          type: integer
+          title: Recovery
+      type: object
+      required:
+      - hrv
+      - sleep
+      - load
+      - recovery
+      title: ComponentScores
+    DailyMetricsInput:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        hrv:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Hrv
+        hrvBaseline:
+          type: number
+          exclusiveMinimum: 0.0
+          title: Hrvbaseline
+        hrvTrend:
+          items:
+            type: number
+          type: array
+          title: Hrvtrend
+        restingHr:
+          type: integer
+          title: Restinghr
+        restingHrBaseline:
+          type: integer
+          title: Restinghrbaseline
+        sleepDuration:
+          type: number
+          minimum: 0.0
+          title: Sleepduration
+        sleepScore:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Sleepscore
+        remSleep:
+          type: number
+          minimum: 0.0
+          title: Remsleep
+        deepSleep:
+          type: number
+          minimum: 0.0
+          title: Deepsleep
+        sleepDebt:
+          type: number
+          minimum: 0.0
+          title: Sleepdebt
+        acuteLoad:
+          type: number
+          minimum: 0.0
+          title: Acuteload
+        chronicLoad:
+          type: number
+          minimum: 0.0
+          title: Chronicload
+        todayLoad:
+          type: number
+          title: Todayload
+          default: 0.0
+        weeklyLoadChange:
+          type: number
+          title: Weeklyloadchange
+          default: 0.0
+        bodyWeight:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Bodyweight
+      type: object
+      required:
+      - date
+      - hrv
+      - hrvBaseline
+      - hrvTrend
+      - restingHr
+      - restingHrBaseline
+      - sleepDuration
+      - sleepScore
+      - remSleep
+      - deepSleep
+      - sleepDebt
+      - acuteLoad
+      - chronicLoad
+      title: DailyMetricsInput
+    DailyMetricsResponse:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        hrv:
+          type: number
+          title: Hrv
+        hrvBaseline:
+          type: number
+          title: Hrvbaseline
+        hrvTrend:
+          items:
+            type: number
+          type: array
+          title: Hrvtrend
+        restingHr:
+          type: integer
+          title: Restinghr
+        restingHrBaseline:
+          type: integer
+          title: Restinghrbaseline
+        sleepDuration:
+          type: number
+          title: Sleepduration
+        sleepScore:
+          type: integer
+          title: Sleepscore
+        remSleep:
+          type: number
+          title: Remsleep
+        deepSleep:
+          type: number
+          title: Deepsleep
+        sleepDebt:
+          type: number
+          title: Sleepdebt
+        acuteLoad:
+          type: number
+          title: Acuteload
+        chronicLoad:
+          type: number
+          title: Chronicload
+        todayLoad:
+          type: number
+          title: Todayload
+        weeklyLoadChange:
+          type: number
+          title: Weeklyloadchange
+        bodyWeight:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Bodyweight
+      type: object
+      required:
+      - date
+      - hrv
+      - hrvBaseline
+      - hrvTrend
+      - restingHr
+      - restingHrBaseline
+      - sleepDuration
+      - sleepScore
+      - remSleep
+      - deepSleep
+      - sleepDebt
+      - acuteLoad
+      - chronicLoad
+      - todayLoad
+      - weeklyLoadChange
+      title: DailyMetricsResponse
+    DailyReadinessResponse:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        score:
+          type: integer
+          title: Score
+        status:
+          type: string
+          title: Status
+        verdict:
+          type: string
+          title: Verdict
+        explanation:
+          type: string
+          title: Explanation
+        coachingNote:
+          type: string
+          title: Coachingnote
+        componentScores:
+          $ref: '#/components/schemas/ComponentScores'
+        suggestedSession:
+          $ref: '#/components/schemas/SuggestedSessionDTO'
+        keyInsights:
+          items:
+            $ref: '#/components/schemas/KeyInsight'
+          type: array
+          title: Keyinsights
+        aiExplanation:
+          anyOf:
+          - $ref: '#/components/schemas/AiExplanation'
+          - type: 'null'
+      type: object
+      required:
+      - date
+      - score
+      - status
+      - verdict
+      - explanation
+      - coachingNote
+      - componentScores
+      - suggestedSession
+      - keyInsights
+      title: DailyReadinessResponse
+    DayOverrideRequest:
+      properties:
+        session:
+          anyOf:
+          - $ref: '#/components/schemas/PlannedSessionDTO'
+          - type: 'null'
+      type: object
+      title: DayOverrideRequest
+    DaySplitDTO:
+      properties:
+        muscleGroups:
+          items:
+            type: string
+          type: array
+          title: Musclegroups
+        isRestDay:
+          type: boolean
+          title: Isrestday
+          default: false
+      type: object
+      title: DaySplitDTO
+    DomainFrequencyDTO:
+      properties:
+        domain:
+          type: string
+          title: Domain
+        daysPerWeek:
+          type: integer
+          maximum: 6.0
+          minimum: 0.0
+          title: Daysperweek
+      type: object
+      required:
+      - domain
+      - daysPerWeek
+      title: DomainFrequencyDTO
+    DomainsPatch:
+      properties:
+        enabledDomains:
+          items:
+            type: string
+          type: array
+          title: Enableddomains
+      type: object
+      required:
+      - enabledDomains
+      title: DomainsPatch
+    ExerciseDTO:
+      properties:
+        name:
+          type: string
+          title: Name
+        muscleGroup:
+          type: string
+          title: Musclegroup
+        sets:
+          type: integer
+          title: Sets
+        repsRange:
+          type: string
+          title: Repsrange
+        rest:
+          type: string
+          title: Rest
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+      type: object
+      required:
+      - name
+      - muscleGroup
+      - sets
+      - repsRange
+      - rest
+      title: ExerciseDTO
+    FrequencyPatch:
+      properties:
+        domainFrequencies:
+          items:
+            $ref: '#/components/schemas/DomainFrequencyDTO'
+          type: array
+          title: Domainfrequencies
+      type: object
+      required:
+      - domainFrequencies
+      title: FrequencyPatch
+    GarminConnectResponse:
+      properties:
+        authorizationUrl:
+          type: string
+          title: Authorizationurl
+      type: object
+      required:
+      - authorizationUrl
+      title: GarminConnectResponse
+    GarminStatus:
+      properties:
+        connected:
+          type: boolean
+          title: Connected
+        displayName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Displayname
+        lastSyncAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Lastsyncat
+      type: object
+      required:
+      - connected
+      title: GarminStatus
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    KeyInsight:
+      properties:
+        label:
+          type: string
+          title: Label
+        value:
+          type: string
+          title: Value
+        unit:
+          type: string
+          title: Unit
+        trend:
+          type: string
+          title: Trend
+        explanation:
+          type: string
+          title: Explanation
+        context:
+          type: string
+          title: Context
+      type: object
+      required:
+      - label
+      - value
+      - unit
+      - trend
+      - explanation
+      - context
+      title: KeyInsight
+    MuscleSplitPatch:
+      properties:
+        muscleGroupSplit:
+          items:
+            $ref: '#/components/schemas/DaySplitDTO'
+          type: array
+          title: Musclegroupsplit
+      type: object
+      required:
+      - muscleGroupSplit
+      title: MuscleSplitPatch
+    PaginatedActivities:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ActivityDTO'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        limit:
+          type: integer
+          title: Limit
+        offset:
+          type: integer
+          title: Offset
+        hasMore:
+          type: boolean
+          title: Hasmore
+      type: object
+      required:
+      - items
+      - total
+      - limit
+      - offset
+      - hasMore
+      title: PaginatedActivities
+    PlannedDayDTO:
+      properties:
+        date:
+          type: string
+          format: date
+          title: Date
+        weekdayShort:
+          type: string
+          title: Weekdayshort
+        dayNumber:
+          type: string
+          title: Daynumber
+        isRest:
+          type: boolean
+          title: Isrest
+        isToday:
+          type: boolean
+          title: Istoday
+        isPast:
+          type: boolean
+          title: Ispast
+        session:
+          anyOf:
+          - $ref: '#/components/schemas/PlannedSessionDTO'
+          - type: 'null'
+      type: object
+      required:
+      - date
+      - weekdayShort
+      - dayNumber
+      - isRest
+      - isToday
+      - isPast
+      title: PlannedDayDTO
+    PlannedSessionDTO:
+      properties:
+        domain:
+          type: string
+          title: Domain
+        title:
+          type: string
+          title: Title
+        subtitle:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subtitle
+        duration:
+          type: integer
+          title: Duration
+        intensityLabel:
+          type: string
+          title: Intensitylabel
+      type: object
+      required:
+      - domain
+      - title
+      - duration
+      - intensityLabel
+      title: PlannedSessionDTO
+    RefreshRequest:
+      properties:
+        refreshToken:
+          type: string
+          title: Refreshtoken
+      type: object
+      required:
+      - refreshToken
+      title: RefreshRequest
+    RefreshResponse:
+      properties:
+        accessToken:
+          type: string
+          title: Accesstoken
+        refreshToken:
+          type: string
+          title: Refreshtoken
+      type: object
+      required:
+      - accessToken
+      - refreshToken
+      title: RefreshResponse
+    StrengthGenerateRequest:
+      properties:
+        muscleGroups:
+          items:
+            type: string
+          type: array
+          title: Musclegroups
+        readinessScore:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Readinessscore
+        recentActivityIds:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Recentactivityids
+      type: object
+      required:
+      - muscleGroups
+      title: StrengthGenerateRequest
+    StrengthSessionResponse:
+      properties:
+        muscleGroups:
+          items:
+            type: string
+          type: array
+          title: Musclegroups
+        title:
+          type: string
+          title: Title
+        intensityLabel:
+          type: string
+          title: Intensitylabel
+        duration:
+          type: integer
+          title: Duration
+        rationale:
+          type: string
+          title: Rationale
+        recoveryWarnings:
+          items:
+            type: string
+          type: array
+          title: Recoverywarnings
+        exercises:
+          items:
+            $ref: '#/components/schemas/ExerciseDTO'
+          type: array
+          title: Exercises
+      type: object
+      required:
+      - muscleGroups
+      - title
+      - intensityLabel
+      - duration
+      - rationale
+      - recoveryWarnings
+      - exercises
+      title: StrengthSessionResponse
+    SuggestedSessionDTO:
+      properties:
+        domain:
+          type: string
+          title: Domain
+        title:
+          type: string
+          title: Title
+        duration:
+          type: integer
+          title: Duration
+        intensityLabel:
+          type: string
+          title: Intensitylabel
+        intensityDescription:
+          type: string
+          title: Intensitydescription
+        aiRationale:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Airationale
+      type: object
+      required:
+      - domain
+      - title
+      - duration
+      - intensityLabel
+      - intensityDescription
+      title: SuggestedSessionDTO
+    UpdateProfileRequest:
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Name
+      type: object
+      required:
+      - name
+      title: UpdateProfileRequest
+    UserPreferencesDTO:
+      properties:
+        enabledDomains:
+          items:
+            type: string
+          type: array
+          title: Enableddomains
+        domainFrequencies:
+          items:
+            $ref: '#/components/schemas/DomainFrequencyDTO'
+          type: array
+          title: Domainfrequencies
+        muscleGroupSplit:
+          items:
+            $ref: '#/components/schemas/DaySplitDTO'
+          type: array
+          title: Musclegroupsplit
+      type: object
+      title: UserPreferencesDTO
+    UserProfile:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        name:
+          type: string
+          title: Name
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Email
+        createdAt:
+          type: string
+          format: date-time
+          title: Createdat
+      type: object
+      required:
+      - id
+      - name
+      - createdAt
+      title: UserProfile
+    UserSummary:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        name:
+          type: string
+          title: Name
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Email
+      type: object
+      required:
+      - id
+      - name
+      title: UserSummary
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    WeeklyPlanDTO:
+      properties:
+        id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Id
+        weekStart:
+          type: string
+          format: date
+          title: Weekstart
+        weekLabel:
+          type: string
+          title: Weeklabel
+        isCurrentWeek:
+          type: boolean
+          title: Iscurrentweek
+        days:
+          items:
+            $ref: '#/components/schemas/PlannedDayDTO'
+          type: array
+          title: Days
+        generatedAt:
+          type: string
+          format: date-time
+          title: Generatedat
+      type: object
+      required:
+      - weekStart
+      - weekLabel
+      - isCurrentWeek
+      - days
+      - generatedAt
+      title: WeeklyPlanDTO
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: METRICS_NOT_FOUND
+            message:
+              type: string
+              example: No metrics found for 2026-06-29.
+            status:
+              type: integer
+              example: 404
+          required:
+          - code
+          - message
+          - status
+      required:
+      - error
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: RS256 access token from POST /auth/apple or /auth/refresh.
+tags:
+- name: auth
+  description: Sign in with Apple, token rotation, sign-out, account deletion (§7.1).
+- name: user
+  description: User profile (§7.2).
+- name: metrics
+  description: Daily morning metrics that drive readiness (§7.3).
+- name: readiness
+  description: Deterministic readiness score + cached AI explanation (§7.4).
+- name: preferences
+  description: Domains, frequency, and muscle-group split (§7.5).
+- name: plan
+  description: Weekly training plans (§7.6).
+- name: activities
+  description: Manual + Garmin-synced activities (§7.7).
+- name: garmin
+  description: Garmin OAuth proxy + webhook receiver (§7.8 / §9).
+- name: ai
+  description: Coach chat (SSE), session suggestion, strength generation (§7.9–7.10).
+- name: meta
+  description: Health and service metadata.

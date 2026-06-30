@@ -1,18 +1,33 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var authService = AuthService()
     @State private var store = AthleteStore()
     @State private var selectedTab: AppTab = .dashboard
 
     enum AppTab { case dashboard, coach, metrics, plan, settings }
 
     var body: some View {
+        ZStack {
+            if authService.isAuthenticated {
+                mainApp
+            } else {
+                SignInView()
+                    .environment(authService)
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onChange(of: authService.currentUser) { _, user in
+            if let user {
+                store.configure(with: user)
+            }
+        }
+    }
+
+    private var mainApp: some View {
         TabView(selection: $selectedTab) {
             Tab("Today", systemImage: "house.fill", value: AppTab.dashboard) {
-                NavigationStack {
-                    DashboardView()
-                        .navigationTitle("")
-                }
+                DashboardView()
             }
 
             Tab("Coach", systemImage: "bubble.left.and.bubble.right", value: AppTab.coach) {
@@ -39,8 +54,9 @@ struct ContentView: View {
                 }
             }
         }
+        .tabViewStyle(.tabBarOnly)
         .environment(store)
-        .preferredColorScheme(.dark)
+        .environment(authService)
         .sheet(isPresented: Binding(
             get: { !store.hasSetFrequency },
             set: { if !$0 { store.hasSetFrequency = true } }

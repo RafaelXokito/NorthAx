@@ -19,8 +19,11 @@ struct MuscleGroupSplitView: View {
             .padding(.top, 8)
             .padding(.bottom, 40)
         }
-        .background(Color.axBackground.ignoresSafeArea())
+        .background(Color.axBackground)
         .navigationTitle("Muscle Group Split")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
         .scrollIndicators(.hidden)
         .animation(.spring(duration: 0.3), value: editingDayIndex)
     }

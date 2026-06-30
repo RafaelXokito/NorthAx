@@ -21,8 +21,11 @@ struct PlanView: View {
             .padding(.top, 8)
             .padding(.bottom, 48)
         }
-        .background(Color.axBackground.ignoresSafeArea())
+        .background(Color.axBackground)
         .navigationTitle("Training Plan")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+#endif
         .scrollIndicators(.hidden)
         .onAppear {
             // Jump to current week on appear

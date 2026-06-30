@@ -12,20 +12,22 @@ struct DashboardView: View {
     private var activeDesc:     String         { store.sessionOverride?.intensityDescription ?? store.readiness.suggestedIntensityDescription }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                headerSection
-                readinessSection
-                insightsSection
-                sessionSection
-                debugToggle
+        ZStack {
+            Color.axBackground.ignoresSafeArea(edges: .top)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    headerSection
+                    readinessSection
+                    insightsSection
+                    sessionSection
+                    debugToggle
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 48)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 48)
+            .scrollIndicators(.hidden)
         }
-        .background(Color.axBackground.ignoresSafeArea())
-        .scrollIndicators(.hidden)
         .sheet(isPresented: $showSwitcher) {
             ActivitySwitcherView()
         }

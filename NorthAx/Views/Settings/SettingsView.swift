@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AthleteStore.self) private var store
+    @Environment(AuthService.self) private var auth
+    @State private var showSignOutConfirm = false
 
     var body: some View {
         ScrollView {
@@ -11,13 +13,17 @@ struct SettingsView: View {
                 frequencySection
                 strengthSection
                 domainsSection
+                signOutSection
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
             .padding(.bottom, 40)
         }
-        .background(Color.axBackground.ignoresSafeArea())
+        .background(Color.axBackground)
         .navigationTitle("Settings")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+#endif
         .scrollIndicators(.hidden)
     }
 
@@ -210,6 +216,46 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Sign Out
+
+    private var signOutSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionLabel("ACCOUNT")
+
+            Button {
+                showSignOutConfirm = true
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.subheadline)
+                        .foregroundStyle(.axRed)
+                        .frame(width: 36, height: 36)
+                        .background(Color.axRed.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    Text("Sign Out")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.axRed)
+
+                    Spacer()
+                }
+                .padding(16)
+                .background(Color.axSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+            }
+        }
+        .confirmationDialog("Sign Out", isPresented: $showSignOutConfirm, titleVisibility: .visible) {
+            Button("Sign Out", role: .destructive) {
+                store.resetForSignOut()
+                auth.signOut()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your training data stays on this device. You can sign back in at any time.")
+        }
+    }
+
     // MARK: - Helpers
 
     private func settingsRow<Content: View>(icon: String, label: String, @ViewBuilder content: () -> Content) -> some View {
@@ -241,5 +287,6 @@ struct SettingsView: View {
     NavigationStack {
         SettingsView()
             .environment(AthleteStore())
+            .environment(AuthService())
     }
 }

@@ -79,8 +79,11 @@ struct MetricsView: View {
             .padding(.top, 8)
             .padding(.bottom, 48)
         }
-        .background(Color.axBackground.ignoresSafeArea())
+        .background(Color.axBackground)
         .navigationTitle("Metrics")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+#endif
         .scrollIndicators(.hidden)
     }
 

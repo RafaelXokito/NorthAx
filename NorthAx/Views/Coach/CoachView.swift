@@ -7,13 +7,25 @@ struct CoachView: View {
     @FocusState private var inputFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            messageList
-            if !inputFocused { quickQuestionsBar }
-            inputBar
-        }
-        .background(Color.axBackground.ignoresSafeArea())
-        .navigationTitle("Your Coach")
+        messageList
+            // safeAreaInset keeps input above the keyboard on iPhone
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.axBorder)
+                        .frame(height: 0.5)
+                    if !inputFocused {
+                        quickQuestionsBar
+                    }
+                    inputBar
+                }
+                .background(Color.axBackground)
+            }
+            .background(Color.axBackground)
+            .navigationTitle("Your Coach")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
     }
 
     // MARK: - Message list
@@ -38,6 +50,9 @@ struct CoachView: View {
                 }
                 .padding(.vertical, 20)
             }
+#if os(iOS)
+            .scrollDismissesKeyboard(.interactively)
+#endif
             .scrollIndicators(.hidden)
             .onChange(of: store.messages.count) { _, _ in
                 withAnimation(.easeOut(duration: 0.25)) {
@@ -74,7 +89,7 @@ struct CoachView: View {
             }
             .padding(.horizontal, 20)
         }
-        .padding(.bottom, 8)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Input bar
@@ -99,15 +114,16 @@ struct CoachView: View {
                 Image(systemName: "arrow.up")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.black)
-                    .frame(width: 42, height: 42)
+                    .frame(width: 44, height: 44)
                     .background(trimmed.isEmpty ? Color.axSecondary : Color.axAccent)
                     .clipShape(Circle())
             }
             .disabled(trimmed.isEmpty)
             .animation(.easeInOut(duration: 0.15), value: trimmed.isEmpty)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
     }
 
     // MARK: - Send logic
@@ -138,44 +154,36 @@ struct ChatBubble: View {
             if message.isCoach {
                 coachAvatar
             } else {
-                Spacer(minLength: 60)
+                Spacer(minLength: 48)
             }
 
             Text(message.content)
                 .font(.subheadline)
                 .foregroundStyle(message.isCoach ? .axPrimary : Color.black)
                 .lineSpacing(4)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(
-                    message.isCoach
-                        ? Color.axSurface
-                        : Color.axAccent
-                )
-                .clipShape(
-                    RoundedRectangle(cornerRadius: 18)
-                )
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(message.isCoach ? Color.axSurface : Color.axAccent)
+                .clipShape(RoundedRectangle(cornerRadius: 18))
                 .overlay(
                     RoundedRectangle(cornerRadius: 18)
-                        .stroke(
-                            message.isCoach ? Color.axBorder : Color.clear,
-                            lineWidth: 1
-                        )
+                        .stroke(message.isCoach ? Color.axBorder : Color.clear, lineWidth: 1)
                 )
                 .frame(maxWidth: .infinity, alignment: message.isCoach ? .leading : .trailing)
+                .fixedSize(horizontal: false, vertical: true)
 
             if !message.isCoach {
                 Spacer(minLength: 0)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
     }
 
     private var coachAvatar: some View {
         Image(systemName: "brain.head.profile")
             .font(.system(size: 14))
             .foregroundStyle(.axAccent)
-            .frame(width: 32, height: 32)
+            .frame(width: 30, height: 30)
             .background(Color.axAccent.opacity(0.12))
             .clipShape(Circle())
     }

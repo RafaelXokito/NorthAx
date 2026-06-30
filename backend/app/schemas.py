@@ -1,0 +1,322 @@
+"""Pydantic DTOs (§6). All wire JSON is camelCase; Python attributes are
+snake_case via an alias generator so either form is accepted on input."""
+from __future__ import annotations
+
+import datetime as dt
+import uuid
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic.alias_generators import to_camel
+
+
+class _Base(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True, from_attributes=True
+    )
+
+
+# ── Auth (§6.1, §6.2) ────────────────────────────────────────────────────────
+class AppleFullName(_Base):
+    given_name: str | None = None
+    family_name: str | None = None
+
+
+class AppleSignInRequest(_Base):
+    identity_token: str
+    authorization_code: str | None = None
+    full_name: AppleFullName | None = None
+
+
+class UserSummary(_Base):
+    id: uuid.UUID
+    name: str
+    email: str | None = None
+
+
+class AuthResponse(_Base):
+    access_token: str
+    refresh_token: str
+    user: UserSummary
+
+
+class RefreshRequest(_Base):
+    refresh_token: str
+
+
+class RefreshResponse(_Base):
+    access_token: str
+    refresh_token: str
+
+
+class UserProfile(_Base):
+    id: uuid.UUID
+    name: str
+    email: str | None = None
+    created_at: dt.datetime
+
+
+class UpdateProfileRequest(_Base):
+    name: str = Field(min_length=1, max_length=100)
+
+
+# ── Metrics (§6.3) ───────────────────────────────────────────────────────────
+class DailyMetricsInput(_Base):
+    date: dt.date
+    hrv: float = Field(gt=0)
+    hrv_baseline: float = Field(gt=0)
+    hrv_trend: list[float]
+    resting_hr: int
+    resting_hr_baseline: int
+    sleep_duration: float = Field(ge=0)
+    sleep_score: int = Field(ge=0, le=100)
+    rem_sleep: float = Field(ge=0)
+    deep_sleep: float = Field(ge=0)
+    sleep_debt: float = Field(ge=0)
+    acute_load: float = Field(ge=0)
+    chronic_load: float = Field(ge=0)
+    today_load: float = 0.0
+    weekly_load_change: float = 0.0
+    body_weight: float | None = None
+
+    @field_validator("date")
+    @classmethod
+    def _not_future(cls, v: dt.date) -> dt.date:
+        if v > dt.date.today():
+            raise ValueError("date must not be in the future")
+        return v
+
+    @field_validator("hrv_trend")
+    @classmethod
+    def _trend_length(cls, v: list[float]) -> list[float]:
+        if len(v) != 7:
+            raise ValueError("hrvTrend must contain exactly 7 elements")
+        return v
+
+
+class DailyMetricsResponse(_Base):
+    date: dt.date
+    hrv: float
+    hrv_baseline: float
+    hrv_trend: list[float]
+    resting_hr: int
+    resting_hr_baseline: int
+    sleep_duration: float
+    sleep_score: int
+    rem_sleep: float
+    deep_sleep: float
+    sleep_debt: float
+    acute_load: float
+    chronic_load: float
+    today_load: float
+    weekly_load_change: float
+    body_weight: float | None = None
+
+
+# ── Readiness (§6.4) ─────────────────────────────────────────────────────────
+class ComponentScores(_Base):
+    hrv: int
+    sleep: int
+    load: int
+    recovery: int
+
+
+class SuggestedSessionDTO(_Base):
+    domain: str
+    title: str
+    duration: int
+    intensity_label: str
+    intensity_description: str
+    ai_rationale: str | None = None
+
+
+class KeyInsight(_Base):
+    label: str
+    value: str
+    unit: str
+    trend: str
+    explanation: str
+    context: str
+
+
+class AiExplanation(_Base):
+    narrative: str
+    generated_at: dt.datetime
+    model: str
+
+
+class DailyReadinessResponse(_Base):
+    date: dt.date
+    score: int
+    status: str
+    verdict: str
+    explanation: str
+    coaching_note: str
+    component_scores: ComponentScores
+    suggested_session: SuggestedSessionDTO
+    key_insights: list[KeyInsight]
+    ai_explanation: AiExplanation | None = None
+
+
+# ── Preferences (§6.5) ───────────────────────────────────────────────────────
+class DomainFrequencyDTO(_Base):
+    domain: str
+    days_per_week: int = Field(ge=0, le=6)
+
+
+class DaySplitDTO(_Base):
+    muscle_groups: list[str] = Field(default_factory=list)
+    is_rest_day: bool = False
+
+
+class UserPreferencesDTO(_Base):
+    enabled_domains: list[str] = Field(default_factory=lambda: ["Cycling", "Strength"])
+    domain_frequencies: list[DomainFrequencyDTO] = Field(default_factory=list)
+    muscle_group_split: list[DaySplitDTO] = Field(default_factory=list)
+
+
+class DomainsPatch(_Base):
+    enabled_domains: list[str]
+
+
+class FrequencyPatch(_Base):
+    domain_frequencies: list[DomainFrequencyDTO]
+
+
+class MuscleSplitPatch(_Base):
+    muscle_group_split: list[DaySplitDTO]
+
+
+# ── Activities (§6.6, §6.12) ─────────────────────────────────────────────────
+class ActivityDTO(_Base):
+    id: uuid.UUID
+    external_id: str | None = None
+    source: str
+    name: str
+    domain: str
+    start_time: dt.datetime
+    duration_seconds: int
+    distance_meters: float | None = None
+    elevation_gain: float | None = None
+    avg_heart_rate: int | None = None
+    max_heart_rate: int | None = None
+    calories: int | None = None
+    training_load: float | None = None
+    notes: str | None = None
+    created_at: dt.datetime
+
+
+class ActivityInput(_Base):
+    name: str = Field(min_length=1)
+    domain: str
+    start_time: dt.datetime
+    duration_seconds: int = Field(gt=0)
+    distance_meters: float | None = None
+    elevation_gain: float | None = None
+    avg_heart_rate: int | None = None
+    max_heart_rate: int | None = None
+    calories: int | None = None
+    training_load: float | None = None
+    notes: str | None = None
+
+
+class ActivityPatch(_Base):
+    name: str | None = None
+    domain: str | None = None
+    start_time: dt.datetime | None = None
+    duration_seconds: int | None = Field(default=None, gt=0)
+    distance_meters: float | None = None
+    elevation_gain: float | None = None
+    avg_heart_rate: int | None = None
+    max_heart_rate: int | None = None
+    calories: int | None = None
+    training_load: float | None = None
+    notes: str | None = None
+
+
+class PaginatedActivities(_Base):
+    items: list[ActivityDTO]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
+# ── Plan (§6.7) ──────────────────────────────────────────────────────────────
+class PlannedSessionDTO(_Base):
+    domain: str
+    title: str
+    subtitle: str | None = None
+    duration: int
+    intensity_label: str
+
+
+class PlannedDayDTO(_Base):
+    date: dt.date
+    weekday_short: str
+    day_number: str
+    is_rest: bool
+    is_today: bool
+    is_past: bool
+    session: PlannedSessionDTO | None = None
+
+
+class WeeklyPlanDTO(_Base):
+    id: uuid.UUID | None = None
+    week_start: dt.date
+    week_label: str
+    is_current_week: bool
+    days: list[PlannedDayDTO]
+    generated_at: dt.datetime
+
+
+class DayOverrideRequest(_Base):
+    session: PlannedSessionDTO | None = None  # null → mark as rest day
+
+
+# ── Coach (§6.8, §6.9) ───────────────────────────────────────────────────────
+class CoachMessageDTO(_Base):
+    id: uuid.UUID
+    role: str
+    content: str
+    created_at: dt.datetime
+
+
+class CoachMessageRequest(_Base):
+    content: str = Field(min_length=1, max_length=4000)
+
+
+# ── Strength (§6.10) ─────────────────────────────────────────────────────────
+class ExerciseDTO(_Base):
+    name: str
+    muscle_group: str
+    sets: int
+    reps_range: str
+    rest: str
+    notes: str | None = None
+
+
+class StrengthSessionResponse(_Base):
+    muscle_groups: list[str]
+    title: str
+    intensity_label: str
+    duration: int
+    rationale: str
+    recovery_warnings: list[str]
+    exercises: list[ExerciseDTO]
+
+
+class StrengthGenerateRequest(_Base):
+    muscle_groups: list[str]
+    readiness_score: int | None = None
+    recent_activity_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+# ── Garmin (§6.11) ───────────────────────────────────────────────────────────
+class GarminStatus(_Base):
+    connected: bool
+    display_name: str | None = None
+    last_sync_at: dt.datetime | None = None
+
+
+class GarminConnectResponse(_Base):
+    authorization_url: str

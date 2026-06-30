@@ -17,8 +17,11 @@ struct GarminConnectView: View {
             .padding(.top, 8)
             .padding(.bottom, 40)
         }
-        .background(Color.axBackground.ignoresSafeArea())
+        .background(Color.axBackground)
         .navigationTitle("Garmin Connect")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
         .scrollIndicators(.hidden)
     }
 
