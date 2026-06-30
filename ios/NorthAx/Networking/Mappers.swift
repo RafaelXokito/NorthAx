@@ -68,7 +68,7 @@ extension PlannedSessionDTO {
         guard let d = TrainingDomain(rawValue: domain) else { return nil }
         return PlannedSession(
             domain: d, title: title, subtitle: subtitle ?? "",
-            duration: duration, intensityLabel: intensityLabel
+            duration: duration, intensityLabel: intensityLabel, workout: workout
         )
     }
 }
@@ -88,6 +88,7 @@ struct ParsedPreferences {
     var enabledDomains: [TrainingDomain]
     var frequency: TrainingFrequency
     var split: WeeklyMuscleGroupSplit
+    var cyclingTarget: String
 }
 
 extension UserPreferencesDTO {
@@ -111,7 +112,8 @@ extension UserPreferencesDTO {
         return ParsedPreferences(
             enabledDomains: domains,
             frequency: TrainingFrequency(domainFrequencies: freqs),
-            split: split
+            split: split,
+            cyclingTarget: cyclingTarget
         )
     }
 }

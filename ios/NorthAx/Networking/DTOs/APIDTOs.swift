@@ -71,7 +71,24 @@ struct DailyMetricsResponse: Decodable {
     var bodyWeight: Double?
 }
 
-// MARK: - Plan (§6.7)
+// MARK: - Plan (§6.7) + structured workouts
+
+struct WorkoutStepDTO: Codable, Equatable {
+    var cue: String
+    var minutes: Int
+    var target: String   // human label, e.g. "Z2 endurance (HR)"
+    var icu: String      // intervals.icu token, e.g. "Z2 HR"
+}
+
+struct WorkoutBlockDTO: Codable, Equatable {
+    var `repeat`: Int
+    var steps: [WorkoutStepDTO]
+}
+
+struct StructuredWorkoutDTO: Codable, Equatable {
+    var targetMode: String   // "hr" | "power" | "pace" | "none"
+    var blocks: [WorkoutBlockDTO]
+}
 
 struct PlannedSessionDTO: Codable {
     var domain: String
@@ -79,6 +96,7 @@ struct PlannedSessionDTO: Codable {
     var subtitle: String?
     var duration: Int
     var intensityLabel: String
+    var workout: StructuredWorkoutDTO?
 }
 
 struct PlannedDayDTO: Decodable {
@@ -116,6 +134,11 @@ struct UserPreferencesDTO: Codable {
     var enabledDomains: [String]
     var domainFrequencies: [DomainFrequencyDTO]
     var muscleGroupSplit: [DaySplitDTO]
+    var cyclingTarget: String = "hr"   // "hr" | "power"
+}
+
+struct CyclingTargetPatch: Encodable {
+    var cyclingTarget: String
 }
 
 struct DomainsPatch: Encodable {

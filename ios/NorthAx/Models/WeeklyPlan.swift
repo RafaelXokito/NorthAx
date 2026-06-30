@@ -8,6 +8,19 @@ struct PlannedSession: Identifiable, Equatable {
     var subtitle: String
     var duration: Int      // minutes
     var intensityLabel: String
+    var workout: StructuredWorkoutDTO? = nil   // structured steps (targets in zones)
+
+    /// Renderable lines for the structured workout, e.g. "5× · Work 8 min · Z4 HR".
+    var workoutLines: [String] {
+        guard let w = workout, w.targetMode != "none" else { return [] }
+        return w.blocks.map { block in
+            let prefix = block.repeat > 1 ? "\(block.repeat)× " : ""
+            let body = block.steps.map { step in
+                "\(step.cue) \(step.minutes) min" + (step.icu.isEmpty ? "" : " · \(step.icu)")
+            }.joined(separator: ", ")
+            return prefix + body
+        }
+    }
 }
 
 struct PlannedDay: Identifiable, Equatable {

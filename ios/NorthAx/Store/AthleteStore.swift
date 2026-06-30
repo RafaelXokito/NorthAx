@@ -45,6 +45,13 @@ class AthleteStore {
             Task { await syncSplitToServer() }
         }
     }
+    /// Structured-workout target for cycling: "hr" (default) or "power".
+    var cyclingTarget: String = "hr" {
+        didSet {
+            guard cyclingTarget != oldValue, !suppressServerSync, TokenStore.shared.hasSession else { return }
+            Task { await syncCyclingTargetToServer() }
+        }
+    }
     var metrics: TrainingMetrics = .mockFresh
     var readiness: DailyReadiness
     var messages: [CoachMessage] = [.opening]
@@ -121,6 +128,7 @@ class AthleteStore {
         if !prefs.enabledDomains.isEmpty { enabledDomains = prefs.enabledDomains }
         muscleGroupSplit = prefs.split
         trainingFrequency = prefs.frequency
+        cyclingTarget = prefs.cyclingTarget
         suppressServerSync = false
     }
 
@@ -157,6 +165,12 @@ class AthleteStore {
     private func syncSplitToServer() async {
         if (try? await api.updateMuscleSplit(muscleGroupSplit)) != nil {
             await loadPlans()
+        }
+    }
+
+    private func syncCyclingTargetToServer() async {
+        if (try? await api.updateCyclingTarget(cyclingTarget)) != nil {
+            await loadPlans()  // server rebuilt structured workouts for the new target
         }
     }
 

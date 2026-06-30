@@ -59,6 +59,14 @@ struct NorthAxAPI {
         return dto.toDomain()
     }
 
+    /// Set the cycling structured-workout target ("hr" | "power"); regenerates plans.
+    func updateCyclingTarget(_ target: String) async throws -> ParsedPreferences {
+        let dto: UserPreferencesDTO = try await client.patch(
+            "preferences/target", body: CyclingTargetPatch(cyclingTarget: target)
+        )
+        return dto.toDomain()
+    }
+
     // MARK: - Coach
 
     func coachHistory(limit: Int = 50) async throws -> [CoachMessage] {
@@ -130,7 +138,7 @@ struct NorthAxAPI {
             session: PlannedSessionDTO(
                 domain: session.domain.rawValue, title: session.title,
                 subtitle: session.subtitle, duration: session.duration,
-                intensityLabel: session.intensityLabel
+                intensityLabel: session.intensityLabel, workout: session.workout
             )
         )
         let resp: IntervalsWorkoutPushResponse = try await client.post("intervals/workouts/push", body: payload)

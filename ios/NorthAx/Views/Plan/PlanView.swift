@@ -198,6 +198,18 @@ struct PlanView: View {
                 Text(session.subtitle)
                     .font(.caption)
                     .foregroundStyle(.axSecondary)
+
+                if !session.workoutLines.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(session.workoutLines.enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .font(.caption2)
+                                .foregroundStyle(.axTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(.top, 3)
+                }
             }
 
             Spacer()

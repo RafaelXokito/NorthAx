@@ -12,6 +12,7 @@ struct SettingsView: View {
                 intervalsSection
                 frequencySection
                 strengthSection
+                cyclingTargetSection
                 domainsSection
                 signOutSection
             }
@@ -41,6 +42,30 @@ struct SettingsView: View {
                         .font(.subheadline)
                         .foregroundStyle(.axPrimary)
                 }
+            }
+            .padding(16)
+            .background(Color.axSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+        }
+    }
+
+    // MARK: - Cycling workout target
+
+    private var cyclingTargetSection: some View {
+        @Bindable var bindable = store
+        return VStack(alignment: .leading, spacing: 14) {
+            sectionLabel("CYCLING WORKOUT TARGET")
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Cycling target", selection: $bindable.cyclingTarget) {
+                    Text("Heart rate").tag("hr")
+                    Text("Power").tag("power")
+                }
+                .pickerStyle(.segmented)
+                Text("How structured cycling workouts are prescribed and pushed to intervals.icu. Running uses pace.")
+                    .font(.caption)
+                    .foregroundStyle(.axSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(16)
             .background(Color.axSurface)
