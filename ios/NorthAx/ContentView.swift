@@ -1,11 +1,12 @@
 import SwiftUI
 
+/// Main tab identity. Top-level (not nested in ContentView) so `AthleteStore`
+/// can hold the current selection and buttons elsewhere can deep-link to a tab.
+enum AppTab { case dashboard, coach, metrics, plan, settings }
+
 struct ContentView: View {
     @State private var authService = AuthService()
     @State private var store = AthleteStore()
-    @State private var selectedTab: AppTab = .dashboard
-
-    enum AppTab { case dashboard, coach, metrics, plan, settings }
 
     var body: some View {
         ZStack {
@@ -25,7 +26,7 @@ struct ContentView: View {
     }
 
     private var mainApp: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: Binding(get: { store.selectedTab }, set: { store.selectedTab = $0 })) {
             Tab("Today", systemImage: "house.fill", value: AppTab.dashboard) {
                 DashboardView()
             }

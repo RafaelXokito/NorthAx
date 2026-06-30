@@ -6,24 +6,16 @@ struct ActivitySwitcherView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    subtitle
-
-                    // Standard activity alternatives
-                    VStack(spacing: 12) {
-                        ForEach(TrainingDomain.allCases.filter { $0 != .recovery }) { domain in
-                            if domain == .strength {
-                                strengthOption
-                            } else {
-                                standardOption(for: domain)
-                            }
-                        }
-                    }
+            Group {
+                if let readiness = store.readiness {
+                    content(readiness)
+                } else {
+                    ContentUnavailableView(
+                        "No data yet",
+                        systemImage: "antenna.radiowaves.left.and.right",
+                        description: Text("Connect a data source to get session suggestions matched to your readiness.")
+                    )
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 40)
             }
             .background(Color.axBackground.ignoresSafeArea())
             .navigationTitle("Switch Activity")
@@ -37,10 +29,32 @@ struct ActivitySwitcherView: View {
         }
     }
 
+    private func content(_ readiness: DailyReadiness) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                subtitle(readiness)
+
+                // Standard activity alternatives
+                VStack(spacing: 12) {
+                    ForEach(TrainingDomain.allCases.filter { $0 != .recovery }) { domain in
+                        if domain == .strength {
+                            strengthOption(readiness)
+                        } else {
+                            standardOption(for: domain)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 40)
+        }
+    }
+
     // MARK: - Subtitle
 
-    private var subtitle: some View {
-        Text("What do you feel like today? Each option targets the same training load (~\(Int(store.prescribedLoad.rounded()))) as your planned session — duration is scaled to the sport and your readiness of \(store.readiness.score)/100.")
+    private func subtitle(_ readiness: DailyReadiness) -> some View {
+        Text("What do you feel like today? Each option targets the same training load (~\(Int(store.prescribedLoad.rounded()))) as your planned session — duration is scaled to the sport and your readiness of \(readiness.score)/100.")
             .font(.subheadline)
             .foregroundStyle(.axSecondary)
             .lineSpacing(4)
@@ -94,13 +108,13 @@ struct ActivitySwitcherView: View {
 
     // MARK: - Strength option (expanded, shows muscle groups)
 
-    private var strengthOption: some View {
+    private func strengthOption(_ readiness: DailyReadiness) -> some View {
         let weekday   = Calendar.current.component(.weekday, from: Date())
         let daySplit  = store.muscleGroupSplit.split(forCalendarWeekday: weekday)
         let groups    = daySplit.isRestDay ? MuscleGroup.allCases.prefix(3).map { $0 } : daySplit.muscleGroups
         let session   = StrengthEngine.generateSession(
             muscleGroups: groups,
-            readiness: store.readiness,
+            readiness: readiness,
             recentActivities: store.intervals.syncedActivities
         )
 

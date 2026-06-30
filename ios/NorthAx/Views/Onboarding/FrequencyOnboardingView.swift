@@ -3,6 +3,7 @@ import SwiftUI
 /// First-launch sheet that collects training frequency before showing the main app.
 struct FrequencyOnboardingView: View {
     @Environment(AthleteStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     @State private var localFrequency: TrainingFrequency = .defaultFrequency
     @State private var step: OnboardingStep = .welcome
 
@@ -137,6 +138,7 @@ struct FrequencyOnboardingView: View {
                 Button {
                     store.trainingFrequency = localFrequency
                     store.hasSetFrequency = true
+                    dismiss()  // closes the sheet when presented from the Plan tab
                 } label: {
                     Text(localFrequency.totalTrainingDays == 0 ? "Skip for now" : "Build My Plan →")
                         .font(.headline)

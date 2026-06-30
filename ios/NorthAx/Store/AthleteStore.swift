@@ -52,10 +52,19 @@ class AthleteStore {
             Task { await syncCyclingTargetToServer() }
         }
     }
-    var metrics: TrainingMetrics = .mockFresh
-    var readiness: DailyReadiness
+    /// Live wellness data — nil means "no data yet" (no integration connected /
+    /// nothing synced). The UI shows an empty state rather than fabricated values.
+    var metrics: TrainingMetrics? = nil
+    var readiness: DailyReadiness? = nil
     var messages: [CoachMessage] = [.opening]
     var sessionOverride: SessionOverride? = nil
+    /// Which main tab is shown. Exposed so deep-link buttons (e.g. the "Enable
+    /// integrations" CTA on an empty dashboard) can jump straight to Settings.
+    var selectedTab: AppTab = .dashboard
+
+    /// True only for a "Continue as Debug User" session (no backend tokens). Gates
+    /// every mock/demo path so a real signed-in user never sees fabricated values.
+    private(set) var isDebugSession = false
 
     // Training frequency + plan — persisted across launches
     var trainingFrequency: TrainingFrequency = AthleteStore.loadFrequency() {
@@ -81,33 +90,63 @@ class AthleteStore {
     /// Set while applying server state so property `didSet`s don't echo back.
     private var suppressServerSync = false
 
+#if DEBUG
+    /// Debug-only demo toggle to preview the fresh/fatigued scenarios without a
+    /// data source. Not compiled into release builds, so real users only ever
+    /// see live data or the empty state.
     var useFatiguedScenario: Bool = false {
         didSet {
             metrics = useFatiguedScenario ? .mockFatigued : .mockFresh
             recalculate()
         }
     }
+#endif
 
     init() {
-        readiness = ReadinessEngine.calculate(from: .mockFresh)
-        weeklyPlans = PlanEngine.generatePlans(
-            weeks: 4,
-            frequency: trainingFrequency,
-            muscleGroupSplit: muscleGroupSplit
-        )
+        // Only build a local plan for a returning user who already defined their
+        // frequency (offline-friendly). A new user starts with no plan and is
+        // prompted to create one.
+        if trainingFrequency.totalTrainingDays > 0 {
+            weeklyPlans = PlanEngine.generatePlans(
+                weeks: 4,
+                frequency: trainingFrequency,
+                muscleGroupSplit: muscleGroupSplit
+            )
+        }
     }
 
     // Called by ContentView when the signed-in user changes
     func configure(with user: AuthUser) {
         if !user.name.isEmpty { athleteName = user.name }
-        Task { await loadFromBackend() }
+        if TokenStore.shared.hasSession {
+            isDebugSession = false
+            Task { await loadFromBackend() }
+        } else {
+            // No backend tokens means this is the "Continue as Debug User" bypass.
+            // Seed the demo data so the UI is explorable offline. Real users always
+            // have a session above and only ever see live data (or an empty state).
+#if DEBUG
+            isDebugSession = true
+            metrics = .mockFresh
+            recalculate()
+            // Seed a demo plan so the debug session is explorable offline.
+            let demoFrequency = trainingFrequency.totalTrainingDays > 0 ? trainingFrequency : .defaultFrequency
+            weeklyPlans = PlanEngine.generatePlans(
+                weeks: 4, frequency: demoFrequency, muscleGroupSplit: muscleGroupSplit
+            )
+#endif
+        }
     }
 
     func resetForSignOut() {
         hasSetFrequency = false
-        trainingFrequency = .defaultFrequency
+        trainingFrequency = .empty   // no assumed plan after sign-out
         messages = [.opening]
         sessionOverride = nil
+        isDebugSession = false
+        metrics = nil
+        readiness = nil
+        weeklyPlans = []
     }
 
     // MARK: - Backend loading
@@ -133,11 +172,13 @@ class AthleteStore {
     }
 
     func loadMetricsAndReadiness() async {
-        if let m = try? await api.metricsToday() { metrics = m }
+        // No mock fallback: when the backend has no data, metrics/readiness stay
+        // nil and the UI shows an empty state instead of fabricated numbers.
+        metrics = try? await api.metricsToday()
         if let r = try? await api.readinessToday() {
             readiness = r
         } else {
-            recalculate()  // engine fallback from whatever metrics we have
+            recalculate()  // engine result from real metrics, or nil if none
         }
     }
 
@@ -179,7 +220,10 @@ class AthleteStore {
     private static func loadFrequency() -> TrainingFrequency {
         guard let data = UserDefaults.standard.data(forKey: "northax.trainingFrequency"),
               let freq = try? JSONDecoder().decode(TrainingFrequency.self, from: data) else {
-            return .defaultFrequency
+            // No saved frequency means the user hasn't defined a plan — start
+            // empty so the Plan tab prompts them to create one rather than
+            // assuming a default schedule.
+            return .empty
         }
         return freq
     }
@@ -191,12 +235,19 @@ class AthleteStore {
     }
 
     func recalculate() {
-        readiness = ReadinessEngine.calculate(from: metrics)
+        readiness = metrics.map { ReadinessEngine.calculate(from: $0) }
     }
 
     // MARK: - Plan generation
 
     func regeneratePlan() {
+        // No training days defined yet → no plan. The Plan tab shows a
+        // "create a plan" prompt rather than an assumed schedule.
+        guard trainingFrequency.totalTrainingDays > 0 else {
+            weeklyPlans = []
+            planWasRecentlyUpdated = false
+            return
+        }
         weeklyPlans = PlanEngine.generatePlans(
             weeks: 4,
             frequency: trainingFrequency,
@@ -237,7 +288,7 @@ class AthleteStore {
     func generateStrengthSession(for muscleGroups: [MuscleGroup]) async -> StrengthSession? {
         if TokenStore.shared.hasSession {
             if let session = try? await api.strengthSession(
-                muscleGroups: muscleGroups, readinessScore: readiness.score
+                muscleGroups: muscleGroups, readinessScore: readiness?.score
             ) {
                 return session
             }
@@ -267,7 +318,8 @@ class AthleteStore {
 
     /// The training load prescribed for today (the deterministic suggestion).
     var prescribedLoad: Double {
-        sessionLoad(durationMin: readiness.suggestedDuration, intensity: readiness.suggestedIntensityLabel)
+        guard let readiness else { return 0 }
+        return sessionLoad(durationMin: readiness.suggestedDuration, intensity: readiness.suggestedIntensityLabel)
     }
 
     /// Minutes needed at `intensity` to match `target` load, clamped to a sane range.
@@ -282,7 +334,7 @@ class AthleteStore {
     /// Shared by the store (when applied) and the switcher view (for display).
     func switchSuggestion(for domain: TrainingDomain) -> SessionOverride {
         let target = prescribedLoad
-        let score = readiness.score
+        let score = readiness?.score ?? 0
         func matched(_ title: String, _ intensity: String, _ desc: String, _ range: ClosedRange<Int>) -> SessionOverride {
             let dur = durationForLoad(target, intensity: intensity, range)
             return SessionOverride(domain: domain, title: title, duration: dur,
@@ -366,8 +418,9 @@ class AthleteStore {
 
     private func buildResponse(for question: String) -> String {
         let q = question.lowercased()
-        let r = readiness
-        let m = metrics
+        guard let r = readiness, let m = metrics else {
+            return "I don't have your training data yet. Connect a data source in Settings → Integrations and I'll give you guidance based on your real HRV, sleep, and training load."
+        }
 
         if q.contains("train") || q.contains("session") || q.contains("today") {
             if r.score >= 70 {

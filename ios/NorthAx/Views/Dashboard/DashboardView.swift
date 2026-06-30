@@ -4,23 +4,24 @@ struct DashboardView: View {
     @Environment(AthleteStore.self) private var store
     @State private var showSwitcher = false
 
-    // Resolved session — override takes priority over engine recommendation
-    private var activeDomain:   TrainingDomain { store.sessionOverride?.domain       ?? store.readiness.suggestedDomain }
-    private var activeTitle:    String         { store.sessionOverride?.title         ?? store.readiness.suggestedSessionTitle }
-    private var activeDuration: Int            { store.sessionOverride?.duration      ?? store.readiness.suggestedDuration }
-    private var activeLabel:    String         { store.sessionOverride?.intensityLabel ?? store.readiness.suggestedIntensityLabel }
-    private var activeDesc:     String         { store.sessionOverride?.intensityDescription ?? store.readiness.suggestedIntensityDescription }
-
     var body: some View {
         ZStack {
             Color.axBackground.ignoresSafeArea(edges: .top)
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     headerSection
-                    readinessSection
-                    insightsSection
-                    sessionSection
-                    debugToggle
+                    if let readiness = store.readiness {
+                        readinessSection(readiness)
+                        insightsSection(readiness)
+                        sessionSection(readiness)
+                    } else {
+                        noDataSection
+                    }
+#if DEBUG
+                    if store.isDebugSession {
+                        debugToggle
+                    }
+#endif
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -31,6 +32,20 @@ struct DashboardView: View {
         .sheet(isPresented: $showSwitcher) {
             ActivitySwitcherView()
         }
+    }
+
+    // MARK: - No data
+
+    private var noDataSection: some View {
+        NoDataView(
+            icon: "waveform.path.ecg",
+            title: "No training data yet",
+            message: "Connect a data source to see your daily readiness, recovery, and training-load guidance. There's nothing to show until then.",
+            actionTitle: "Enable integrations"
+        ) {
+            store.selectedTab = .settings
+        }
+        .padding(.top, 8)
     }
 
     // MARK: - Header
@@ -60,25 +75,25 @@ struct DashboardView: View {
 
     // MARK: - Readiness
 
-    private var readinessSection: some View {
+    private func readinessSection(_ readiness: DailyReadiness) -> some View {
         VStack(spacing: 22) {
-            ReadinessRingView(score: store.readiness.score, status: store.readiness.status)
+            ReadinessRingView(score: readiness.score, status: readiness.status)
                 .frame(width: 190, height: 190)
                 .frame(maxWidth: .infinity)
 
-            Text(store.readiness.status.verdict)
+            Text(readiness.status.verdict)
                 .font(.title.bold())
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
 
-            Text(store.readiness.explanation)
+            Text(readiness.explanation)
                 .font(.subheadline)
                 .foregroundStyle(.axSecondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
 
-            coachingNoteView
+            coachingNoteView(readiness)
         }
         .padding(24)
         .background(Color.axSurface)
@@ -86,13 +101,13 @@ struct DashboardView: View {
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.axBorder, lineWidth: 1))
     }
 
-    private var coachingNoteView: some View {
+    private func coachingNoteView(_ readiness: DailyReadiness) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "brain.head.profile")
                 .font(.subheadline)
                 .foregroundStyle(.axAccent)
                 .padding(.top, 1)
-            Text(store.readiness.coachingNote)
+            Text(readiness.coachingNote)
                 .font(.subheadline.italic())
                 .foregroundStyle(.axAccent)
                 .fixedSize(horizontal: false, vertical: true)
@@ -106,12 +121,12 @@ struct DashboardView: View {
 
     // MARK: - Key signals
 
-    private var insightsSection: some View {
+    private func insightsSection(_ readiness: DailyReadiness) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader("KEY SIGNALS")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(store.readiness.keyInsights) { insight in
+                    ForEach(readiness.keyInsights) { insight in
                         MetricInsightCard(insight: insight)
                     }
                 }
@@ -122,8 +137,14 @@ struct DashboardView: View {
 
     // MARK: - Session card
 
-    private var sessionSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private func sessionSection(_ readiness: DailyReadiness) -> some View {
+        // Resolved session — override takes priority over engine recommendation.
+        let activeDomain   = store.sessionOverride?.domain ?? readiness.suggestedDomain
+        let activeTitle    = store.sessionOverride?.title ?? readiness.suggestedSessionTitle
+        let activeDuration = store.sessionOverride?.duration ?? readiness.suggestedDuration
+        let activeLabel    = store.sessionOverride?.intensityLabel ?? readiness.suggestedIntensityLabel
+        let activeDesc     = store.sessionOverride?.intensityDescription ?? readiness.suggestedIntensityDescription
+        return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 sectionHeader("TODAY'S SESSION")
                 Spacer()
@@ -184,9 +205,9 @@ struct DashboardView: View {
                 // Score pills (for non-override or matching domain)
                 if store.sessionOverride == nil {
                     HStack(spacing: 8) {
-                        scorePill("HRV",   store.readiness.hrvScore)
-                        scorePill("Sleep", store.readiness.sleepScore)
-                        scorePill("Load",  store.readiness.loadScore)
+                        scorePill("HRV",   readiness.hrvScore)
+                        scorePill("Sleep", readiness.sleepScore)
+                        scorePill("Load",  readiness.loadScore)
                     }
                     Rectangle().fill(Color.axBorder).frame(height: 1)
                 }
@@ -305,6 +326,7 @@ struct DashboardView: View {
 
     // MARK: - Debug
 
+#if DEBUG
     private var debugToggle: some View {
         @Bindable var bindable = store
         return Toggle("Simulate fatigue", isOn: $bindable.useFatiguedScenario)
@@ -313,6 +335,7 @@ struct DashboardView: View {
             .tint(.axRed)
             .padding(.horizontal, 4)
     }
+#endif
 
     // MARK: - Helpers
 
@@ -354,6 +377,60 @@ struct DashboardView: View {
     private var dateString: String {
         let f = DateFormatter(); f.dateFormat = "MMM d"
         return f.string(from: Date())
+    }
+}
+
+// MARK: - Reusable empty state
+
+/// Shown wherever live data is absent. Offers a single CTA that deep-links to
+/// Settings so the user can connect a data source. Used by Dashboard + Metrics.
+struct NoDataView: View {
+    var icon: String = "antenna.radiowaves.left.and.right"
+    var title: String
+    var message: String
+    var actionTitle: String = "Enable integrations"
+    var action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ZStack {
+                Circle().fill(Color.axAccent.opacity(0.12)).frame(width: 76, height: 76)
+                Image(systemName: icon)
+                    .font(.system(size: 30))
+                    .foregroundStyle(.axAccent)
+            }
+
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.axSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: action) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                    Text(actionTitle)
+                }
+                .font(.headline)
+                .foregroundStyle(.black)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .background(Color.axAccent)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity)
+        .background(Color.axSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.axBorder, lineWidth: 1))
     }
 }
 

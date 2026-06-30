@@ -22,7 +22,6 @@ from ..security import (
     issue_refresh_token,
     verify_password,
 )
-from ..services.plan_service import regenerate_plans
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -57,9 +56,11 @@ async def register(
 
     access, refresh = await _issue_pair(session, user.id)
 
-    # generate-plans job (§10): 4 weeks from the current Monday.
-    await session.flush()
-    await regenerate_plans(session, str(user.id), dt.date.today(), weeks=4)
+    # No plan is generated here: a new user hasn't defined a training frequency
+    # yet, so there's nothing to plan. Plans are created when they first set
+    # their frequency (POST/PATCH /preferences regenerates forward weeks). This
+    # keeps the app's "create a plan" prompt honest instead of showing an
+    # assumed all-rest schedule.
 
     return _auth_response(user, access, refresh)
 

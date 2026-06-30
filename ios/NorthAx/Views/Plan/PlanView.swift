@@ -3,23 +3,30 @@ import SwiftUI
 struct PlanView: View {
     @Environment(AthleteStore.self) private var store
     @State private var selectedWeekIndex: Int = 0
+    @State private var showPlanSetup = false
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                if store.planWasRecentlyUpdated { planUpdatedBanner }
-                weekPicker
-                if let week = currentWeek {
-                    weekDotRow(week)
-                    upcomingSessions(week)
-                } else {
-                    emptyState
+            if store.weeklyPlans.isEmpty {
+                noPlanState
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+            } else {
+                VStack(spacing: 20) {
+                    if store.planWasRecentlyUpdated { planUpdatedBanner }
+                    weekPicker
+                    if let week = currentWeek {
+                        weekDotRow(week)
+                        upcomingSessions(week)
+                    } else {
+                        emptyState
+                    }
+                    weeklyLoadCard
                 }
-                weeklyLoadCard
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 48)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 48)
         }
         .background(Color.axBackground)
         .navigationTitle("Training Plan")
@@ -27,6 +34,10 @@ struct PlanView: View {
         .navigationBarTitleDisplayMode(.large)
 #endif
         .scrollIndicators(.hidden)
+        .sheet(isPresented: $showPlanSetup) {
+            FrequencyOnboardingView()
+                .environment(store)
+        }
         .onAppear {
             // Jump to current week on appear
             if let idx = store.weeklyPlans.firstIndex(where: { $0.isCurrentWeek }) {
@@ -240,11 +251,14 @@ struct PlanView: View {
 
     // MARK: - Weekly load card
 
+    @ViewBuilder
     private var weeklyLoadCard: some View {
+        // Driven by observed wellness load — only meaningful with real data.
+        if let weeklyLoadChange = store.metrics?.weeklyLoadChange {
         VStack(alignment: .leading, spacing: 16) {
             sectionLabel("WEEKLY LOAD PROGRESSION")
 
-            let pct = Int(store.metrics.weeklyLoadChange * 100)
+            let pct = Int(weeklyLoadChange * 100)
             let sign = pct >= 0 ? "+" : ""
             let isAggressive = pct > 15
 
@@ -276,9 +290,23 @@ struct PlanView: View {
         .background(Color.axSurface)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
+        }
     }
 
-    // MARK: - Empty state
+    // MARK: - No plan yet
+
+    private var noPlanState: some View {
+        NoDataView(
+            icon: "calendar.badge.plus",
+            title: "No plan yet",
+            message: "Tell us how you want to train each week and we'll build your plan. You can change it anytime.",
+            actionTitle: "Create a plan"
+        ) {
+            showPlanSetup = true
+        }
+    }
+
+    // MARK: - Empty state (plan present but selected week out of range)
 
     private var emptyState: some View {
         VStack(spacing: 12) {
