@@ -33,6 +33,29 @@ journalctl -u northax-api -f                   # logs
 Reach it from the LAN at **`http://<pi-ip>:8080`** (e.g. `http://192.168.1.203:8080`);
 point the iOS app's `NORTHAX_API_BASE_URL` at `http://<pi-ip>:8080/v1`.
 
+## Updating (redeploy)
+
+After the one-time setup, pull and roll out new code with one command, run **as
+the login user** on the Pi:
+
+```bash
+bash ~/northax/backend/deploy/raspberry-pi/update.sh
+```
+
+It does `git pull --ff-only`, reinstalls deps only if `pyproject.toml` changed,
+applies any pending `sql/migrations/*.sql` (each runs once, tracked in a
+`schema_migrations` table), restarts both services, and verifies `/health`.
+Add an optional login smoke test with env vars:
+
+```bash
+SMOKE_EMAIL=dev@northax.app SMOKE_PASSWORD=northax-dev \
+  bash ~/northax/backend/deploy/raspberry-pi/update.sh
+```
+
+**Schema changes** ship as a new idempotent file under `backend/sql/migrations/`
+(e.g. `0002_*.sql`) — `update.sh` applies it on the next deploy. `schema.sql`
+stays the full current schema for fresh installs.
+
 ## Does Hermes work on the Pi? — Yes ✅
 
 Confirmed on this box: **Hermes Agent v0.15.1** at `~/.local/bin/hermes`
