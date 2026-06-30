@@ -1,0 +1,150 @@
+# NorthAx — Feature Plan
+
+---
+
+## 1. Fix intervals.icu Integration Error
+
+**Issue:** Tapping "Connect intervals.icu" returns "Error: intervals.icu integration is not configured on this server."
+
+**Goal:** Make the integration work end-to-end.
+
+**Tasks:**
+- Investigate the backend configuration required for intervals.icu OAuth/API key setup.
+- Ensure the server-side environment variables / config for intervals.icu are present and documented.
+- On the iOS side, surface a more helpful error message if the server config is missing (e.g. "Please contact support — intervals.icu is not yet enabled on your account").
+- Test the full connect → authorize → sync flow once the server is configured.
+
+---
+
+## 2. Workout Effort Graph (Block Visualization)
+
+**Goal:** Show a horizontal timeline graph of a workout's blocks, where:
+- X axis = time (0 → total workout duration)
+- Y axis = effort metric relevant to the sport (pace for running, HR/power zone for cycling, etc.)
+- Each block is rendered as a colored segment at its target intensity
+
+**Sport-specific intensity axis:**
+- Running → pace (min/km or min/mile)
+- Cycling → heart rate zone OR power zone (depending on user's settings preference)
+- Swimming → pace per 100m
+- (Other sports follow the same pattern — use whichever metric is configured)
+
+**Example (running workout):**
+  [0–5 min]  Warmup       → 5:40 min/km  (low zone, e.g. blue)
+  [5–20 min] Threshold    → ~4:10 min/km  (high zone, e.g. red/orange)
+  [20–35 min] Zone 3      → ~4:40 min/km  (medium zone, e.g. yellow)
+  [35–40 min] Cooldown    → 5:40 min/km  (low zone, e.g. blue)
+
+**Tasks:**
+- Design a `WorkoutEffortGraphView` SwiftUI component that takes an array of workout blocks.
+- Each block has: name, duration (minutes), target intensity value, sport type.
+- Render blocks as adjacent rectangles scaled by duration on X, coloured by zone/intensity on Y.
+- Add the graph to the Plan view (per-session detail) and/or the Coach view session card.
+- Ensure the intensity metric displayed respects the user's preferred unit (km vs mile, HR vs power).
+- Support the graph being tappable per block to show block details.
+
+---
+
+## 3. Per-Sport Training Day Assignment
+
+**Goal:** Let the user specify which days of the week they want to train each sport — either in Settings or during the plan onboarding flow.
+
+**Entry points:**
+- During the initial plan setup prompt (onboarding / first-run coach message).
+- In Settings → Training Frequency (or a new "Training Schedule" section).
+
+**UX flow:**
+- For each sport the user has selected (e.g. Running, Cycling, Strength), show a day-picker (Mon–Sun checkboxes or a toggle grid).
+- Days can overlap between sports (e.g. Run + Strength on Wednesday) or be exclusive — user decides.
+- The selection is saved to the athlete profile and sent to the backend so the plan engine can schedule sessions on the correct days.
+- If the user changes their sport day assignments later, trigger a plan regeneration prompt ("Your schedule changed — would you like to rebuild your plan?").
+
+**Tasks:**
+- Add a `trainingDays` field per sport to the athlete profile model (e.g. `[Sport: Set<Weekday>]`).
+- Build a `TrainingScheduleView` (Settings sub-screen) with a day-grid picker per sport.
+- Wire the onboarding coach message to ask "Which days do you want to run / cycle / etc.?" and parse the response into the schedule.
+- Persist the schedule via the API and reflect it in the generated WeeklyPlan.
+- Validate that the total assigned days is consistent with the user's chosen training frequency.
+
+---
+
+## 4. Apple Health Integration (Read & Write)
+
+**Goal:** Bidirectional HealthKit integration — read health/fitness metrics to enrich the dashboard and readiness score, and write completed workouts back to Apple Health.
+
+**Reading from Apple Health:**
+- Resting heart rate, HRV (SDNN), VO2 Max
+- Active energy burned, basal energy burned
+- Step count, walking/running distance
+- Sleep analysis (time in bed, sleep stages if available)
+- Body metrics: weight, body fat percentage (if available)
+- Workout history (type, duration, distance, avg HR, calories) for sports not covered by Garmin/intervals.icu
+
+**Writing to Apple Health:**
+- Post completed planned sessions as HKWorkout entries (type, start/end time, distance, active calories, avg HR).
+- Sync NorthAx-generated readiness scores or training load as custom HKQuantitySamples if HealthKit allows custom types (fallback: log to workout metadata).
+
+**Tasks:**
+- Add `HealthKit` capability to the Xcode project entitlements.
+- Create a `HealthKitService` that wraps `HKHealthStore`, handles permission requests, and exposes async read/write methods.
+- Define the full set of read permissions needed (HRV, RHR, VO2Max, sleep, activity, workouts) and write permissions (HKWorkout, active calories, distance).
+- On first launch (or in Settings), prompt the user for HealthKit authorisation with a clear explanation of what is read and why.
+- Integrate read metrics into `AthleteStore` / `ReadinessEngine` — supplement Garmin data when Garmin is not connected.
+- On session completion (when the user marks a session done), write the workout to HealthKit.
+- Add a toggle in Settings → "Apple Health" to enable/disable read and write independently.
+- Handle the case where HealthKit is unavailable (e.g. iPad without paired watch) gracefully.
+
+---
+
+## 5. Settings Restructure — Dedicated Integrations & Plan Views
+
+**Goal:** Break the current monolithic Settings screen into focused sub-screens. Two key ones: an Integrations hub and a Plan configuration screen.
+
+### 5a. Integrations View
+
+**Goal:** A dedicated screen listing all supported third-party integrations with their connection status.
+
+- Each integration shown as a card/row: logo, name, connection status (Connected / Not Connected), and a connect/disconnect action.
+- For now: intervals.icu only. Future slots: Garmin, Apple Health (from feature #4), Strava, Wahoo, etc.
+- Tapping a connected integration shows its detail/settings (e.g. sync frequency, last synced time).
+- Tapping a disconnected integration starts the connect flow.
+- Entry point: Settings → Integrations (replaces the current inline intervals.icu row).
+
+### 5b. Plan View (replaces Training Schedule / Training Frequency)
+
+**Goal:** A single "Plan" screen in Settings where the user manages everything about their training structure.
+
+**Sections:**
+
+1. **Enrolled Sports**
+   - List of currently enrolled sports, each as an expandable block.
+   - A "+" button to enroll a new sport from the list of available (not yet enrolled) sports.
+   - Each sport block can be removed (with a confirmation prompt).
+
+2. **Per-Sport Configuration Block**
+   Each enrolled sport expands to show sport-specific settings:
+   - **All sports:** weekday selector (Mon–Sun toggles) for which days to train that sport.
+   - **Gym / Strength:** Muscle Group Split selector (the existing `MuscleGroupSplitView` logic, embedded inline).
+   - **Cycling:** Workout Target selector — Heart Rate zones or Power zones.
+   - **Running:** Unit preference (min/km vs min/mile), optional target pace zones.
+   - **Swimming:** Pool length / open water toggle, unit preference.
+   - (Pattern: each sport declares its own config block; adding a new sport just registers its block.)
+
+3. **Training Frequency Summary**
+   - Read-only summary at the bottom: "X sessions/week across Y sports" derived from the weekday selections.
+   - Replaces the standalone `TrainingFrequencyView`.
+
+**Sport enrollment flow:**
+- Tap "+" → sheet appears listing available sports (those not yet enrolled) with icons.
+- User selects a sport → it is added to the Plan view with its config block shown and weekday selector empty (user must fill in before dismissing, or can do it later).
+- Enrolling triggers a prompt: "Your plan will be updated to include [Sport]. Regenerate now?"
+
+**Tasks:**
+- Add a `IntegrationsView` screen and link it from Settings.
+- Rename / repurpose `TrainingFrequencyView` into the new `PlanView` (Settings sub-screen).
+- Define a `SportConfig` protocol / struct that each sport implements to declare its config block view.
+- Move `MuscleGroupSplitView` logic into the Gym sport config block (remove its standalone Settings entry).
+- Add a `CyclingTargetView` block (HR zones vs Power zones toggle + zone configuration).
+- Implement the "+" sport enrollment sheet with available sports list.
+- Persist enrolled sports + per-sport config via the API; trigger plan regeneration on changes.
+- Remove now-redundant standalone Settings rows (Training Frequency, Muscle Group Split, intervals.icu inline row).

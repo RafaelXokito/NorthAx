@@ -18,7 +18,10 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onChange(of: authService.currentUser) { _, user in
+        // `initial: true` so a session restored during AuthService.init() (which
+        // sets currentUser before this view starts observing) still triggers the
+        // profile/data load and name — not just fresh logins.
+        .onChange(of: authService.currentUser, initial: true) { _, user in
             if let user {
                 store.configure(with: user)
             }

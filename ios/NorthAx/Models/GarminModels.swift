@@ -47,36 +47,6 @@ struct GarminActivity: Identifiable, Codable {
     }
 
     var hoursAgo: Double { Date().timeIntervalSince(startTime) / 3600 }
-
-    // MARK: - Mock data
-
-    static var mockActivities: [GarminActivity] {
-        let cal = Calendar.current
-        let now = Date()
-        func daysAgo(_ n: Int) -> Date { cal.date(byAdding: .day, value: -n, to: now)! }
-        return [
-            GarminActivity(id: "1", name: "Morning Ride", type: .cycling,
-                           startTime: daysAgo(1), duration: 4500,
-                           distanceMeters: 32_000, elevationGain: 380,
-                           avgHeartRate: 142, maxHeartRate: 168, calories: 820, trainingLoad: 72),
-            GarminActivity(id: "2", name: "Easy Run", type: .running,
-                           startTime: daysAgo(3), duration: 2700,
-                           distanceMeters: 8_500, elevationGain: 95,
-                           avgHeartRate: 138, maxHeartRate: 155, calories: 480, trainingLoad: 45),
-            GarminActivity(id: "3", name: "Strength Session", type: .strengthTraining,
-                           startTime: daysAgo(4), duration: 3600,
-                           distanceMeters: nil, elevationGain: nil,
-                           avgHeartRate: 118, maxHeartRate: 148, calories: 420, trainingLoad: 38),
-            GarminActivity(id: "4", name: "Zone 3 Intervals", type: .cycling,
-                           startTime: daysAgo(5), duration: 5400,
-                           distanceMeters: 45_000, elevationGain: 520,
-                           avgHeartRate: 158, maxHeartRate: 178, calories: 1180, trainingLoad: 98),
-            GarminActivity(id: "5", name: "Recovery Ride", type: .cycling,
-                           startTime: daysAgo(7), duration: 3600,
-                           distanceMeters: 28_000, elevationGain: 120,
-                           avgHeartRate: 128, maxHeartRate: 145, calories: 640, trainingLoad: 42)
-        ]
-    }
 }
 
 // MARK: - Connection state
