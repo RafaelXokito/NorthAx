@@ -5,8 +5,7 @@ Wants=network-online.target postgresql.service redis-server.service
 
 [Service]
 Type=simple
-User=northax
-Group=northax
+User=@APP_USER@
 WorkingDirectory=@BACKEND_DIR@
 EnvironmentFile=@BACKEND_DIR@/.env
 ExecStart=@BACKEND_DIR@/.venv/bin/python -m app.jobs.worker
