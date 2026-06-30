@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "NorthAx API",
-    "description": "\nNorthAx training-OS backend.\n\nTwo layers (see BACKEND_SPEC.md \u00a71):\n\n* **Deterministic engines** \u2014 readiness scoring, weekly plan generation, and\n  strength-session assembly. Ported from the iOS Swift engines; identical inputs\n  produce identical outputs.\n* **AI explanation layer** \u2014 Claude (via the Hermes agent CLI) wraps each\n  deterministic output with a natural-language explanation, coaching note, and\n  chat. The AI never overrides the deterministic score; it only explains it.\n\n**Auth.** All routes except `POST /auth/apple`, `POST /auth/refresh`, and\n`GET /intervals/callback` require `Authorization: Bearer <accessToken>`.\n\n**Errors.** Every error returns the envelope\n`{ \"error\": { \"code\", \"message\", \"status\" } }` (\u00a711).\n",
+    "description": "\nNorthAx training-OS backend.\n\nTwo layers (see BACKEND_SPEC.md \u00a71):\n\n* **Deterministic engines** \u2014 readiness scoring, weekly plan generation, and\n  strength-session assembly. Ported from the iOS Swift engines; identical inputs\n  produce identical outputs.\n* **AI explanation layer** \u2014 Claude (via the Hermes agent CLI) wraps each\n  deterministic output with a natural-language explanation, coaching note, and\n  chat. The AI never overrides the deterministic score; it only explains it.\n\n**Auth.** All routes except `POST /auth/register`, `POST /auth/login`,\n`POST /auth/refresh`, and `GET /intervals/callback` require\n`Authorization: Bearer <accessToken>`.\n\n**Errors.** Every error returns the envelope\n`{ \"error\": { \"code\", \"message\", \"status\" } }` (\u00a711).\n",
     "contact": {
       "name": "NorthAx",
       "email": "api@northax.app"
@@ -23,18 +23,130 @@
     }
   ],
   "paths": {
-    "/v1/auth/apple": {
+    "/v1/auth/register": {
       "post": {
         "tags": [
           "auth"
         ],
-        "summary": "Sign In With Apple",
-        "operationId": "sign_in_with_apple_v1_auth_apple_post",
+        "summary": "Register",
+        "operationId": "register_v1_auth_register_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppleSignInRequest"
+                "$ref": "#/components/schemas/EmailSignUpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login",
+        "operationId": "login_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSignInRequest"
               }
             }
           },
@@ -2082,13 +2194,13 @@
         ]
       }
     },
-    "/v1/preferences/frequency": {
+    "/v1/preferences/schedule": {
       "patch": {
         "tags": [
           "preferences"
         ],
-        "summary": "Patch Frequency",
-        "operationId": "patch_frequency_v1_preferences_frequency_patch",
+        "summary": "Patch Schedule",
+        "operationId": "patch_schedule_v1_preferences_schedule_patch",
         "parameters": [
           {
             "name": "authorization",
@@ -2112,7 +2224,141 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FrequencyPatch"
+                "$ref": "#/components/schemas/SchedulePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPreferencesDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/preferences/thresholds": {
+      "patch": {
+        "tags": [
+          "preferences"
+        ],
+        "summary": "Patch Thresholds",
+        "operationId": "patch_thresholds_v1_preferences_thresholds_patch",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThresholdsPatch"
               }
             }
           }
@@ -5626,67 +5872,76 @@
         ],
         "title": "AiExplanation"
       },
-      "AppleFullName": {
+      "AthleteThresholdsDTO": {
         "properties": {
-          "givenName": {
+          "ftpWatts": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Givenname"
+            "title": "Ftpwatts"
           },
-          "familyName": {
+          "thresholdHr": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Familyname"
-          }
-        },
-        "type": "object",
-        "title": "AppleFullName"
-      },
-      "AppleSignInRequest": {
-        "properties": {
-          "identityToken": {
+            "title": "Thresholdhr"
+          },
+          "maxHr": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxhr"
+          },
+          "runThresholdPaceSecPerKm": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runthresholdpacesecperkm"
+          },
+          "paceUnit": {
             "type": "string",
-            "title": "Identitytoken"
+            "title": "Paceunit",
+            "default": "km"
           },
-          "authorizationCode": {
+          "swimThresholdPaceSecPer100m": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Authorizationcode"
+            "title": "Swimthresholdpacesecper100M"
           },
-          "fullName": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AppleFullName"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "poolUnit": {
+            "type": "string",
+            "title": "Poolunit",
+            "default": "pool25m"
           }
         },
         "type": "object",
-        "required": [
-          "identityToken"
-        ],
-        "title": "AppleSignInRequest"
+        "title": "AthleteThresholdsDTO"
       },
       "AuthResponse": {
         "properties": {
@@ -6101,25 +6356,25 @@
         "type": "object",
         "title": "DaySplitDTO"
       },
-      "DomainFrequencyDTO": {
+      "DomainScheduleDTO": {
         "properties": {
           "domain": {
             "type": "string",
             "title": "Domain"
           },
-          "daysPerWeek": {
-            "type": "integer",
-            "maximum": 6.0,
-            "minimum": 0.0,
-            "title": "Daysperweek"
+          "weekdays": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Weekdays"
           }
         },
         "type": "object",
         "required": [
-          "domain",
-          "daysPerWeek"
+          "domain"
         ],
-        "title": "DomainFrequencyDTO"
+        "title": "DomainScheduleDTO"
       },
       "DomainsPatch": {
         "properties": {
@@ -6136,6 +6391,51 @@
           "enabledDomains"
         ],
         "title": "DomainsPatch"
+      },
+      "EmailSignInRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "EmailSignInRequest"
+      },
+      "EmailSignUpRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "password"
+        ],
+        "title": "EmailSignUpRequest"
       },
       "ExerciseDTO": {
         "properties": {
@@ -6180,22 +6480,6 @@
           "rest"
         ],
         "title": "ExerciseDTO"
-      },
-      "FrequencyPatch": {
-        "properties": {
-          "domainFrequencies": {
-            "items": {
-              "$ref": "#/components/schemas/DomainFrequencyDTO"
-            },
-            "type": "array",
-            "title": "Domainfrequencies"
-          }
-        },
-        "type": "object",
-        "required": [
-          "domainFrequencies"
-        ],
-        "title": "FrequencyPatch"
       },
       "HTTPValidationError": {
         "properties": {
@@ -6431,15 +6715,12 @@
             "type": "boolean",
             "title": "Ispast"
           },
-          "session": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PlannedSessionDTO"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedSessionDTO"
+            },
+            "type": "array",
+            "title": "Sessions"
           }
         },
         "type": "object",
@@ -6532,6 +6813,22 @@
           "refreshToken"
         ],
         "title": "RefreshResponse"
+      },
+      "SchedulePatch": {
+        "properties": {
+          "domainSchedules": {
+            "items": {
+              "$ref": "#/components/schemas/DomainScheduleDTO"
+            },
+            "type": "array",
+            "title": "Domainschedules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "domainSchedules"
+        ],
+        "title": "SchedulePatch"
       },
       "StrengthGenerateRequest": {
         "properties": {
@@ -6685,6 +6982,90 @@
         ],
         "title": "SuggestedSessionDTO"
       },
+      "ThresholdsPatch": {
+        "properties": {
+          "ftpWatts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftpwatts"
+          },
+          "thresholdHr": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thresholdhr"
+          },
+          "maxHr": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxhr"
+          },
+          "runThresholdPaceSecPerKm": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runthresholdpacesecperkm"
+          },
+          "paceUnit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paceunit"
+          },
+          "swimThresholdPaceSecPer100m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swimthresholdpacesecper100M"
+          },
+          "poolUnit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poolunit"
+          }
+        },
+        "type": "object",
+        "title": "ThresholdsPatch",
+        "description": "Partial thresholds \u2014 only non-null fields are merged in."
+      },
       "UpdateProfileRequest": {
         "properties": {
           "name": {
@@ -6709,12 +7090,15 @@
             "type": "array",
             "title": "Enableddomains"
           },
-          "domainFrequencies": {
+          "domainSchedules": {
             "items": {
-              "$ref": "#/components/schemas/DomainFrequencyDTO"
+              "$ref": "#/components/schemas/DomainScheduleDTO"
             },
             "type": "array",
-            "title": "Domainfrequencies"
+            "title": "Domainschedules"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/AthleteThresholdsDTO"
           },
           "muscleGroupSplit": {
             "items": {
@@ -6973,14 +7357,14 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "RS256 access token from POST /auth/apple or /auth/refresh."
+        "description": "RS256 access token from POST /auth/login, /auth/register, or /auth/refresh."
       }
     }
   },
   "tags": [
     {
       "name": "auth",
-      "description": "Sign in with Apple, token rotation, sign-out, account deletion (\u00a77.1)."
+      "description": "Email/password register + login, token rotation, sign-out, account deletion (\u00a77.1)."
     },
     {
       "name": "user",

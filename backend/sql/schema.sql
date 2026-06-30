@@ -72,13 +72,17 @@ CREATE INDEX IF NOT EXISTS daily_metrics_user_date_idx ON daily_metrics(user_id,
 CREATE TABLE IF NOT EXISTS user_preferences (
   user_id              UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   enabled_domains      TEXT[] NOT NULL DEFAULT ARRAY['Cycling','Strength'],
-  domain_frequencies   JSONB NOT NULL DEFAULT '[]',
+  domain_frequencies   JSONB NOT NULL DEFAULT '[]',   -- legacy, retained but unused
+  domain_schedules     JSONB NOT NULL DEFAULT '[]',
+  thresholds           JSONB NOT NULL DEFAULT '{}',
   muscle_group_split   JSONB NOT NULL DEFAULT '[]',
   cycling_target       TEXT NOT NULL DEFAULT 'hr',   -- 'hr' (default) | 'power'
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Migration for existing DBs (idempotent):
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS cycling_target TEXT NOT NULL DEFAULT 'hr';
+ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS domain_schedules JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS thresholds JSONB NOT NULL DEFAULT '{}';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- activities

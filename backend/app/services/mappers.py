@@ -5,7 +5,7 @@ import datetime as dt
 
 from ..engines.enums import (
     DaySplit,
-    DomainFrequency,
+    DomainSchedule,
     MuscleGroup,
     TrainingDomain,
     TrainingFrequency,
@@ -83,16 +83,27 @@ def readiness_response(
 
 
 # ── Preferences → engine inputs ──────────────────────────────────────────────
-def frequency_from_prefs(domain_frequencies: list[dict]) -> TrainingFrequency:
-    freqs: list[DomainFrequency] = []
-    for entry in domain_frequencies:
+def schedules_from_prefs(domain_schedules: list[dict]) -> TrainingFrequency:
+    scheds: list[DomainSchedule] = []
+    for entry in domain_schedules:
         try:
-            freqs.append(
-                DomainFrequency(TrainingDomain(entry["domain"]), int(entry["daysPerWeek"]))
-            )
+            domain = TrainingDomain(entry["domain"])
+            weekdays = {int(w) for w in entry.get("weekdays", []) if 0 <= int(w) <= 6}
         except (KeyError, ValueError):
             continue
-    return TrainingFrequency(domain_frequencies=freqs)
+        scheds.append(DomainSchedule(domain, weekdays))
+    return TrainingFrequency(schedules=scheds)
+
+
+def priority_from_prefs(enabled_domains: list[str]) -> list[TrainingDomain]:
+    """Enabled-domain order, used to sort sessions that share a weekday."""
+    out: list[TrainingDomain] = []
+    for d in enabled_domains:
+        try:
+            out.append(TrainingDomain(d))
+        except ValueError:
+            continue
+    return out
 
 
 def split_from_prefs(muscle_group_split: list[dict]) -> WeeklyMuscleGroupSplit:
@@ -110,23 +121,22 @@ def split_from_prefs(muscle_group_split: list[dict]) -> WeeklyMuscleGroupSplit:
 def plan_days_to_json(plan: WeeklyPlan, cycling_target: str = "hr") -> list[dict]:
     out: list[dict] = []
     for day in plan.days:
-        session = None
-        if day.session is not None:
-            s = day.session
+        sessions = []
+        for s in day.sessions:
             workout = workouts.workout_to_dict(
                 workouts.build_workout(
                     s.domain.value, s.title, s.intensity_label, s.duration, cycling_target
                 )
             )
-            session = {
+            sessions.append({
                 "domain": s.domain.value,
                 "title": s.title,
                 "subtitle": s.subtitle,
                 "duration": s.duration,
                 "intensityLabel": s.intensity_label,
                 "workout": workout,
-            }
-        out.append({"date": day.date.isoformat(), "isRest": day.is_rest, "session": session})
+            })
+        out.append({"date": day.date.isoformat(), "isRest": day.is_rest, "sessions": sessions})
     return out
 
 
@@ -141,8 +151,7 @@ def plan_dto_from_row(
     day_dtos: list[schemas.PlannedDayDTO] = []
     for entry in days_json:
         date = dt.date.fromisoformat(entry["date"])
-        s = entry.get("session")
-        session_dto = (
+        session_dtos = [
             schemas.PlannedSessionDTO(
                 domain=s["domain"],
                 title=s["title"],
@@ -151,18 +160,17 @@ def plan_dto_from_row(
                 intensity_label=s["intensityLabel"],
                 workout=s.get("workout"),
             )
-            if s
-            else None
-        )
+            for s in entry.get("sessions", [])
+        ]
         day_dtos.append(
             schemas.PlannedDayDTO(
                 date=date,
                 weekday_short=f"{date:%a}",
                 day_number=str(date.day),
-                is_rest=bool(entry.get("isRest", session_dto is None)),
+                is_rest=bool(entry.get("isRest", not session_dtos)),
                 is_today=date == today,
                 is_past=date < today,
-                session=session_dto,
+                sessions=session_dtos,
             )
         )
     return schemas.WeeklyPlanDTO(

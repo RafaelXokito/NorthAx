@@ -23,11 +23,12 @@ async def regenerate_plans(
     """Generate `weeks` of plans from the current Monday and upsert them,
     overwriting any existing future plans for those weeks."""
     prefs = await _load_prefs(session, user_id)
-    frequency = mappers.frequency_from_prefs(prefs.domain_frequencies if prefs else [])
+    frequency = mappers.schedules_from_prefs(prefs.domain_schedules if prefs else [])
     split = mappers.split_from_prefs(prefs.muscle_group_split if prefs else [])
     cycling_target = getattr(prefs, "cycling_target", "hr") if prefs else "hr"
+    priority = mappers.priority_from_prefs(prefs.enabled_domains if prefs else [])
 
-    plans = generate_plans(from_date, weeks, frequency, split)
+    plans = generate_plans(from_date, weeks, frequency, split, priority)
     rows: list[WeeklyPlanRow] = []
     for plan in plans:
         days_json = mappers.plan_days_to_json(plan, cycling_target)

@@ -72,7 +72,7 @@ async def _build_coach_system(session: AsyncSession, user_id: str) -> str:
     )
     plan = plan_row.scalar_one_or_none()
     if plan:
-        titles = [d["session"]["title"] for d in plan.days if d.get("session")]
+        titles = [s["title"] for d in plan.days for s in d.get("sessions", [])]
         week_summary = ", ".join(titles) if titles else "all rest"
     else:
         week_summary = "no plan generated"

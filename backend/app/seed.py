@@ -57,9 +57,9 @@ async def main() -> None:
             prefs = UserPreferences(user_id=user.id)
             session.add(prefs)
         prefs.enabled_domains = ["Cycling", "Strength"]
-        prefs.domain_frequencies = [
-            {"domain": "Cycling", "daysPerWeek": 3},
-            {"domain": "Strength", "daysPerWeek": 2},
+        prefs.domain_schedules = [
+            {"domain": "Cycling", "weekdays": [0, 2, 4]},
+            {"domain": "Strength", "weekdays": [1, 5]},
         ]
         prefs.muscle_group_split = [
             {"muscleGroups": ["Chest", "Shoulders", "Triceps"], "isRestDay": False},

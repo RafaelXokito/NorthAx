@@ -130,6 +130,13 @@ class DailyMetricsResponse(_Base):
     today_load: float
     weekly_load_change: float
     body_weight: float | None = None
+    # Aligned daily series (oldest→newest, up to 90 days) for the metric detail
+    # graphs. Computed on read for the by-date GET endpoints; empty elsewhere.
+    trend_dates: list[dt.date] = []
+    hrv_series: list[float] = []
+    resting_hr_series: list[float] = []
+    sleep_series: list[float] = []
+    tsb_series: list[float] = []
 
 
 # ── Readiness (§6.4) ─────────────────────────────────────────────────────────
@@ -178,9 +185,22 @@ class DailyReadinessResponse(_Base):
 
 
 # ── Preferences (§6.5) ───────────────────────────────────────────────────────
-class DomainFrequencyDTO(_Base):
+class DomainScheduleDTO(_Base):
     domain: str
-    days_per_week: int = Field(ge=0, le=6)
+    weekdays: list[int] = Field(default_factory=list)  # 0=Mon … 6=Sun, sorted asc
+
+
+class AthleteThresholdsDTO(_Base):
+    ftp_watts: int | None = None
+    threshold_hr: int | None = None
+    max_hr: int | None = None
+    run_threshold_pace_sec_per_km: int | None = None
+    pace_unit: str = "km"  # "km" | "mile"
+    # to_camel would yield ...Per100M; the contract wants a lowercase trailing m.
+    swim_threshold_pace_sec_per100m: int | None = Field(
+        default=None, alias="swimThresholdPaceSecPer100m"
+    )
+    pool_unit: str = "pool25m"  # "pool25m" | "pool50m" | "openWater"
 
 
 class DaySplitDTO(_Base):
@@ -190,7 +210,8 @@ class DaySplitDTO(_Base):
 
 class UserPreferencesDTO(_Base):
     enabled_domains: list[str] = Field(default_factory=lambda: ["Cycling", "Strength"])
-    domain_frequencies: list[DomainFrequencyDTO] = Field(default_factory=list)
+    domain_schedules: list[DomainScheduleDTO] = Field(default_factory=list)
+    thresholds: AthleteThresholdsDTO = Field(default_factory=AthleteThresholdsDTO)
     muscle_group_split: list[DaySplitDTO] = Field(default_factory=list)
     cycling_target: str = "hr"  # "hr" | "power"
 
@@ -203,8 +224,22 @@ class DomainsPatch(_Base):
     enabled_domains: list[str]
 
 
-class FrequencyPatch(_Base):
-    domain_frequencies: list[DomainFrequencyDTO]
+class SchedulePatch(_Base):
+    domain_schedules: list[DomainScheduleDTO]
+
+
+class ThresholdsPatch(_Base):
+    """Partial thresholds — only non-null fields are merged in."""
+
+    ftp_watts: int | None = None
+    threshold_hr: int | None = None
+    max_hr: int | None = None
+    run_threshold_pace_sec_per_km: int | None = None
+    pace_unit: str | None = None
+    swim_threshold_pace_sec_per100m: int | None = Field(
+        default=None, alias="swimThresholdPaceSecPer100m"
+    )
+    pool_unit: str | None = None
 
 
 class MuscleSplitPatch(_Base):
@@ -300,7 +335,7 @@ class PlannedDayDTO(_Base):
     is_rest: bool
     is_today: bool
     is_past: bool
-    session: PlannedSessionDTO | None = None
+    sessions: list[PlannedSessionDTO] = Field(default_factory=list)
 
 
 class WeeklyPlanDTO(_Base):

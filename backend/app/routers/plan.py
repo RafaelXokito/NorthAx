@@ -91,16 +91,17 @@ async def override_day(
     for entry in row.days:
         if entry["date"] == target:
             if body.session is None:  # clear → rest day
-                entry["session"] = None
+                entry["sessions"] = []
                 entry["isRest"] = True
             else:
-                entry["session"] = {
+                entry["sessions"] = [{
                     "domain": body.session.domain,
                     "title": body.session.title,
                     "subtitle": body.session.subtitle,
                     "duration": body.session.duration,
                     "intensityLabel": body.session.intensity_label,
-                }
+                    "workout": body.session.workout.model_dump(by_alias=True) if body.session.workout else None,
+                }]
                 entry["isRest"] = False
             found = True
             break

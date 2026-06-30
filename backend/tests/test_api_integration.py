@@ -86,31 +86,49 @@ async def test_preferences_drive_plan(api):
     client, headers, _ = api
     prefs = {
         "enabledDomains": ["Cycling", "Strength"],
-        "domainFrequencies": [
-            {"domain": "Cycling", "daysPerWeek": 3},
-            {"domain": "Strength", "daysPerWeek": 2},
+        "domainSchedules": [
+            {"domain": "Cycling", "weekdays": [0, 2, 4]},
+            {"domain": "Strength", "weekdays": [1, 5]},
         ],
         "muscleGroupSplit": [],
     }
     r = await client.put("/v1/preferences", headers=headers, json=prefs)
     assert r.status_code == 200
+    assert r.json()["domainSchedules"] == prefs["domainSchedules"]
 
     r = await client.get("/v1/plan/weeks?weeks=1", headers=headers)
     assert r.status_code == 200
     weeks = r.json()
     assert weeks, "expected a generated week"
-    assert any(day.get("session") for day in weeks[0]["days"]), "expected training sessions"
+    assert any(day.get("sessions") for day in weeks[0]["days"]), "expected training sessions"
 
 
-async def test_frequency_overload_is_422(api):
+async def test_schedule_no_rest_day_is_400(api):
     client, headers, _ = api
-    bad = {"domainFrequencies": [
-        {"domain": "Cycling", "daysPerWeek": 5},
-        {"domain": "Strength", "daysPerWeek": 5},
+    bad = {"domainSchedules": [
+        {"domain": "Cycling", "weekdays": [0, 1, 2, 3]},
+        {"domain": "Strength", "weekdays": [4, 5, 6]},
     ]}
-    r = await client.patch("/v1/preferences/frequency", headers=headers, json=bad)
-    assert r.status_code == 422
-    assert r.json()["error"]["code"] == "PREFERENCES_INVALID_FREQUENCY"
+    r = await client.patch("/v1/preferences/schedule", headers=headers, json=bad)
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "SCHEDULE_NO_REST_DAY"
+
+
+async def test_thresholds_merge_no_regen(api):
+    client, headers, _ = api
+    r = await client.patch(
+        "/v1/preferences/thresholds", headers=headers, json={"ftpWatts": 250}
+    )
+    assert r.status_code == 200
+    assert r.json()["thresholds"]["ftpWatts"] == 250
+
+    # Partial merge keeps the prior field and adds the new one.
+    r = await client.patch(
+        "/v1/preferences/thresholds", headers=headers, json={"thresholdHr": 165}
+    )
+    assert r.status_code == 200
+    t = r.json()["thresholds"]
+    assert t["ftpWatts"] == 250 and t["thresholdHr"] == 165
 
 
 async def test_intervals_status_and_activities_empty(api):

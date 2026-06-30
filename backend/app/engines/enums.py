@@ -52,20 +52,24 @@ _RECOVERY_HOURS: dict[MuscleGroup, int] = {
 }
 
 
-# ── Training frequency (TrainingFrequency.swift) ─────────────────────────────
+# ── Training schedule (TrainingFrequency.swift) ──────────────────────────────
 @dataclass
-class DomainFrequency:
+class DomainSchedule:
     domain: TrainingDomain
-    days_per_week: int  # 0–6
+    weekdays: set[int] = field(default_factory=set)  # 0=Mon … 6=Sun
 
 
 @dataclass
 class TrainingFrequency:
-    domain_frequencies: list[DomainFrequency] = field(default_factory=list)
+    schedules: list[DomainSchedule] = field(default_factory=list)
 
     @property
     def total_training_days(self) -> int:
-        return sum(d.days_per_week for d in self.domain_frequencies)
+        """Number of distinct weekdays carrying at least one sport."""
+        union: set[int] = set()
+        for s in self.schedules:
+            union |= s.weekdays
+        return len(union)
 
     @property
     def is_overloaded(self) -> bool:

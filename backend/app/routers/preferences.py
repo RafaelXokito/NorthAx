@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..deps import get_current_user_id, get_db
-from ..errors import preferences_invalid_frequency, preferences_invalid_split
+from ..errors import (
+    preferences_invalid_split,
+    schedule_invalid_weekday,
+    schedule_no_rest_day,
+)
 from ..models import UserPreferences
 from ..rate_limit import limit
 from ..services.plan_service import regenerate_plans
@@ -29,15 +33,23 @@ async def _get_or_create(session: AsyncSession, user_id: str) -> UserPreferences
 def _to_dto(prefs: UserPreferences) -> schemas.UserPreferencesDTO:
     return schemas.UserPreferencesDTO(
         enabled_domains=list(prefs.enabled_domains),
-        domain_frequencies=[schemas.DomainFrequencyDTO(**f) for f in prefs.domain_frequencies],
+        domain_schedules=[
+            schemas.DomainScheduleDTO.model_validate(s) for s in prefs.domain_schedules
+        ],
+        thresholds=schemas.AthleteThresholdsDTO.model_validate(prefs.thresholds or {}),
         muscle_group_split=[schemas.DaySplitDTO(**d) for d in prefs.muscle_group_split],
         cycling_target=getattr(prefs, "cycling_target", "hr"),
     )
 
 
-def _validate_frequency(freqs: list[schemas.DomainFrequencyDTO]) -> None:
-    if sum(f.days_per_week for f in freqs) > 6:
-        raise preferences_invalid_frequency()
+def _validate_schedules(scheds: list[schemas.DomainScheduleDTO]) -> None:
+    union: set[int] = set()
+    for s in scheds:
+        if any(w < 0 or w > 6 for w in s.weekdays) or len(set(s.weekdays)) != len(s.weekdays):
+            raise schedule_invalid_weekday()
+        union |= set(s.weekdays)
+    if len(union) >= 7:
+        raise schedule_no_rest_day()
 
 
 def _validate_split(split: list[schemas.DaySplitDTO]) -> None:
@@ -45,8 +57,12 @@ def _validate_split(split: list[schemas.DaySplitDTO]) -> None:
         raise preferences_invalid_split()
 
 
-def _freq_json(freqs: list[schemas.DomainFrequencyDTO]) -> list[dict]:
-    return [{"domain": f.domain, "daysPerWeek": f.days_per_week} for f in freqs]
+def _schedules_json(scheds: list[schemas.DomainScheduleDTO]) -> list[dict]:
+    return [{"domain": s.domain, "weekdays": sorted(s.weekdays)} for s in scheds]
+
+
+def _thresholds_json(t: schemas.AthleteThresholdsDTO) -> dict:
+    return t.model_dump(by_alias=True)
 
 
 def _split_json(split: list[schemas.DaySplitDTO]) -> list[dict]:
@@ -66,12 +82,13 @@ async def replace_preferences(
     user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ) -> schemas.UserPreferencesDTO:
-    _validate_frequency(body.domain_frequencies)
+    _validate_schedules(body.domain_schedules)
     if body.muscle_group_split:
         _validate_split(body.muscle_group_split)
     prefs = await _get_or_create(session, user_id)
     prefs.enabled_domains = body.enabled_domains
-    prefs.domain_frequencies = _freq_json(body.domain_frequencies)
+    prefs.domain_schedules = _schedules_json(body.domain_schedules)
+    prefs.thresholds = _thresholds_json(body.thresholds)
     prefs.muscle_group_split = _split_json(body.muscle_group_split)
     if body.cycling_target in ("hr", "power"):
         prefs.cycling_target = body.cycling_target
@@ -108,17 +125,31 @@ async def patch_domains(
     return _to_dto(prefs)
 
 
-@router.patch("/frequency", response_model=schemas.UserPreferencesDTO)
-async def patch_frequency(
-    body: schemas.FrequencyPatch,
+@router.patch("/schedule", response_model=schemas.UserPreferencesDTO)
+async def patch_schedule(
+    body: schemas.SchedulePatch,
     user_id: str = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_db),
 ) -> schemas.UserPreferencesDTO:
-    _validate_frequency(body.domain_frequencies)
+    _validate_schedules(body.domain_schedules)
     prefs = await _get_or_create(session, user_id)
-    prefs.domain_frequencies = _freq_json(body.domain_frequencies)
+    prefs.domain_schedules = _schedules_json(body.domain_schedules)
     await session.flush()
     await regenerate_plans(session, user_id, dt.date.today(), weeks=4)  # §7.6
+    return _to_dto(prefs)
+
+
+@router.patch("/thresholds", response_model=schemas.UserPreferencesDTO)
+async def patch_thresholds(
+    body: schemas.ThresholdsPatch,
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> schemas.UserPreferencesDTO:
+    prefs = await _get_or_create(session, user_id)
+    merged = dict(prefs.thresholds or {})
+    merged.update(body.model_dump(by_alias=True, exclude_none=True))
+    prefs.thresholds = merged
+    await session.flush()  # no plan regeneration — thresholds don't affect placement
     return _to_dto(prefs)
 
 

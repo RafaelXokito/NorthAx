@@ -110,6 +110,8 @@ class UserPreferences(Base):
         ARRAY(Text), nullable=False, default=lambda: ["Cycling", "Strength"]
     )
     domain_frequencies: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    domain_schedules: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    thresholds: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     muscle_group_split: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     # Structured-workout target for cycling: "hr" (default) or "power".
     cycling_target: Mapped[str] = mapped_column(String, nullable=False, default="hr")

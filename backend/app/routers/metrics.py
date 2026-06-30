@@ -18,7 +18,9 @@ from ..rate_limit import limit
 router = APIRouter(prefix="/metrics", tags=["metrics"], dependencies=[Depends(limit("default", 300, 60))])
 
 
-def _to_response(row: DailyMetrics) -> schemas.DailyMetricsResponse:
+def _to_response(
+    row: DailyMetrics, series: dict | None = None
+) -> schemas.DailyMetricsResponse:
     return schemas.DailyMetricsResponse(
         date=row.date,
         hrv=float(row.hrv),
@@ -36,7 +38,29 @@ def _to_response(row: DailyMetrics) -> schemas.DailyMetricsResponse:
         today_load=float(row.today_load),
         weekly_load_change=float(row.weekly_load_change),
         body_weight=float(row.body_weight) if row.body_weight is not None else None,
+        **(series or {}),
     )
+
+
+async def _series(
+    session: AsyncSession, user_id: str, end_date: dt.date, days: int = 90
+) -> dict:
+    """Aligned daily series ending on `end_date` (oldest→newest) for the detail
+    graphs. TSB is Fitness − Fatigue (chronic − acute), matching the client."""
+    result = await session.execute(
+        select(DailyMetrics)
+        .where(DailyMetrics.user_id == uuid.UUID(user_id), DailyMetrics.date <= end_date)
+        .order_by(DailyMetrics.date.desc())
+        .limit(days)
+    )
+    rows = list(reversed(result.scalars().all()))
+    return {
+        "trend_dates": [r.date for r in rows],
+        "hrv_series": [float(r.hrv) for r in rows],
+        "resting_hr_series": [float(r.resting_hr) for r in rows],
+        "sleep_series": [float(r.sleep_duration) for r in rows],
+        "tsb_series": [float(r.chronic_load) - float(r.acute_load) for r in rows],
+    }
 
 
 async def _get_by_date(session: AsyncSession, user_id: str, date: dt.date) -> DailyMetrics | None:
@@ -89,7 +113,7 @@ async def get_today(
     row = await _get_by_date(session, user_id, today)
     if row is None:
         raise metrics_not_found(today.isoformat())
-    return _to_response(row)
+    return _to_response(row, await _series(session, user_id, today))
 
 
 @router.get("/daily/{date}", response_model=schemas.DailyMetricsResponse)
@@ -101,7 +125,7 @@ async def get_for_date(
     row = await _get_by_date(session, user_id, date)
     if row is None:
         raise metrics_not_found(date.isoformat())
-    return _to_response(row)
+    return _to_response(row, await _series(session, user_id, date))
 
 
 @router.get("/history", response_model=list[schemas.DailyMetricsResponse])

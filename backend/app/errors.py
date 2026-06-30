@@ -53,6 +53,14 @@ def preferences_invalid_frequency(msg="totalTrainingDays must not exceed 6."):
     return AppError("PREFERENCES_INVALID_FREQUENCY", msg, 422)
 
 
+def schedule_no_rest_day(msg="Schedules must leave at least one rest day (≤6 distinct training days)."):
+    return AppError("SCHEDULE_NO_REST_DAY", msg, 400)
+
+
+def schedule_invalid_weekday(msg="Each weekday must be in 0..6 and distinct within a sport."):
+    return AppError("SCHEDULE_INVALID_WEEKDAY", msg, 400)
+
+
 def preferences_invalid_split(msg="muscleGroupSplit must contain exactly 7 days."):
     return AppError("PREFERENCES_INVALID_SPLIT", msg, 422)
 
