@@ -114,3 +114,21 @@ async def test_intervals_status_and_activities_empty(api):
     r = await client.get("/v1/activities", headers=headers)
     assert r.status_code == 200
     assert r.json()["total"] == 0
+
+
+async def test_create_manual_activity(api):
+    # Exercises the activity_source ENUM insert — regression for the
+    # String-vs-ENUM mismatch found on the first Pi deploy (schema.sql uses a
+    # native enum; create_all-based tests had missed it).
+    client, headers, _ = api
+    body = {
+        "name": "Test Ride",
+        "domain": "Cycling",
+        "startTime": "2026-06-30T07:00:00Z",
+        "durationSeconds": 3600,
+        "trainingLoad": 42.0,
+    }
+    r = await client.post("/v1/activities", headers=headers, json=body)
+    assert r.status_code == 201, r.text
+    assert r.json()["source"] == "manual"
+    assert (await client.get("/v1/activities", headers=headers)).json()["total"] == 1
