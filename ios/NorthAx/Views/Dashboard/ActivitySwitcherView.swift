@@ -40,7 +40,7 @@ struct ActivitySwitcherView: View {
     // MARK: - Subtitle
 
     private var subtitle: some View {
-        Text("What do you feel like today? The app will adjust intensity and session structure to match your current readiness of \(store.readiness.score)/100.")
+        Text("What do you feel like today? Each option keeps the same training load as your planned session — duration is scaled to the sport and your readiness of \(store.readiness.score)/100.")
             .font(.subheadline)
             .foregroundStyle(.axSecondary)
             .lineSpacing(4)
@@ -49,7 +49,7 @@ struct ActivitySwitcherView: View {
     // MARK: - Standard domain option
 
     private func standardOption(for domain: TrainingDomain) -> some View {
-        let session = standardSession(for: domain, readiness: store.readiness)
+        let session = store.switchSuggestion(for: domain)
 
         return Button {
             store.switchSession(to: domain, strengthSession: nil)
@@ -202,40 +202,6 @@ struct ActivitySwitcherView: View {
         }
     }
 
-    // MARK: - Standard session generator
-
-    private func standardSession(for domain: TrainingDomain, readiness: DailyReadiness)
-        -> (duration: Int, intensityDescription: String)
-    {
-        switch domain {
-        case .cycling:
-            if readiness.score >= 80 { return (75, "Zone 3 Intervals · 70–85% FTP") }
-            if readiness.score >= 60 { return (90, "Aerobic Endurance · 65–75% FTP") }
-            return (45, "Recovery Ride · Zone 1–2")
-
-        case .running:
-            if readiness.score >= 80 { return (50, "Tempo Run · Comfortably hard pace") }
-            if readiness.score >= 60 { return (45, "Easy Run · Zone 2") }
-            return (30, "Easy Jog · Conversational pace")
-
-        case .swimming:
-            if readiness.score >= 80 { return (60, "Interval Set · 8×100m at race pace") }
-            if readiness.score >= 60 { return (45, "Technique Set · Drills + aerobic") }
-            return (30, "Easy Swim · Continuous aerobic")
-
-        case .triathlon:
-            return (90, "Brick · 60 min bike + 20 min run")
-
-        case .mobility:
-            return (40, "Yoga Flow · Hip flexors, hamstrings, thoracic")
-
-        case .recovery:
-            return (20, "Active Recovery · Short walk or light stretching")
-
-        case .strength:
-            return (60, "Gym Session · Based on your weekly split")
-        }
-    }
 }
 
 #Preview {

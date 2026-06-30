@@ -224,7 +224,7 @@ class AthleteStore {
                 strengthSession: session
             )
         } else {
-            sessionOverride = standardOverride(for: domain)
+            sessionOverride = switchSuggestion(for: domain)
         }
     }
 
@@ -245,31 +245,76 @@ class AthleteStore {
         return nil  // caller falls back to StrengthEngine
     }
 
-    private func standardOverride(for domain: TrainingDomain) -> SessionOverride {
+    // MARK: - Training-load model (TSS-like: hours × IF² × 100)
+
+    /// Relative intensity factor for an intensity label (fraction of threshold).
+    static func intensityFactor(_ label: String) -> Double {
+        switch label.lowercased() {
+        case "very easy", "minimal", "recovery": return 0.55
+        case "easy":                              return 0.65
+        case "moderate":                          return 0.75
+        case "tempo":                             return 0.85
+        case "hard", "threshold":                 return 0.95
+        case "vo2", "vo2max", "max":              return 1.05
+        default:                                  return 0.75
+        }
+    }
+
+    func sessionLoad(durationMin: Int, intensity: String) -> Double {
+        let f = Self.intensityFactor(intensity)
+        return Double(durationMin) / 60.0 * f * f * 100.0
+    }
+
+    /// The training load prescribed for today (the deterministic suggestion).
+    var prescribedLoad: Double {
+        sessionLoad(durationMin: readiness.suggestedDuration, intensity: readiness.suggestedIntensityLabel)
+    }
+
+    /// Minutes needed at `intensity` to match `target` load, clamped to a sane range.
+    private func durationForLoad(_ target: Double, intensity: String, _ range: ClosedRange<Int>) -> Int {
+        let f = Self.intensityFactor(intensity)
+        let mins = target / (f * f * 100.0) * 60.0
+        return min(range.upperBound, max(range.lowerBound, Int(mins.rounded())))
+    }
+
+    /// A switch alternative whose training load matches today's prescribed load
+    /// as closely as the sport allows (recovery/mobility stay short by design).
+    /// Shared by the store (when applied) and the switcher view (for display).
+    func switchSuggestion(for domain: TrainingDomain) -> SessionOverride {
+        let target = prescribedLoad
         let score = readiness.score
+        func matched(_ title: String, _ intensity: String, _ desc: String, _ range: ClosedRange<Int>) -> SessionOverride {
+            let dur = durationForLoad(target, intensity: intensity, range)
+            return SessionOverride(domain: domain, title: title, duration: dur,
+                                   intensityLabel: intensity, intensityDescription: desc)
+        }
         switch domain {
         case .cycling:
-            if score >= 80 { return SessionOverride(domain: domain, title: "Zone 3 Intervals", duration: 75, intensityLabel: "Threshold", intensityDescription: "70–85% FTP") }
-            if score >= 60 { return SessionOverride(domain: domain, title: "Aerobic Endurance", duration: 90, intensityLabel: "Moderate",  intensityDescription: "65–75% FTP") }
-            return SessionOverride(domain: domain, title: "Recovery Ride",     duration: 45, intensityLabel: "Easy",      intensityDescription: "Zone 1–2")
+            if score >= 80 { return matched("Zone 3 Intervals", "Threshold", "70–85% FTP", 30...150) }
+            if score >= 60 { return matched("Aerobic Endurance", "Moderate", "65–75% FTP", 30...180) }
+            return matched("Recovery Ride", "Easy", "Zone 1–2", 30...120)
 
         case .running:
-            if score >= 80 { return SessionOverride(domain: domain, title: "Tempo Run",         duration: 50, intensityLabel: "Hard",      intensityDescription: "Comfortably hard pace") }
-            if score >= 60 { return SessionOverride(domain: domain, title: "Easy Run",           duration: 45, intensityLabel: "Easy",      intensityDescription: "Zone 2") }
-            return SessionOverride(domain: domain, title: "Recovery Jog",     duration: 30, intensityLabel: "Very Easy", intensityDescription: "Conversational pace")
+            if score >= 80 { return matched("Tempo Run", "Hard", "Comfortably hard pace", 20...75) }
+            if score >= 60 { return matched("Easy Run", "Easy", "Zone 2", 20...100) }
+            return matched("Recovery Jog", "Very Easy", "Conversational pace", 20...75)
 
         case .swimming:
-            if score >= 80 { return SessionOverride(domain: domain, title: "Interval Set",       duration: 60, intensityLabel: "Hard",      intensityDescription: "8×100m at race pace") }
-            return SessionOverride(domain: domain, title: "Technique Session",  duration: 45, intensityLabel: "Moderate",  intensityDescription: "Drills + aerobic")
+            if score >= 80 { return matched("Interval Set", "Hard", "8×100m at race pace", 20...75) }
+            if score >= 60 { return matched("Technique Session", "Moderate", "Drills + aerobic", 20...75) }
+            return matched("Easy Swim", "Easy", "Continuous aerobic", 20...60)
 
         case .triathlon:
-            return SessionOverride(domain: domain, title: "Brick Session",      duration: 90, intensityLabel: "Moderate",  intensityDescription: "60 min bike + 20 min run")
+            return matched("Brick Session", "Moderate", "Bike + run", 45...150)
 
         case .mobility:
-            return SessionOverride(domain: domain, title: "Yoga Flow",          duration: 40, intensityLabel: "Easy",      intensityDescription: "Hip flexors, hamstrings, thoracic spine")
+            // Recovery-oriented: kept short rather than load-matched.
+            return SessionOverride(domain: domain, title: "Yoga Flow", duration: 40,
+                                   intensityLabel: "Easy", intensityDescription: "Hip flexors, hamstrings, thoracic spine")
 
         case .recovery, .strength:
-            return SessionOverride(domain: domain, title: "Active Recovery",    duration: 20, intensityLabel: "Minimal",   intensityDescription: "Short walk or light stretching")
+            return SessionOverride(domain: domain, title: "Active Recovery", duration: 20,
+                                   intensityLabel: "Minimal", intensityDescription: "Short walk or light stretching")
         }
     }
 
