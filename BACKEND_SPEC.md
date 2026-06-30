@@ -1187,4 +1187,4 @@ Build a remaining-count table from `domainFrequencies`. At each step, pick the d
 
 ---
 
-*Last updated: 2026-06-29. Maintained alongside `NorthAx/NorthAx/` iOS source.*
+*Last updated: 2026-06-30. Maintained alongside the `ios/` iOS app.*

@@ -125,7 +125,7 @@ the adapter.
 
 ## 5. iOS networking layer (new)
 
-New files under `NorthAx/Networking/`:
+New files under `ios/NorthAx/Networking/`:
 
 - **`APIConfig`** — base URL per build config. `DEBUG` → `http://localhost:8080/v1`
   (requires an ATS exception for localhost), release → `https://api.northax.app/v1`.
@@ -328,10 +328,12 @@ so the document stays the source of truth.
 ## Appendix — exact code touch-points
 
 Verified against the current source. These are the precise edits per phase.
+(The iOS app lives under `ios/` — paths like `Store/…`, `Services/…` below are
+relative to `ios/NorthAx/`.)
 
 **Phase 0 — infra (new files, no edits to existing):**
-`NorthAx/Networking/{APIConfig,TokenStore,APIClient,APIError,SSEClient}.swift`,
-`NorthAx/Networking/DTOs/*.swift`, and a `Repositories/` group. Add an ATS
+`ios/NorthAx/Networking/{APIConfig,TokenStore,APIClient,APIError,SSEClient}.swift`,
+`ios/NorthAx/Networking/DTOs/*.swift`, and a `Repositories/` group. Add an ATS
 exception for `localhost` in `Info.plist` for DEBUG.
 
 **Phase 1 — auth:**
