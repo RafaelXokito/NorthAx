@@ -40,7 +40,7 @@ struct ActivitySwitcherView: View {
     // MARK: - Subtitle
 
     private var subtitle: some View {
-        Text("What do you feel like today? Each option keeps the same training load as your planned session — duration is scaled to the sport and your readiness of \(store.readiness.score)/100.")
+        Text("What do you feel like today? Each option targets the same training load (~\(Int(store.prescribedLoad.rounded()))) as your planned session — duration is scaled to the sport and your readiness of \(store.readiness.score)/100.")
             .font(.subheadline)
             .foregroundStyle(.axSecondary)
             .lineSpacing(4)
@@ -50,6 +50,7 @@ struct ActivitySwitcherView: View {
 
     private func standardOption(for domain: TrainingDomain) -> some View {
         let session = store.switchSuggestion(for: domain)
+        let load = Int(store.sessionLoad(durationMin: session.duration, intensity: session.intensityLabel).rounded())
 
         return Button {
             store.switchSession(to: domain, strengthSession: nil)
@@ -69,9 +70,14 @@ struct ActivitySwitcherView: View {
                             .font(.headline)
                             .foregroundStyle(.white)
                         Spacer()
-                        Text("\(session.duration) min")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.axSecondary)
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("\(session.duration) min")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.axSecondary)
+                            Text("~\(load) load")
+                                .font(.caption2)
+                                .foregroundStyle(.axTertiary)
+                        }
                     }
                     Text(session.intensityDescription)
                         .font(.caption)
