@@ -69,6 +69,7 @@ struct DailyMetricsResponse: Decodable {
     var todayLoad: Double
     var weeklyLoadChange: Double
     var bodyWeight: Double?
+    var vo2max: Double?
     // Aligned daily series for the detail graphs (oldest→newest, up to 90 days).
     // Only the by-date GET endpoints populate these; optional for compatibility.
     var trendDates: [Date]?
@@ -76,6 +77,9 @@ struct DailyMetricsResponse: Decodable {
     var restingHrSeries: [Double]?
     var sleepSeries: [Double]?
     var tsbSeries: [Double]?
+    var ctlSeries: [Double]?
+    var atlSeries: [Double]?
+    var vo2maxSeries: [Double]?
     var metricSources: [String: String]?   // metric -> winning source (provenance)
 }
 

@@ -9,7 +9,10 @@ struct MetricsView: View {
         ScrollView {
             if let metrics = store.metrics, let readiness = store.readiness {
                 VStack(spacing: 20) {
-                    ForEach(details(metrics: metrics, readiness: readiness)) { detail in
+                    if metrics.ctlSeries.count > 1 && metrics.atlSeries.count > 1 {
+                        fitnessFatigueCard(metrics)
+                    }
+                    ForEach(details(metrics: metrics, readiness: readiness) + vo2maxDetails(metrics)) { detail in
                         card(detail)
                     }
                 }
@@ -67,6 +70,45 @@ struct MetricsView: View {
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Fitness / Fatigue + VO₂max (§12)
+
+    private func fitnessFatigueCard(_ metrics: TrainingMetrics) -> some View {
+        let n = min(metrics.ctlSeries.count, metrics.atlSeries.count, metrics.trendDates.count)
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("FITNESS & FATIGUE")
+                .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary).tracking(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            FitnessFatigueChart(
+                ctl: Array(metrics.ctlSeries.suffix(n)),
+                atl: Array(metrics.atlSeries.suffix(n)),
+                dates: Array(metrics.trendDates.suffix(n))
+            )
+        }
+        .padding(20)
+        .background(Color.axSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
+    }
+
+    private func vo2maxDetails(_ metrics: TrainingMetrics) -> [MetricDetail] {
+        guard let vo2 = metrics.vo2max, metrics.vo2maxSeries.count > 1 else { return [] }
+        return [MetricDetail(
+            id: "VO₂max",
+            title: "VO₂max",
+            icon: "lungs.fill",
+            color: .axBlue,
+            value: String(format: "%.1f", vo2),
+            statusLabel: "Aerobic capacity",
+            statusColor: .axBlue,
+            description: "VO₂max estimates the maximum oxygen your body can use during intense exercise — a strong indicator of aerobic fitness. It rises slowly with consistent training.",
+            rows: [("Latest", String(format: "%.1f ml/kg/min", vo2))],
+            series: metrics.vo2maxSeries,
+            dates: metrics.trendDates,
+            format: { String(format: "%.1f", $0) },
+            sourceLabel: "intervals.icu"
+        )]
     }
 
     // MARK: - Metric definitions

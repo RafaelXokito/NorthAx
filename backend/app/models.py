@@ -95,6 +95,7 @@ class DailyMetrics(Base):
     weekly_load_change: Mapped[float] = mapped_column(Numeric(5, 4), nullable=False)
 
     body_weight: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    vo2max: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)  # §12
     ai_explanation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Which source won each mergeable metric: { metric -> source }. Provenance for
     # the multi-source resolution (see docs/multi-source-metrics.md).

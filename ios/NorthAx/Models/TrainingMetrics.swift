@@ -33,6 +33,10 @@ struct TrainingMetrics {
     var restingHRSeries: [Double] = []
     var sleepSeries: [Double] = []
     var tsbSeries: [Double] = []   // Fitness − Fatigue (chronicLoad − acuteLoad)
+    var ctlSeries: [Double] = []   // §12 — fitness (chronic load)
+    var atlSeries: [Double] = []   // §12 — fatigue (acute load)
+    var vo2maxSeries: [Double] = []  // §12
+    var vo2max: Double? = nil        // §12 — latest estimate
 
     /// Which source won each mergeable metric (keyed by `MergeableMetric.rawValue`),
     /// filled in by `MetricResolver`. Empty when there's only one source.

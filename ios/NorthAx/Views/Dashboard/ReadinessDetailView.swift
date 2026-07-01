@@ -92,16 +92,45 @@ struct ReadinessDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("METRIC TRENDS")
             let graphs = metricGraphs
-            if graphs.isEmpty {
+            if graphs.isEmpty && !hasFitnessData {
                 Text("Connect a data source to see your HRV, resting HR, sleep, and load trends here.")
                     .font(.subheadline)
                     .foregroundStyle(.axTertiary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 8)
             } else {
+                if hasFitnessData { fitnessFatigueCard }
                 ForEach(graphs) { graphCard($0) }
             }
         }
+    }
+
+    // Fitness / Fatigue / Form (§12) — replaces the plain TSB line when present.
+    private var hasFitnessData: Bool {
+        guard let m = store.metrics else { return false }
+        return Swift.min(m.ctlSeries.count, m.atlSeries.count) > 1
+    }
+
+    private var fitnessFatigueCard: some View {
+        let m = store.metrics
+        let n = Swift.min(m?.ctlSeries.count ?? 0, m?.atlSeries.count ?? 0, m?.trendDates.count ?? 0)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Fitness & Fatigue").font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                Spacer()
+                Label("intervals.icu", systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 10)).foregroundStyle(.axTertiary)
+            }
+            FitnessFatigueChart(
+                ctl: Array((m?.ctlSeries ?? []).suffix(n)),
+                atl: Array((m?.atlSeries ?? []).suffix(n)),
+                dates: Array((m?.trendDates ?? []).suffix(n))
+            )
+        }
+        .padding(16)
+        .background(Color.axSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private func graphCard(_ g: GraphSpec) -> some View {
@@ -168,11 +197,11 @@ struct ReadinessDetailView: View {
                                  format: { String(format: "%.1f h", $0) },
                                  source: m.source(for: .sleep)?.displayName))
         }
-        let tsb = aligned(m.tsbSeries)
-        if !tsb.0.isEmpty {
-            out.append(GraphSpec(id: "tsb", title: "Training Balance (TSB)", color: .axAccent,
-                                 values: tsb.0, dates: tsb.1,
-                                 format: { "\($0 >= 0 ? "+" : "")\(Int($0.rounded()))" },
+        let vo2 = aligned(m.vo2maxSeries)
+        if !vo2.0.isEmpty {
+            out.append(GraphSpec(id: "vo2max", title: "VO₂max", color: .axBlue,
+                                 values: vo2.0, dates: vo2.1,
+                                 format: { String(format: "%.1f", $0) },
                                  source: "intervals.icu"))
         }
         return out

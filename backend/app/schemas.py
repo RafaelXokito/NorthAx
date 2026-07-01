@@ -148,6 +148,7 @@ class DailyMetricsResponse(_Base):
     today_load: float
     weekly_load_change: float
     body_weight: float | None = None
+    vo2max: float | None = None   # §12 — estimate, when present
     # Aligned daily series (oldest→newest, up to 90 days) for the metric detail
     # graphs. Computed on read for the by-date GET endpoints; empty elsewhere.
     trend_dates: list[dt.date] = []
@@ -155,6 +156,9 @@ class DailyMetricsResponse(_Base):
     resting_hr_series: list[float] = []
     sleep_series: list[float] = []
     tsb_series: list[float] = []
+    ctl_series: list[float] = []      # §12 — fitness (chronic load)
+    atl_series: list[float] = []      # §12 — fatigue (acute load)
+    vo2max_series: list[float] = []   # §12
     # Which source won each mergeable metric: { metric -> source } (provenance).
     metric_sources: dict[str, str] = {}
 

@@ -62,6 +62,10 @@ extension DailyMetricsResponse {
             restingHRSeries: restingHrSeries ?? [],
             sleepSeries: sleepSeries ?? [],
             tsbSeries: tsbSeries ?? [],
+            ctlSeries: ctlSeries ?? [],
+            atlSeries: atlSeries ?? [],
+            vo2maxSeries: vo2maxSeries ?? [],
+            vo2max: vo2max,
             provenance: (metricSources ?? [:]).compactMapValues { MetricSource(rawValue: $0) }
         )
     }

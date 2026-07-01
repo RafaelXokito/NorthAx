@@ -18,14 +18,17 @@
 | 9 | Daily Pre-fetched AI Switch Suggestions | 🟡 Partial — `SwitchSuggestion` model, AI suggestions in `WorkoutDetailView`, loading shimmer, deterministic fallback done; **rate limit (2×/day) and `BGAppRefreshTask` not yet implemented** |
 | 10 | Activity Graphs in Completed Workout View | ✅ Done — `ActivityStreams` + `ActivityStreamChart` in `WorkoutDetailView` (HR w/ zone bands, power+FTP line, speed, elevation, cadence). Needs intervals.icu connected (#1) for real data |
 | 11 | Week Navigation in Week at a Glance | ✅ Done — nav header (◀ label ▶) + swipe in `WeekGlanceView` on both Dashboard & Plan; Plan week picker removed; past weeks from recently-synced activities |
+| 12 | Extended intervals.icu Data (sleep, VO2Max, fitness/fatigue/form) | 🟡 Partial — Fitness/Fatigue/Form (CTL·ATL·TSB) chart + VO2Max trend in ReadinessDetail & Metrics (migration 0004). Sleep-stages & sleeping-HR skipped: intervals wellness doesn't expose stage breakdown |
+| 13 | Strava Integration + Cross-Source Activity Data Merging | ⬜ Not done — Strava OAuth not implemented; per-activity field-level merge not implemented |
 
 ### Remaining work (priority order)
 
-1. **#11 week navigation** — arrow nav + swipe in `WeekGlanceView`, historical past-week data, Plan page week picker removal
-2. **#6 plan generation rate limit** — backend 429 + iOS badge + disabled state
-3. **#9 switch rate limit** — backend 429 + iOS greyed-out state + remaining count badge
-4. **#9 background fetch** — `BGAppRefreshTask` for midnight suggestion pre-fetch
-5. **#1 intervals.icu server fix** — backend config + iOS improved error message
+1. **#12 extended intervals.icu data** — sleep HR, sleep stages graph, VO2Max trend, fitness/fatigue/form chart
+2. **#13 Strava integration** — OAuth connect flow, activity sync, field-level merge with `ActivitySourcePriority`
+3. **#6 plan generation rate limit** — backend 429 + iOS badge + disabled state
+4. **#9 switch rate limit** — backend 429 + iOS greyed-out state + remaining count badge
+5. **#9 background fetch** — `BGAppRefreshTask` for midnight suggestion pre-fetch
+6. **#1 intervals.icu server fix** — backend config + iOS improved error message
 
 ---
 
@@ -474,3 +477,120 @@ The navigation lives in the block header row, replacing the plain "WEEK AT A GLA
 - ✅ In `PlanView`: removed the `weekPicker` scroller; `weekOffset` drives `WeekGlanceView`; the sessions list updates per selected week.
 - ✅ Past-week session rows use the compact `SessionMatchCard` (actual stats, no effort graph).
 - 🟡 Future cap is the last loaded plan week (currently +1, since the AI plan generates this week + next), not a hardcoded +2. Past weeks are limited to recently-synced activities (`weekActivities`); deeper history would need a date-ranged fetch (`GET /activities?from=&to=`, which the backend already supports) — a follow-up.
+
+---
+
+## 12. 🟡 Extended intervals.icu Data
+
+**Goal:** Leverage the richer wellness and performance data that intervals.icu exposes beyond what is currently fetched — specifically sleep detail, VO2Max history, and the fitness/fatigue/form (CTL/ATL/TSB) chart — and surface them in dedicated views in the app.
+
+### New data to fetch
+
+**Sleep detail (from `/athlete/{id}/wellness`):**
+- Resting / sleeping heart rate (distinct from waking RHR)
+- Sleep stages: light, deep, REM, awake — returned as durations per stage
+- Sleep score (intervals.icu composite, 0–100)
+- HRV RMSSD (already fetched but may have a more complete series here)
+
+**VO2Max estimate (from `/athlete/{id}/wellness` or activities):**
+- Estimated VO2Max per activity (running: pace+HR based; cycling: power based)
+- Rolling trend — display as a line chart in the Metrics view and Readiness Detail
+
+**Fitness / Fatigue / Form (CTL / ATL / TSB) — from `/athlete/{id}/ctl`:**
+- CTL (chronic training load / fitness) — rolling 42-day weighted average load
+- ATL (acute training load / fatigue) — rolling 7-day weighted average load
+- TSB (training stress balance / form) = CTL − ATL
+- Returned as a time series; display as a multi-line or stacked area chart
+
+### Where to show the data
+
+**Readiness Detail Sheet (`ReadinessDetailView`):**
+- Replace the current plain TSB single-value card with the full **Fitness vs Fatigue** area chart (CTL + ATL lines over 8 weeks, TSB as a filled band below).
+- Add **Sleep Stages** as a stacked bar chart (light / deep / REM / awake per night, 7-day window).
+- Add **Sleeping HR** trend line (distinct from daytime RHR) if available.
+- Add **VO2Max** trend line if available (14-day window).
+
+**Metrics view (`MetricsView`):**
+- Add a "Performance" section with the CTL/ATL/TSB chart.
+- Add VO2Max as a metric card with its own detail view and trend chart.
+
+### Tasks:
+- ✅ Extend the wellness normalizer to capture VO2Max; CTL/ATL already come from wellness (`atl`/`ctl`).
+- 🟡 CTL/ATL/TSB series exposed via the metrics endpoint (`ctl_series`/`atl_series`, TSB derived); no separate `/ctl` endpoint needed.
+- 🟡 Added `ctlSeries`, `atlSeries`, `vo2maxSeries`, `vo2max` to `TrainingMetrics`. `sleepStages`/`sleepingHR` skipped — intervals wellness returns no stage breakdown and no distinct sleeping HR.
+- ✅ Built `FitnessFatigueChart` (CTL green + ATL orange lines, Form/TSB shaded band, legend with current values).
+- ⬜ `SleepStagesChart` skipped — no per-stage data from intervals.icu.
+- ✅ Embedded the Fitness/Fatigue chart in `ReadinessDetailView` (replacing the plain TSB line) and `MetricsView`.
+- ✅ Added VO2Max trend to `ReadinessDetailView` and as a card in `MetricsView`.
+- ⬜ Sleeping-HR trend skipped (not distinct in intervals wellness; waking RHR chart already present).
+
+**Migration:** `0004_vo2max.sql` adds `daily_metrics.vo2max`.
+
+---
+
+## 13. ⬜ Strava Integration + Cross-Source Activity Data Merging
+
+**Goal:** Add Strava as a second supported sport-activity integration. For users without intervals.icu, Strava provides activity data (GPS, pace, HR, cadence, elevation). When both integrations are active, merge activity data field-by-field using a per-field source priority, so no data is discarded — whichever source has a field the other lacks, that field is used.
+
+### Why Strava
+
+- Strava is the most widely used sports tracking platform — a large share of recreational athletes log there exclusively.
+- intervals.icu has deeper analytics (CTL/ATL/TSB, wellness, structured workouts), but Strava has broader adoption.
+- The priority model ensures Strava supplements intervals.icu rather than conflicting with it.
+
+### OAuth connect flow
+
+- Credentials: `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` stored in backend environment variables only — never in client code or committed files.
+- Flow: standard OAuth 2.0 with PKCE. The backend holds the refresh token; the iOS app triggers connect via a backend-mediated redirect (same pattern as intervals.icu).
+- Scopes required: `activity:read_all` (to read all activities including private ones).
+- Add Strava as a card in `IntegrationsView` (currently in the "Coming soon" section — promote it to "Connected" once implemented).
+
+### Data fetched from Strava
+
+- Activities list: id, type, start date, elapsed time, distance, moving time, average HR, max HR, average cadence, average watts (if power meter), total elevation gain, start lat/lng.
+- Activity streams (per activity): time, heartrate, velocity_smooth, cadence, watts, altitude, latlng — same shape as intervals.icu streams, returned from `GET /activities/{id}/streams`.
+- Athlete profile: VO2Max estimate (if Strava has it), FTP (if set).
+- Note: Strava does NOT provide sleep data, HRV, or CTL/ATL/TSB — those remain intervals.icu–only.
+
+### Cross-source activity data merging (field-level priority)
+
+**Core principle:** when the same activity exists in two sources (matched by date + sport + duration), merge field-by-field. The higher-priority source wins for any field it provides; the lower-priority source fills in fields the higher source lacks.
+
+**`ActivitySourcePriority`** — a new user-configurable ordered list of sources per data category:
+
+| Category | Fields | Default priority |
+|----------|--------|-----------------|
+| Wellness / recovery | HRV, RHR, sleep, VO2Max, CTL/ATL | intervals.icu → Apple Health → Manual |
+| Activity summary | distance, avg HR, avg pace, load/TSS | intervals.icu → Strava → Garmin → Apple Health |
+| Activity streams | HR trace, pace trace, power, cadence, elevation | intervals.icu → Strava → Garmin |
+
+**Merge algorithm (per matched activity):**
+1. Collect all source records for the activity (intervals.icu, Strava, Garmin, Apple Health).
+2. For each field, iterate the priority list; take the first non-null value.
+3. Store the winning source per field in an `ActivityFieldSources` map so the UI can show provenance badges ("HR from intervals.icu", "distance from Strava").
+4. For time-series streams: if the higher-priority source has a stream, use it entirely. If it lacks a stream (e.g. no power from intervals.icu but Strava has it from a power meter), use the lower-priority source's stream for that channel.
+
+**User-configurable priority:**
+- Extend `MetricPriorityView` (Settings → Integrations → Source Priority) to include an "Activity data" section alongside the existing wellness section.
+- User can drag-reorder sources per category. Changes persist via the API.
+
+### `ActivitySourcePriority` model
+
+- New model alongside `MetricSourcePriority` — or extend it with activity-specific fields.
+- Stored in the athlete profile on the backend; synced on load like `MetricSourcePriority`.
+
+### Tasks:
+
+**Backend:**
+- ⬜ Add `STRAVA_CLIENT_ID` + `STRAVA_CLIENT_SECRET` to server environment (do not commit).
+- ⬜ Implement Strava OAuth token exchange and refresh endpoint (`POST /integrations/strava/connect`, `GET /integrations/strava/callback`).
+- ⬜ Implement activity sync from Strava (`GET /integrations/strava/sync`) — fetch activities and streams for the last 8 weeks on first connect, then webhook / incremental on subsequent syncs.
+- ⬜ Implement field-level activity merge on the backend using `ActivitySourcePriority`; return merged activity records to the iOS app.
+
+**iOS:**
+- ⬜ Add `StravaService` (or extend `IntervalsService` pattern) for OAuth connect/disconnect and status.
+- ⬜ Add Strava card to `IntegrationsView` — show connection status, last sync time, disconnect action.
+- ⬜ Extend `MetricPriorityView` with an "Activity data" priority section (drag-reorder sources).
+- ⬜ Extend `ActivitySourcePriority` / `MetricSourcePriority` model to cover per-activity-field priorities.
+- ⬜ In `WorkoutDetailView` activity graphs section, show per-stream source badges when streams come from different sources (e.g. "HR · intervals.icu", "Power · Strava").
+- ⬜ Handle the case where only Strava is connected (no intervals.icu): Strava becomes the sole activity source, with Apple Health supplementing wellness fields.

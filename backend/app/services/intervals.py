@@ -166,6 +166,7 @@ def normalize_intervals_wellness(raw: dict) -> dict:
         # Fitness/Fatigue computed by intervals.icu.
         "atl": raw.get("atl"),   # acute load (fatigue)
         "ctl": raw.get("ctl"),   # chronic load (fitness)
+        "vo2max": raw.get("vo2max"),  # §12 — estimate, when present
     }
 
 

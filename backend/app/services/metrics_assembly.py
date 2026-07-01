@@ -104,7 +104,7 @@ def resolve_readings(
                 merged[f] = rows[winner][f]
         provenance[metric] = winner
     iv = rows.get("intervals", {})
-    for f in ("atl", "ctl", "hrv_baseline_hint"):
+    for f in ("atl", "ctl", "hrv_baseline_hint", "vo2max"):
         if iv.get(f) is not None:
             merged[f] = iv[f]
     return merged, provenance
@@ -224,6 +224,7 @@ async def assemble_daily_metrics(session: AsyncSession, user_id: str, date: dt.d
         "today_load": 0.0,
         "weekly_load_change": weekly_change,
         "body_weight": float(merged["body_weight"]) if merged.get("body_weight") is not None else None,
+        "vo2max": float(merged["vo2max"]) if merged.get("vo2max") is not None else None,
         "metric_sources": provenance,
     }
 

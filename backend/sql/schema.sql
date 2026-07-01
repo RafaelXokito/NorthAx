@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS daily_metrics (
   weekly_load_change   NUMERIC(5,4) NOT NULL,
 
   body_weight          NUMERIC(5,2),
+  vo2max               NUMERIC(5,2),   -- §12 — intervals.icu VO2Max estimate
 
   -- Cached AI readiness explanation (§8.1). NULL until first computed.
   ai_explanation       JSONB,
@@ -69,6 +70,7 @@ CREATE TABLE IF NOT EXISTS daily_metrics (
 );
 CREATE INDEX IF NOT EXISTS daily_metrics_user_date_idx ON daily_metrics(user_id, date DESC);
 ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS metric_sources JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS vo2max NUMERIC(5,2);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- metric_readings — one source's raw wellness contribution per day; daily_metrics

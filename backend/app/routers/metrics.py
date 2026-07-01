@@ -38,6 +38,7 @@ def _to_response(
         today_load=float(row.today_load),
         weekly_load_change=float(row.weekly_load_change),
         body_weight=float(row.body_weight) if row.body_weight is not None else None,
+        vo2max=float(row.vo2max) if getattr(row, "vo2max", None) is not None else None,
         metric_sources=dict(getattr(row, "metric_sources", {}) or {}),
         **(series or {}),
     )
@@ -61,7 +62,25 @@ async def _series(
         "resting_hr_series": [float(r.resting_hr) for r in rows],
         "sleep_series": [float(r.sleep_duration) for r in rows],
         "tsb_series": [float(r.chronic_load) - float(r.acute_load) for r in rows],
+        "ctl_series": [float(r.chronic_load) for r in rows],
+        "atl_series": [float(r.acute_load) for r in rows],
+        "vo2max_series": _forward_fill([r.vo2max for r in rows]),
     }
+
+
+def _forward_fill(values: list) -> list[float]:
+    """Carry the last known value forward (and backfill leading gaps) so a
+    sparse metric like VO2Max plots as a continuous line. Empty if all null."""
+    out: list[float | None] = []
+    last: float | None = None
+    for v in values:
+        if v is not None:
+            last = float(v)
+        out.append(last)
+    first = next((x for x in out if x is not None), None)
+    if first is None:
+        return []
+    return [x if x is not None else first for x in out]
 
 
 async def _get_by_date(session: AsyncSession, user_id: str, date: dt.date) -> DailyMetrics | None:
