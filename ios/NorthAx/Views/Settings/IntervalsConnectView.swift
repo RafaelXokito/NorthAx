@@ -62,7 +62,7 @@ struct IntervalsConnectView: View {
             if store.intervals.connectionState.isConnected {
                 HStack(spacing: 10) {
                     Button {
-                        Task { await store.intervals.syncActivities() }
+                        Task { await store.intervals.syncActivities(); await store.loadActivities() }
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.clockwise")
@@ -92,7 +92,7 @@ struct IntervalsConnectView: View {
                 }
             } else {
                 Button {
-                    Task { await store.intervals.connect() }
+                    Task { await store.intervals.connect(); await store.loadActivities() }
                 } label: {
                     HStack(spacing: 8) {
                         if case .connecting = store.intervals.connectionState {
