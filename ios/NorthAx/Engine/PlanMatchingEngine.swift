@@ -58,6 +58,15 @@ struct SessionMatch: Identifiable {
     }()
 }
 
+/// One navigable week (§11): the plan (or a synthesized past week) plus its
+/// matches. `isHistorical` weeks are built from imported activities only.
+struct WeekData {
+    let offset: Int
+    let week: WeeklyPlan
+    let matches: [SessionMatch]
+    let isHistorical: Bool
+}
+
 /// Client-side matching of a week's planned sessions to imported workouts
 /// (§7 of the plan). Match on same calendar day + same sport; when several
 /// workouts fit, pick the one closest in duration to the planned session.

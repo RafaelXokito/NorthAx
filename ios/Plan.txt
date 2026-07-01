@@ -17,15 +17,15 @@
 | 8 | Readiness Ring — Compact + Detail Popup | ✅ Done — `ReadinessDetailView` with trend graphs; main page ring is compact and tappable |
 | 9 | Daily Pre-fetched AI Switch Suggestions | 🟡 Partial — `SwitchSuggestion` model, AI suggestions in `WorkoutDetailView`, loading shimmer, deterministic fallback done; **rate limit (2×/day) and `BGAppRefreshTask` not yet implemented** |
 | 10 | Activity Graphs in Completed Workout View | ✅ Done — `ActivityStreams` + `ActivityStreamChart` in `WorkoutDetailView` (HR w/ zone bands, power+FTP line, speed, elevation, cadence). Needs intervals.icu connected (#1) for real data |
+| 11 | Week Navigation in Week at a Glance | ✅ Done — nav header (◀ label ▶) + swipe in `WeekGlanceView` on both Dashboard & Plan; Plan week picker removed; past weeks from recently-synced activities |
 
 ### Remaining work (priority order)
 
-1. **#7 activity graphs** — `ActivityGraphData` model + HR/pace/power/elevation/cadence charts in `WorkoutDetailView` for completed sessions
+1. **#11 week navigation** — arrow nav + swipe in `WeekGlanceView`, historical past-week data, Plan page week picker removal
 2. **#6 plan generation rate limit** — backend 429 + iOS badge + disabled state
 3. **#9 switch rate limit** — backend 429 + iOS greyed-out state + remaining count badge
 4. **#9 background fetch** — `BGAppRefreshTask` for midnight suggestion pre-fetch
 5. **#1 intervals.icu server fix** — backend config + iOS improved error message
-6. **#10** — same as #7 activity graphs (covered above)
 
 ---
 
@@ -409,3 +409,68 @@ Opens as a modal sheet (large detent) when the ring is tapped. Contains:
 - 🟡 Reference lines: FTP line on the power chart done; overlaying the *planned* pace/power target not done (plan targets are zone-based, not a single value).
 - ✅ Show a source badge in the section (from the matched integration).
 - ✅ Skip the section entirely for planned or missed sessions (only shown for `.done` with stream data).
+
+---
+
+## 11. ✅ Week Navigation in "Week at a Glance"
+
+**Goal:** Both the Dashboard (main page) and the Plan page "Week at a Glance" block should let the user browse past and future weeks with a simple, consistent navigation control embedded directly in the block — no separate picker strip.
+
+### Constraints
+
+- **Past:** unlimited — the user can scroll back through any historical week.
+- **Future:** max 2 weeks ahead of the current week (the AI plan only generates 2 weeks forward).
+- Navigation must be identical in both Dashboard and Plan page so the experience is consistent.
+
+### UI Design
+
+The navigation lives in the block header row, replacing the plain "WEEK AT A GLANCE" label:
+
+```
+◀  Week of 30 Jun – 6 Jul  ▶
+```
+
+- Left `◀` arrow: always enabled for past weeks; the right `▶` arrow is disabled (greyed) when at +2 weeks.
+- The centre label shows the week date range (Mon–Sun). When offset = 0 it reads **"This week"**, ±1 reads **"Last week"** / **"Next week"**, ±2 reads **"2 weeks ago"** / **"In 2 weeks"**.
+- Arrows are `Button` with `.axTertiary` style when disabled, `.white` when enabled.
+- **Swipe gesture** on the strip: swipe left = next week, swipe right = previous week (capped at +2). Uses a `DragGesture` with a 50pt threshold to avoid conflicting with the outer scroll view.
+- Tapping a day in the strip on the Dashboard jumps to that day's session card (or, for a non-current week, opens a compact past-week summary sheet).
+
+### Data model per week offset
+
+| Offset | Source | Content shown |
+|--------|--------|---------------|
+| < 0 (past) | intervals.icu imported activities grouped by week | Actual completed workouts only — sport icon, duration, done marker. No planned targets. |
+| 0 (current) | AI plan + `PlanMatchingEngine` | Planned sessions + completion state matched against imports — existing behaviour. |
+| +1 / +2 (future) | AI plan only | Planned sessions, all shown as "Planned" (no completion state yet). |
+
+### Dashboard vs Plan page differences
+
+**Dashboard:**
+- The `WeekGlanceView` strip remains compact (dots + icons). For non-current weeks, the "Today's session" card below is hidden and replaced by a compact "No session data" message or a week-summary row showing total sessions completed.
+- Tapping a day dot on a past week opens a lightweight `PastDaySheet` showing that day's imported workout(s) summary (sport, duration, load). No planned vs actual comparison — just the raw imported data.
+- Navigating away from the current week shows a subtle "← Back to this week" pill below the strip.
+
+**Plan page:**
+- The existing horizontal week-tab scroller (`weekPicker`) is removed; the `WeekGlanceView` header arrows replace it.
+- The sessions list below updates to show the selected week's sessions (planned for future weeks, actual imports for past weeks).
+- For past weeks, session rows show actual workout data (sport, actual duration, distance if available) styled differently from planned rows (no target intensity, no effort graph block — show a compact stats row instead).
+
+### `AthleteStore` changes
+
+- Add `func weekData(offset: Int) async -> WeekData` — returns a `WeekData` struct containing days + matches for that week offset.
+  - offset ≥ 0: resolved from `weeklyPlans` (already loaded).
+  - offset < 0: fetches the date range from `IntervalsService` (cached by ISO week key in a local dict).
+- Add `historicalWeeks: [Int: WeekData]` cache dict to `AthleteStore` so past weeks aren't re-fetched on every swipe.
+
+### Tasks:
+
+- ✅ Add `weekOffset` state (binding passed into `WeekGlanceView` from each parent).
+- ✅ Replace the plain section label in `WeekGlanceView` with the navigation header row (◀ label ▶ + date range).
+- ✅ Add a `DragGesture` on the strip for swipe-to-change-week (left = next, right = prev, capped at `maxForward`).
+- ✅ Add `func weekData(offset:)` to `AthleteStore` (offset ≥ 0 → plan; offset < 0 → synthesized from imports).
+- ✅ In `DashboardView`: hide the "Today's session" section when `weekOffset != 0`; show a week-summary card + "← Back to this week" pill.
+- 🟡 Tapping a past day opens `WorkoutDetailView` for that completed workout (reuses the existing detail incl. activity graphs) rather than a separate `PastDaySheet`.
+- ✅ In `PlanView`: removed the `weekPicker` scroller; `weekOffset` drives `WeekGlanceView`; the sessions list updates per selected week.
+- ✅ Past-week session rows use the compact `SessionMatchCard` (actual stats, no effort graph).
+- 🟡 Future cap is the last loaded plan week (currently +1, since the AI plan generates this week + next), not a hardcoded +2. Past weeks are limited to recently-synced activities (`weekActivities`); deeper history would need a date-ranged fetch (`GET /activities?from=&to=`, which the backend already supports) — a follow-up.

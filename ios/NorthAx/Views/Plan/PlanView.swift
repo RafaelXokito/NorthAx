@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PlanView: View {
     @Environment(AthleteStore.self) private var store
-    @State private var selectedWeekIndex: Int = 0
+    @State private var weekOffset = 0
     @State private var showPlanSetup = false
     @State private var selectedMatch: SessionMatch?
 
@@ -16,17 +16,16 @@ struct PlanView: View {
                 } else {
                     VStack(spacing: 20) {
                         if store.planWasRecentlyUpdated { planUpdatedBanner }
-                        weekPicker
-                        if let week = currentWeek {
-                            let matches = selectedWeekMatches
-                            WeekGlanceView(week: week, matches: matches) { date in
-                                if let target = matches.first(where: { $0.day.date == date }) {
+                        if let data = store.weekData(offset: weekOffset) {
+                            WeekGlanceView(week: data.week, matches: data.matches,
+                                           offset: $weekOffset, maxForward: store.maxFutureWeekOffset) { date in
+                                if let target = data.matches.first(where: { $0.day.date == date }) {
                                     withAnimation(.spring(duration: 0.35)) {
                                         proxy.scrollTo(target.id, anchor: .top)
                                     }
                                 }
                             }
-                            weekSessions(matches)
+                            weekSessions(data)
                         } else {
                             emptyState
                         }
@@ -47,22 +46,7 @@ struct PlanView: View {
                 FrequencyOnboardingView().environment(store)
             }
             .sheet(item: $selectedMatch) { WorkoutDetailView(match: $0) }
-            .onAppear {
-                if let idx = store.weeklyPlans.firstIndex(where: { $0.isCurrentWeek }) {
-                    selectedWeekIndex = idx
-                }
-            }
-            .onChange(of: store.weeklyPlans) { _, _ in
-                if let idx = store.weeklyPlans.firstIndex(where: { $0.isCurrentWeek }) {
-                    selectedWeekIndex = idx
-                }
-            }
         }
-    }
-
-    private var currentWeek: WeeklyPlan? {
-        guard !store.weeklyPlans.isEmpty, selectedWeekIndex < store.weeklyPlans.count else { return nil }
-        return store.weeklyPlans[selectedWeekIndex]
     }
 
     // MARK: - Plan updated banner
@@ -85,52 +69,22 @@ struct PlanView: View {
         .animation(.spring(duration: 0.4), value: store.planWasRecentlyUpdated)
     }
 
-    // MARK: - Week picker
-
-    private var weekPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Array(store.weeklyPlans.enumerated()), id: \.0) { idx, week in
-                    Button {
-                        withAnimation(.spring(duration: 0.3)) { selectedWeekIndex = idx }
-                    } label: {
-                        Text(week.weekLabel)
-                            .font(.system(size: 13, weight: selectedWeekIndex == idx ? .semibold : .regular))
-                            .foregroundStyle(selectedWeekIndex == idx ? .axPrimary : .axSecondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(selectedWeekIndex == idx
-                                        ? Color.axAccent.opacity(0.18)
-                                        : Color.white.opacity(0.05))
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(
-                                selectedWeekIndex == idx ? Color.axAccent.opacity(0.5) : Color.clear,
-                                lineWidth: 1))
-                    }
-                }
-            }
-        }
-    }
-
     // MARK: - Week sessions (with live completion state)
 
-    private var selectedWeekMatches: [SessionMatch] {
-        guard let week = currentWeek else { return [] }
-        return PlanMatchingEngine.matches(week: week, activities: store.weekActivities)
-    }
-
-    private func weekSessions(_ matches: [SessionMatch]) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionLabel((currentWeek?.isCurrentWeek ?? false) ? "THIS WEEK" : "PLANNED SESSIONS")
-            if matches.isEmpty {
-                Text("No training days this week.")
+    private func weekSessions(_ data: WeekData) -> some View {
+        let label = data.isHistorical ? "COMPLETED WORKOUTS"
+            : (data.offset == 0 ? "THIS WEEK" : "PLANNED SESSIONS")
+        return VStack(alignment: .leading, spacing: 14) {
+            sectionLabel(label)
+            if data.matches.isEmpty {
+                Text(data.isHistorical ? "No workouts imported for this week." : "No training days this week.")
                     .font(.subheadline)
                     .foregroundStyle(.axTertiary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(matches) { m in
+                    ForEach(data.matches) { m in
                         Button { selectedMatch = m } label: { SessionMatchCard(match: m) }
                             .buttonStyle(.plain)
                             .id(m.id)

@@ -331,6 +331,62 @@ class AthleteStore {
         return PlanMatchingEngine.matches(week: week, activities: weekActivities)
     }
 
+    // MARK: - Week navigation (§11)
+
+    /// Monday of the ISO week containing `date` (matches the backend's weekStart).
+    private static func isoMonday(of date: Date) -> Date {
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = .current
+        let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        return cal.date(from: comps) ?? date
+    }
+
+    /// Furthest future week (in whole weeks from this week) that the plan covers.
+    /// The right arrow is disabled beyond this.
+    var maxFutureWeekOffset: Int {
+        let base = Self.isoMonday(of: Date())
+        let cal = Calendar.current
+        let offsets = weeklyPlans.map { plan -> Int in
+            let days = cal.dateComponents([.day], from: base, to: Self.isoMonday(of: plan.weekStart)).day ?? 0
+            return Int((Double(days) / 7.0).rounded())
+        }
+        return Swift.max(0, offsets.max() ?? 0)
+    }
+
+    /// The plan (offset ≥ 0) or a past week synthesized from imported activities
+    /// (offset < 0), paired with completion state. Past weeks are limited to the
+    /// recently-synced activities in `weekActivities`.
+    func weekData(offset: Int) -> WeekData? {
+        let cal = Calendar.current
+        let base = Self.isoMonday(of: Date())
+        guard let start = cal.date(byAdding: .day, value: offset * 7, to: base) else { return nil }
+
+        if offset >= 0 {
+            guard let plan = weeklyPlans.first(where: {
+                (cal.dateComponents([.day], from: start, to: Self.isoMonday(of: $0.weekStart)).day ?? 99) == 0
+            }) else { return nil }
+            return WeekData(offset: offset, week: plan,
+                            matches: PlanMatchingEngine.matches(week: plan, activities: weekActivities),
+                            isHistorical: false)
+        }
+
+        guard let end = cal.date(byAdding: .day, value: 7, to: start) else { return nil }
+        let acts = weekActivities.filter { $0.startTime >= start && $0.startTime < end }
+        let days: [PlannedDay] = (0..<7).map { i in
+            let date = cal.date(byAdding: .day, value: i, to: start)!
+            let dayActs = acts.filter { cal.isDate($0.startTime, inSameDayAs: date) }
+            let sessions = dayActs.map {
+                PlannedSession(domain: $0.type.domain, title: $0.name, subtitle: "",
+                               duration: Int($0.duration / 60), intensityLabel: "")
+            }
+            return PlannedDay(date: date, sessions: sessions, isRest: sessions.isEmpty)
+        }
+        let week = WeeklyPlan(weekStart: start, days: days)
+        return WeekData(offset: offset, week: week,
+                        matches: PlanMatchingEngine.matches(week: week, activities: acts),
+                        isHistorical: true)
+    }
+
     // MARK: - Daily switch suggestions (§9)
 
     private static let lastSuggestionFetchKey = "northax.lastSuggestionFetchDate"

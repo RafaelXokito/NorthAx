@@ -1,29 +1,82 @@
 import SwiftUI
 
-/// The 7-day strip at the top of the plan-centric dashboard (§7). Each day shows
-/// its planned sport(s) (or a rest icon) and a completion state derived from
-/// matched workouts. Today is highlighted; tapping a day scrolls to its card.
+/// The 7-day strip with week navigation (§7 + §11). The header row (◀ label ▶)
+/// and a swipe gesture browse past/future weeks; past is unlimited, future is
+/// capped at `maxForward`. Each day shows its planned sport(s) / rest and a
+/// completion state derived from matched workouts.
 struct WeekGlanceView: View {
     let week: WeeklyPlan
     let matches: [SessionMatch]
+    @Binding var offset: Int
+    let maxForward: Int
     let onSelectDay: (Date) -> Void
+
+    private var canForward: Bool { offset < maxForward }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("WEEK AT A GLANCE")
-            HStack(spacing: 0) {
-                ForEach(week.days) { day in
-                    dayColumn(day)
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                        .onTapGesture { onSelectDay(day.date) }
-                }
-            }
-            .padding(16)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.axBorder, lineWidth: 1))
+            navHeader
+            daysRow
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 24)
+                        .onEnded { g in
+                            if g.translation.width < -50 { step(1) }
+                            else if g.translation.width > 50 { step(-1) }
+                        }
+                )
         }
+    }
+
+    // MARK: - Navigation header
+
+    private var navHeader: some View {
+        HStack {
+            Button { step(-1) } label: {
+                Image(systemName: "chevron.left").font(.subheadline.bold())
+            }
+            .foregroundStyle(.white)
+
+            Spacer()
+
+            VStack(spacing: 2) {
+                Text(relativeLabel)
+                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.axPrimary).tracking(1)
+                Text(dateRange)
+                    .font(.system(size: 10)).foregroundStyle(.axTertiary)
+            }
+
+            Spacer()
+
+            Button { step(1) } label: {
+                Image(systemName: "chevron.right").font(.subheadline.bold())
+            }
+            .foregroundStyle(canForward ? .white : .axTertiary.opacity(0.4))
+            .disabled(!canForward)
+        }
+    }
+
+    private func step(_ delta: Int) {
+        let next = offset + delta
+        guard next <= maxForward else { return }   // past is unlimited
+        withAnimation(.spring(duration: 0.3)) { offset = next }
+    }
+
+    // MARK: - Days row
+
+    private var daysRow: some View {
+        HStack(spacing: 0) {
+            ForEach(week.days) { day in
+                dayColumn(day)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onSelectDay(day.date) }
+            }
+        }
+        .padding(16)
+        .background(Color.axSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private func dayColumn(_ day: PlannedDay) -> some View {
@@ -35,9 +88,7 @@ struct WeekGlanceView: View {
                 .tracking(0.5)
 
             ZStack {
-                Circle()
-                    .fill(dotFill(day, state))
-                    .frame(width: 36, height: 36)
+                Circle().fill(dotFill(day, state)).frame(width: 36, height: 36)
                 if day.isToday {
                     Circle().stroke(Color.axAccent, lineWidth: 1.5).frame(width: 36, height: 36)
                 }
@@ -46,7 +97,6 @@ struct WeekGlanceView: View {
                     .foregroundStyle(dotIconColor(day, state))
             }
 
-            // Completion tick / state marker under the dot.
             Image(systemName: state.icon)
                 .font(.system(size: 9))
                 .foregroundStyle(state == .rest ? .axTertiary : state.color)
@@ -72,10 +122,21 @@ struct WeekGlanceView: View {
         return day.sessions.first?.domain.color ?? .axTertiary
     }
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
+    // MARK: - Labels
+
+    private var relativeLabel: String {
+        switch offset {
+        case 0:  return "THIS WEEK"
+        case -1: return "LAST WEEK"
+        case 1:  return "NEXT WEEK"
+        case ..<(-1): return "\(-offset) WEEKS AGO"
+        default: return "IN \(offset) WEEKS"
+        }
+    }
+
+    private var dateRange: String {
+        let f = DateFormatter(); f.dateFormat = "MMM d"
+        let end = Calendar.current.date(byAdding: .day, value: 6, to: week.weekStart) ?? week.weekStart
+        return "\(f.string(from: week.weekStart)) – \(f.string(from: end))"
     }
 }
