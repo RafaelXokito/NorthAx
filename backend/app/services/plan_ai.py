@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..engines import readiness as r_engine
+from ..engines import workouts
 from ..engines.plan import generate_plans, monday_of
 from ..models import Activity, DailyMetrics, UserPreferences, WeeklyPlanRow
 from . import ai, mappers
@@ -101,10 +102,10 @@ def _enumerate_sessions(plans):
     return id_map, "\n".join(lines)
 
 
-def apply_overrides(id_map: dict, parsed: dict) -> None:
+def apply_overrides(id_map: dict, parsed: dict, cycling_target: str) -> None:
     """Merge validated AI fields into the skeleton sessions in place. Unknown ids,
-    out-of-range durations, and off-vocabulary intensities are ignored so a
-    partial or noisy response still yields a valid plan."""
+    out-of-range durations, off-vocabulary intensities, and malformed blocks are
+    ignored so a partial or noisy response still yields a valid plan."""
     for entry in parsed.get("sessions", []):
         if not isinstance(entry, dict):
             continue
@@ -125,6 +126,12 @@ def apply_overrides(id_map: dict, parsed: dict) -> None:
             s.duration = int(duration)
         if isinstance(intensity, str) and intensity.strip() in _ALLOWED_INTENSITIES:
             s.intensity_label = intensity.strip()
+        # Endurance sessions: adopt the AI's structured blocks when they validate
+        # (zones → intervals.icu tokens happen in build_from_ai_blocks). Malformed
+        # or non-endurance → None, and plan_days_to_json falls back deterministically.
+        built = workouts.build_from_ai_blocks(s.domain.value, cycling_target, entry.get("blocks"))
+        if built is not None:
+            s.workout_override = workouts.workout_to_dict(built)
 
 
 async def prepare(

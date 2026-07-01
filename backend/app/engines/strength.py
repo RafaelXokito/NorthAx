@@ -40,6 +40,16 @@ def _intensity_for(status: Status) -> Intensity:
     return LIGHT  # low, rest
 
 
+def _intensity_from_label(label: str) -> Intensity:
+    """Map a plan session's intensity label (Hard/Moderate/Easy/…) to a loading tier."""
+    normalized = label.strip().lower()
+    if normalized in ("heavy", "hard", "threshold", "vo2", "vo2 max", "max"):
+        return HEAVY
+    if normalized in ("moderate", "tempo"):
+        return MODERATE
+    return LIGHT  # easy, very easy, light, minimal, recovery
+
+
 # ── Exercise database ────────────────────────────────────────────────────────
 # (name, is_compound, note)  — order matters; selection takes the prefix.
 _DB: dict[MuscleGroup, list[tuple[str, bool, str | None]]] = {
@@ -155,6 +165,12 @@ def _build_exercises(groups: list[MuscleGroup], intensity: Intensity) -> list[Ex
                 )
             )
     return result
+
+
+def exercises_for(groups: list[MuscleGroup], intensity_label: str) -> list[ExerciseSuggestion]:
+    """Curated exercise breakdown for a plan's strength session — same movement DB
+    and loading rules as generate_session, driven by the session's intensity label."""
+    return _build_exercises(groups, _intensity_from_label(intensity_label))
 
 
 def _estimate_duration(exercises: list[ExerciseSuggestion]) -> int:

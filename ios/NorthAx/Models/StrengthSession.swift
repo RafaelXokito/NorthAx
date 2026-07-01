@@ -1,6 +1,6 @@
 import Foundation
 
-struct ExerciseSuggestion: Identifiable {
+struct ExerciseSuggestion: Identifiable, Equatable {
     var id = UUID()
     var name: String
     var muscleGroup: MuscleGroup

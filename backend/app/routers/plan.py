@@ -93,7 +93,7 @@ async def generate_ai(
     if id_map:
         parsed = await ai.plan_generate(context, block)
         if parsed:
-            plan_ai.apply_overrides(id_map, parsed)
+            plan_ai.apply_overrides(id_map, parsed, cycling_target)
 
     # Phase 3 — write: upsert + trim, then build the DTOs while still attached.
     async with session_scope(user_id) as session:

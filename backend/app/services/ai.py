@@ -68,11 +68,20 @@ PLAN_SYSTEM = (
     "ease off when readiness or recent load is poor), and tailor the work to the athlete's "
     "history and current metrics. For Strength sessions keep the focus on the muscle groups "
     "noted for that day. "
+    "For ENDURANCE sessions (Cycling, Running, Swimming) you MUST also return a `blocks` array "
+    "giving the concrete structure, so the breakdown matches your subtitle: a warm-up, the main "
+    "work, and a cool-down. Use a repeated block for intervals — e.g. 5×(4 min hard / 2 min easy) "
+    "is one block with repeat=5 and two steps. Each step has `cue` (Warm-up, Work, Recovery, "
+    "Steady, Cool-down, …), `minutes` (integer > 0), and `zone` (1=recovery, 2=endurance, "
+    "3=tempo, 4=threshold, 5=VO2max). The step minutes times their repeats should sum to roughly "
+    "the session duration. Do NOT return `blocks` for Strength, Mobility, or Recovery sessions. "
     f"intensityLabel MUST be exactly one of: {', '.join(PLAN_INTENSITIES)}. "
     "duration is an integer number of minutes between 15 and 240. "
     "Reply with ONLY a JSON object, no prose, no markdown fences, shaped exactly as: "
     '{"sessions": [{"id": <int>, "title": "<string>", "subtitle": "<string>", '
-    '"duration": <int>, "intensityLabel": "<one of the allowed values>"}, ...]}.'
+    '"duration": <int>, "intensityLabel": "<one of the allowed values>", '
+    '"blocks": [{"repeat": <int>, "steps": [{"cue": "<string>", "minutes": <int>, "zone": <1-5>}]}]}, ...]} '
+    "(omit blocks for non-endurance sessions)."
 )
 
 

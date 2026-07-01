@@ -11,6 +11,7 @@ from ..engines.enums import (
     TrainingFrequency,
     WeeklyMuscleGroupSplit,
 )
+from ..engines import strength as s_engine
 from ..engines import workouts
 from ..engines.plan import WeeklyPlan, monday_of
 from ..engines.readiness import Metrics, ReadinessResult
@@ -118,24 +119,43 @@ def split_from_prefs(muscle_group_split: list[dict]) -> WeeklyMuscleGroupSplit:
 
 
 # ── Plan serialization ───────────────────────────────────────────────────────
+def _exercise_to_json(e: s_engine.ExerciseSuggestion) -> dict:
+    return {
+        "name": e.name,
+        "muscleGroup": e.muscle_group.value,
+        "sets": e.sets,
+        "repsRange": e.reps_range,
+        "rest": e.rest,
+        "notes": e.notes,
+    }
+
+
 def plan_days_to_json(plan: WeeklyPlan, cycling_target: str = "hr") -> list[dict]:
     out: list[dict] = []
     for day in plan.days:
         sessions = []
         for s in day.sessions:
-            workout = workouts.workout_to_dict(
+            # Prefer the AI-authored structured workout; else derive it deterministically.
+            workout = s.workout_override or workouts.workout_to_dict(
                 workouts.build_workout(
                     s.domain.value, s.title, s.intensity_label, s.duration, cycling_target
                 )
             )
-            sessions.append({
+            entry = {
                 "domain": s.domain.value,
                 "title": s.title,
                 "subtitle": s.subtitle,
                 "duration": s.duration,
                 "intensityLabel": s.intensity_label,
                 "workout": workout,
-            })
+            }
+            # Strength sessions carry a movement-by-movement breakdown (curated DB,
+            # loaded per the session's intensity) instead of an effort graph.
+            groups = getattr(s, "muscle_groups", None)
+            if s.domain.value == "Strength" and groups:
+                exercises = s_engine.exercises_for(groups, s.intensity_label)
+                entry["exercises"] = [_exercise_to_json(e) for e in exercises]
+            sessions.append(entry)
         out.append({"date": day.date.isoformat(), "isRest": day.is_rest, "sessions": sessions})
     return out
 
@@ -159,6 +179,11 @@ def plan_dto_from_row(
                 duration=s["duration"],
                 intensity_label=s["intensityLabel"],
                 workout=s.get("workout"),
+                exercises=(
+                    [schemas.ExerciseDTO.model_validate(e) for e in s["exercises"]]
+                    if s.get("exercises")
+                    else None
+                ),
             )
             for s in entry.get("sessions", [])
         ]

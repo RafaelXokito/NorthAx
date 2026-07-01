@@ -74,7 +74,14 @@ extension PlannedSessionDTO {
         guard let d = TrainingDomain(rawValue: domain) else { return nil }
         return PlannedSession(
             domain: d, title: title, subtitle: subtitle ?? "",
-            duration: duration, intensityLabel: intensityLabel, workout: workout
+            duration: duration, intensityLabel: intensityLabel, workout: workout,
+            exercises: exercises?.compactMap { e in
+                guard let mg = MuscleGroup(rawValue: e.muscleGroup) else { return nil }
+                return ExerciseSuggestion(
+                    name: e.name, muscleGroup: mg, sets: e.sets,
+                    repsRange: e.repsRange, rest: e.rest, notes: e.notes
+                )
+            }
         )
     }
 }

@@ -236,7 +236,9 @@ struct PlanView: View {
             }
         }
 
-        if let workout = session.workout {
+        if let exercises = session.exercises, !exercises.isEmpty {
+            exerciseBreakdown(exercises)
+        } else if let workout = session.workout {
             WorkoutEffortGraphView(
                 workout: workout,
                 sport: session.domain,
@@ -250,6 +252,40 @@ struct PlanView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(
             day.isToday ? Color.axAccent.opacity(0.3) : Color.axBorder,
             lineWidth: 1))
+    }
+
+    // MARK: - Strength exercise breakdown
+
+    private func exerciseBreakdown(_ exercises: [ExerciseSuggestion]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Rectangle().fill(Color.axBorder).frame(height: 1)
+            ForEach(exercises) { ex in
+                HStack(alignment: .top, spacing: 10) {
+                    Text(ex.muscleGroup.rawValue.uppercased())
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.axAccent)
+                        .tracking(0.5)
+                        .frame(width: 64, alignment: .leading)
+                        .padding(.top, 2)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(ex.name)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.axPrimary)
+                            Spacer()
+                            Text(ex.setDisplay)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.axSecondary)
+                        }
+                        Text("Rest \(ex.rest)" + (ex.notes.map { " · \($0)" } ?? ""))
+                            .font(.caption2)
+                            .foregroundStyle(.axTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
     }
 
     private func dayLabel(_ day: PlannedDay) -> String {

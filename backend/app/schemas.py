@@ -328,6 +328,15 @@ class PaginatedActivities(_Base):
 
 
 # ── Plan (§6.7) ──────────────────────────────────────────────────────────────
+class ExerciseDTO(_Base):
+    name: str
+    muscle_group: str
+    sets: int
+    reps_range: str
+    rest: str
+    notes: str | None = None
+
+
 class WorkoutStepDTO(_Base):
     cue: str
     minutes: int
@@ -352,6 +361,7 @@ class PlannedSessionDTO(_Base):
     duration: int
     intensity_label: str
     workout: StructuredWorkoutDTO | None = None
+    exercises: list[ExerciseDTO] | None = None  # strength: movement breakdown
 
 
 class PlannedDayDTO(_Base):
@@ -390,15 +400,6 @@ class CoachMessageRequest(_Base):
 
 
 # ── Strength (§6.10) ─────────────────────────────────────────────────────────
-class ExerciseDTO(_Base):
-    name: str
-    muscle_group: str
-    sets: int
-    reps_range: str
-    rest: str
-    notes: str | None = None
-
-
 class StrengthSessionResponse(_Base):
     muscle_groups: list[str]
     title: str

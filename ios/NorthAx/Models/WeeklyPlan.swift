@@ -9,6 +9,7 @@ struct PlannedSession: Identifiable, Equatable {
     var duration: Int      // minutes
     var intensityLabel: String
     var workout: StructuredWorkoutDTO? = nil   // structured steps (targets in zones)
+    var exercises: [ExerciseSuggestion]? = nil // strength: movement breakdown
 
     /// Renderable lines for the structured workout, e.g. "5× · Work 8 min · Z4 HR".
     var workoutLines: [String] {

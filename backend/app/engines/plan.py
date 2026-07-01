@@ -19,6 +19,8 @@ class PlannedSession:
     subtitle: str
     duration: int
     intensity_label: str
+    muscle_groups: list = field(default_factory=list)  # MuscleGroup — strength only
+    workout_override: dict | None = None  # AI-authored structured workout (endurance)
 
 
 @dataclass
@@ -67,7 +69,10 @@ def _make_session(
         group_label = (
             "Full Body" if (day_split.is_rest_day or not day_split.muscle_groups) else day_split.display_name
         )
-        return PlannedSession(domain, group_label, "Gym · Per your weekly split", 60, "Moderate")
+        return PlannedSession(
+            domain, group_label, "Gym · Per your weekly split", 60, "Moderate",
+            muscle_groups=list(day_split.muscle_groups),
+        )
 
     if domain == TrainingDomain.swimming:
         variants = [

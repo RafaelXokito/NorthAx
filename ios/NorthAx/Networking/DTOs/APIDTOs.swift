@@ -105,6 +105,7 @@ struct PlannedSessionDTO: Codable {
     var duration: Int
     var intensityLabel: String
     var workout: StructuredWorkoutDTO?
+    var exercises: [ExerciseDTO]? = nil   // strength: movement breakdown
 }
 
 struct PlannedDayDTO: Decodable {
@@ -207,7 +208,7 @@ struct CoachMessageRequest: Encodable {
 
 // MARK: - Strength (§6.10)
 
-struct ExerciseDTO: Decodable {
+struct ExerciseDTO: Codable {
     var name: String
     var muscleGroup: String
     var sets: Int

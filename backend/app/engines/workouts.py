@@ -105,6 +105,41 @@ def build_workout(domain: str, title: str, intensity_label: str, duration_min: i
     ])
 
 
+def build_from_ai_blocks(domain: str, cycling_target: str, ai_blocks) -> StructuredWorkout | None:
+    """Turn AI-authored blocks — ``repeat`` + steps of ``{cue, minutes, zone 1-5}`` —
+    into a StructuredWorkout with proper intervals.icu tokens (zones mapped here so
+    the AI never has to know the token syntax). Returns None on empty/malformed
+    input so the caller can fall back to the deterministic build_workout()."""
+    mode = mode_for(domain, cycling_target)
+    if mode == "none" or not isinstance(ai_blocks, list) or not ai_blocks:
+        return None
+    blocks: list[Block] = []
+    for b in ai_blocks:
+        if not isinstance(b, dict):
+            return None
+        try:
+            repeat = max(1, min(int(b.get("repeat", 1)), 20))
+        except (TypeError, ValueError):
+            repeat = 1
+        steps_in = b.get("steps")
+        if not isinstance(steps_in, list) or not steps_in:
+            return None
+        steps: list[Step] = []
+        for s in steps_in:
+            if not isinstance(s, dict):
+                return None
+            try:
+                minutes, zone = int(s.get("minutes", 0)), int(s.get("zone", 0))
+            except (TypeError, ValueError):
+                return None
+            if minutes <= 0 or not (1 <= zone <= 5):
+                return None
+            cue = (str(s.get("cue") or "").strip()[:40]) or "Effort"
+            steps.append(_step(cue, minutes, zone, mode))
+        blocks.append(Block(repeat, steps))
+    return StructuredWorkout(mode, blocks)
+
+
 def workout_to_dict(w: StructuredWorkout) -> dict:
     return {
         "targetMode": w.target_mode,
