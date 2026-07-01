@@ -26,7 +26,7 @@ from sqlalchemy import (
 
 # Native Postgres enums (match sql/schema.sql). create_type defaults True so
 # create_all builds them in dev/test; schema.sql creates them in prod.
-ACTIVITY_SOURCE = SAEnum("manual", "garmin", name="activity_source")
+ACTIVITY_SOURCE = SAEnum("manual", "garmin", "strava", name="activity_source")
 MESSAGE_ROLE = SAEnum("user", "coach", name="message_role")
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -214,6 +214,23 @@ class IntervalsConnection(Base):
     athlete_id: Mapped[str] = mapped_column(Text, nullable=False)
     # "oauth" (access+refresh tokens) or "apikey" (personal key in access_token).
     auth_mode: Mapped[str] = mapped_column(String, nullable=False, default="oauth")
+    access_token: Mapped[str] = mapped_column(Text, nullable=False)   # AES-256-GCM
+    refresh_token: Mapped[str] = mapped_column(Text, nullable=False)  # AES-256-GCM
+    token_expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_sync_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class StravaConnection(Base):
+    """OAuth connection to Strava (§13) — a second activity source."""
+
+    __tablename__ = "strava_connections"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    athlete_id: Mapped[str] = mapped_column(Text, nullable=False)
     access_token: Mapped[str] = mapped_column(Text, nullable=False)   # AES-256-GCM
     refresh_token: Mapped[str] = mapped_column(Text, nullable=False)  # AES-256-GCM
     token_expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)

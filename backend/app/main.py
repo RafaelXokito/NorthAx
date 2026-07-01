@@ -25,7 +25,7 @@ from .errors import (
     http_exception_handler,
     validation_error_handler,
 )
-from .routers import activities, ai, auth, intervals, metrics, plan, preferences, readiness, user
+from .routers import activities, ai, auth, intervals, metrics, plan, preferences, readiness, strava, user
 
 logging.basicConfig(level=settings.log_level.upper())
 
@@ -93,7 +93,7 @@ app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 V1 = "/v1"
-for module in (auth, user, metrics, readiness, preferences, plan, activities, intervals, ai):
+for module in (auth, user, metrics, readiness, preferences, plan, activities, intervals, strava, ai):
     app.include_router(module.router, prefix=V1)
 
 
@@ -149,6 +149,7 @@ def custom_openapi() -> dict:
         ("/v1/auth/login", "post"),
         ("/v1/auth/refresh", "post"),
         ("/v1/intervals/callback", "get"),
+        ("/v1/integrations/strava/callback", "get"),
         ("/health", "get"),
     }
     error_ref = {"$ref": "#/components/schemas/ApiError"}

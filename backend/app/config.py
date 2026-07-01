@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     intervals_api_key: str = ""
     intervals_athlete_id: str = ""
 
+    # Strava (OAuth 2.0) — a second activity source (§13). Secrets stay server-side.
+    strava_client_id: str = ""
+    strava_client_secret: str = ""
+    strava_redirect_uri: str = "https://api.northax.app/v1/integrations/strava/callback"
+    strava_oauth_authorize_url: str = "https://www.strava.com/oauth/authorize"
+    strava_oauth_token_url: str = "https://www.strava.com/oauth/token"
+    strava_api_base: str = "https://www.strava.com/api/v3"
+    strava_scopes: str = "activity:read_all"
+
     # Token-at-rest encryption (AES-256-GCM, 32-byte hex key)
     encryption_key: str = ""
 

@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..db import session_scope
 from ..engines import readiness as r_engine
-from ..models import Activity, CoachMessage, DailyMetrics, IntervalsConnection, User
+from ..models import Activity, CoachMessage, DailyMetrics, IntervalsConnection, StravaConnection, User
 from ..security import decrypt_token, encrypt_token
 from ..services import ai, mappers
 from ..services.intervals import (
@@ -23,6 +23,7 @@ from ..services.intervals import (
     normalize_intervals_activity,
     normalize_intervals_wellness,
 )
+from ..services.strava import StravaClient, normalize_strava_activity
 from ..services.metrics_assembly import assemble_daily_metrics, record_source_readings
 from ..services.plan_service import regenerate_plans
 
@@ -132,6 +133,59 @@ async def intervals_sync(user_id: str) -> dict:
 
         conn.last_sync_at = dt.datetime.now(dt.timezone.utc)
     return {"activities": activities, "metrics_days": metrics_days}
+
+
+# ── strava-sync (§13) ────────────────────────────────────────────────────────
+_ACTIVITY_MERGE_FIELDS = (
+    "name", "start_time", "duration_seconds", "distance_meters", "elevation_gain",
+    "avg_heart_rate", "max_heart_rate", "calories", "training_load",
+)
+
+
+async def _valid_strava_token(session, conn: StravaConnection) -> str:
+    """Return a usable Strava access token, refreshing if it's expired/expiring."""
+    now = dt.datetime.now(dt.timezone.utc)
+    if conn.token_expires_at <= now + dt.timedelta(minutes=2):
+        token = await StravaClient().refresh(decrypt_token(conn.refresh_token))
+        conn.access_token = encrypt_token(token["access_token"])
+        if token.get("refresh_token"):
+            conn.refresh_token = encrypt_token(token["refresh_token"])
+        if token.get("expires_at"):
+            conn.token_expires_at = dt.datetime.fromtimestamp(int(token["expires_at"]), tz=dt.timezone.utc)
+        else:
+            conn.token_expires_at = now + dt.timedelta(seconds=int(token.get("expires_in", 21600)))
+    return decrypt_token(conn.access_token)
+
+
+async def strava_sync(user_id: str) -> dict:
+    """Fetch Strava activities into the activities table (source='strava'). On
+    first connect pulls the last 8 weeks; then incrementally from last_sync."""
+    async with session_scope(user_id) as session:
+        conn = await session.get(StravaConnection, uuid.UUID(user_id))
+        if conn is None:
+            return {"activities": 0}
+        client = StravaClient()
+        access = await _valid_strava_token(session, conn)
+        after = conn.last_sync_at or (dt.datetime.now(dt.timezone.utc) - dt.timedelta(weeks=8))
+        raw_activities = await client.fetch_activities(access, after)
+        activities = 0
+        for raw in raw_activities:
+            values = normalize_strava_activity(raw) | {"user_id": uuid.UUID(user_id)}
+            if not values.get("start_time"):
+                continue
+            stmt = (
+                pg_insert(Activity)
+                .values(**values)
+                .on_conflict_do_update(
+                    index_elements=[Activity.user_id, Activity.source, Activity.external_id],
+                    index_where=Activity.external_id.isnot(None),
+                    set_={k: values[k] for k in _ACTIVITY_MERGE_FIELDS},
+                )
+            )
+            await session.execute(stmt)
+            activities += 1
+        conn.last_sync_at = dt.datetime.now(dt.timezone.utc)
+    return {"activities": activities}
 
 
 # ── prune-coach-history (weekly) ─────────────────────────────────────────────

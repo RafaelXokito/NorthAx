@@ -109,8 +109,9 @@ ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS metric_priority JSONB NOT 
 -- activities
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $$ BEGIN
-  CREATE TYPE activity_source AS ENUM ('manual', 'garmin');
+  CREATE TYPE activity_source AS ENUM ('manual', 'garmin', 'strava');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TYPE activity_source ADD VALUE IF NOT EXISTS 'strava';
 
 CREATE TABLE IF NOT EXISTS activities (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -181,6 +182,20 @@ CREATE TABLE IF NOT EXISTS intervals_connections (
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- strava_connections  (OAuth to Strava — a second activity source, §13)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS strava_connections (
+  user_id          UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  athlete_id       TEXT NOT NULL,
+  access_token     TEXT NOT NULL,   -- AES-256-GCM ciphertext
+  refresh_token    TEXT NOT NULL,   -- AES-256-GCM ciphertext
+  token_expires_at TIMESTAMPTZ NOT NULL,
+  display_name     TEXT,
+  last_sync_at     TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Row-Level Security (§4) — defence in depth.
 -- The application sets `app.current_user_id` at the start of each transaction.
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -190,7 +205,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'refresh_tokens', 'daily_metrics', 'user_preferences',
     'activities', 'weekly_plans', 'coach_messages', 'intervals_connections',
-    'metric_readings'
+    'metric_readings', 'strava_connections'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS user_isolation ON %I', t);

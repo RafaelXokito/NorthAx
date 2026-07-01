@@ -458,6 +458,17 @@ class IntervalsConnectResponse(_Base):
     authorization_url: str
 
 
+# ── Strava (§13) ─────────────────────────────────────────────────────────────
+class StravaStatus(_Base):
+    connected: bool
+    display_name: str | None = None
+    last_sync_at: dt.datetime | None = None
+
+
+class StravaConnectResponse(_Base):
+    authorization_url: str
+
+
 class IntervalsApiKeyConnect(_Base):
     athlete_id: str
     api_key: str
