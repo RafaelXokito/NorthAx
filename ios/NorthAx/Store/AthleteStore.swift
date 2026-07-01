@@ -371,6 +371,20 @@ class AthleteStore {
         return f.string(from: date)
     }
 
+    /// Apply a chosen switch to a planned day (§9): overrides that day's session
+    /// on the server and swaps the updated week into `weeklyPlans`.
+    func applySwitch(for match: SessionMatch, to suggestion: SwitchSuggestion) async {
+        guard TokenStore.shared.hasSession, let weekStart = currentWeek?.weekStart else { return }
+        guard let updated = try? await api.overrideDay(
+            weekStart: weekStart, date: match.day.date, suggestion: suggestion
+        ) else { return }
+        if let idx = weeklyPlans.firstIndex(where: { $0.weekStart == updated.weekStart }) {
+            weeklyPlans[idx] = updated
+        } else {
+            await loadPlans()
+        }
+    }
+
     func loadCoachHistory() async {
         if let history = try? await api.coachHistory(limit: 50), !history.isEmpty {
             messages = history

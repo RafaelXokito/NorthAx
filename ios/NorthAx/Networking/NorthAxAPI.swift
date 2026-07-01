@@ -49,6 +49,29 @@ struct NorthAxAPI {
         return dtos.map { $0.toDomain() }
     }
 
+    /// Replace one day's session with a chosen alternative (§9). `weekStart` must
+    /// be the Monday of the week containing `date`. Returns the updated week.
+    func overrideDay(weekStart: Date, date: Date, suggestion: SwitchSuggestion) async throws -> WeeklyPlan {
+        let session = PlannedSessionDTO(
+            domain: suggestion.domain.rawValue,
+            title: suggestion.title,
+            subtitle: suggestion.description,
+            duration: suggestion.duration,
+            intensityLabel: suggestion.intensityLabel,
+            workout: suggestion.workout,
+            exercises: suggestion.exercises?.map {
+                ExerciseDTO(name: $0.name, muscleGroup: $0.muscleGroup.rawValue,
+                            sets: $0.sets, repsRange: $0.repsRange, rest: $0.rest, notes: $0.notes)
+            }
+        )
+        let ds = JSONCoders.calendarDate
+        let dto: WeeklyPlanResponse = try await client.patch(
+            "plan/week/\(ds.string(from: weekStart))/day/\(ds.string(from: date))",
+            body: DayOverrideRequest(session: session)
+        )
+        return dto.toDomain()
+    }
+
     func preferences() async throws -> ParsedPreferences {
         let dto: UserPreferencesDTO = try await client.get("preferences")
         return dto.toDomain()

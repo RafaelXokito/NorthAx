@@ -156,7 +156,9 @@ struct WorkoutDetailView: View {
                     Text("No alternatives available.").font(.caption).foregroundStyle(.axTertiary)
                 } else {
                     VStack(spacing: 10) {
-                        ForEach(list) { suggestionRow($0) }
+                        ForEach(list) { s in
+                            SwitchSuggestionRow(suggestion: s, match: match, onApplied: { dismiss() })
+                        }
                     }
                     if !(list.first?.isAI ?? false) {
                         Text("Basic suggestions — smart recommendations aren't available right now.")
@@ -166,36 +168,6 @@ struct WorkoutDetailView: View {
                 }
             }
         }
-    }
-
-    private func suggestionRow(_ s: SwitchSuggestion) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: s.domain.icon)
-                .font(.subheadline).foregroundStyle(s.domain.color)
-                .frame(width: 34, height: 34)
-                .background(s.domain.color.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(s.title).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
-                    Spacer()
-                    Text("\(s.duration) min").font(.caption).foregroundStyle(.axSecondary)
-                }
-                Text(s.intensityLabel + (s.estimatedLoad.map { " · ~\(Int($0)) load" } ?? ""))
-                    .font(.caption).foregroundStyle(.axSecondary)
-                if let r = s.rationale, !r.isEmpty {
-                    Text(r).font(.caption2).foregroundStyle(.axAccent)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if !s.description.isEmpty {
-                    Text(s.description).font(.caption2).foregroundStyle(.axTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Mark complete (preserves the HealthKit write path, §4)
@@ -259,5 +231,80 @@ struct WorkoutDetailView: View {
     private var dateLabel: String {
         let f = DateFormatter(); f.dateFormat = "EEEE, MMM d"
         return f.string(from: match.day.date)
+    }
+}
+
+// MARK: - Switch suggestion row (expand to see the breakdown, tap to apply)
+
+private struct SwitchSuggestionRow: View {
+    @Environment(AthleteStore.self) private var store
+    let suggestion: SwitchSuggestion
+    let match: SessionMatch
+    let onApplied: () -> Void
+    @State private var expanded = false
+    @State private var applying = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { withAnimation(.spring(duration: 0.25)) { expanded.toggle() } } label: { header }
+                .buttonStyle(.plain)
+
+            if expanded {
+                SessionBreakdownView(domain: suggestion.domain, workout: suggestion.workout,
+                                     exercises: suggestion.exercises)
+                Button(action: apply) {
+                    HStack(spacing: 6) {
+                        Image(systemName: applying ? "checkmark" : "arrow.left.arrow.right")
+                        Text(applying ? "Switching…" : "Use this session")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity).frame(height: 44)
+                    .background(suggestion.domain.color)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .disabled(applying)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var header: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: suggestion.domain.icon)
+                .font(.subheadline).foregroundStyle(suggestion.domain.color)
+                .frame(width: 34, height: 34)
+                .background(suggestion.domain.color.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(suggestion.title).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                    Spacer()
+                    Text("\(suggestion.duration) min").font(.caption).foregroundStyle(.axSecondary)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.caption2).foregroundStyle(.axTertiary)
+                }
+                Text(suggestion.intensityLabel + (suggestion.estimatedLoad.map { " · ~\(Int($0)) load" } ?? ""))
+                    .font(.caption).foregroundStyle(.axSecondary)
+                if let r = suggestion.rationale, !r.isEmpty {
+                    Text(r).font(.caption2).foregroundStyle(.axAccent)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if !suggestion.description.isEmpty {
+                    Text(suggestion.description).font(.caption2).foregroundStyle(.axTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private func apply() {
+        applying = true
+        Task {
+            await store.applySwitch(for: match, to: suggestion)
+            onApplied()
+        }
     }
 }

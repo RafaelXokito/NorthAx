@@ -134,6 +134,10 @@ async def override_day(
                     "duration": body.session.duration,
                     "intensityLabel": body.session.intensity_label,
                     "workout": body.session.workout.model_dump(by_alias=True) if body.session.workout else None,
+                    "exercises": (
+                        [e.model_dump(by_alias=True) for e in body.session.exercises]
+                        if body.session.exercises else None
+                    ),
                 }]
                 entry["isRest"] = False
             found = True

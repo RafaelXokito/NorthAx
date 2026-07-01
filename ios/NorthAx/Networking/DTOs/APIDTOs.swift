@@ -243,6 +243,11 @@ struct SwitchSuggestionsResponse: Decodable {
     var suggestions: [SwitchSuggestionDTO]
 }
 
+/// Replace a single day's session (used when the athlete applies a switch, §9).
+struct DayOverrideRequest: Encodable {
+    var session: PlannedSessionDTO?   // nil → clear to a rest day
+}
+
 struct StrengthSessionResponse: Decodable {
     var muscleGroups: [String]
     var title: String

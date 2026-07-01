@@ -184,7 +184,7 @@ struct PlanView: View {
                 VStack(spacing: 10) {
                     ForEach(trainingDays) { day in
                         ForEach(day.sessions) { session in
-                            sessionRow(day: day, session: session)
+                            CollapsibleSessionRow(day: day, session: session)
                         }
                     }
                 }
@@ -192,108 +192,7 @@ struct PlanView: View {
         }
     }
 
-    private func sessionRow(day: PlannedDay, session: PlannedSession) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-        HStack(spacing: 14) {
-            Image(systemName: session.domain.icon)
-                .font(.title3)
-                .foregroundStyle(day.isPast ? .axTertiary : session.domain.color)
-                .frame(width: 44, height: 44)
-                .background((day.isPast ? Color.white : session.domain.color).opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(session.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(day.isPast ? .axSecondary : .white)
-                    .strikethrough(day.isPast, color: .axTertiary)
-                Text(session.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.axSecondary)
-
-                if !session.workoutLines.isEmpty {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(Array(session.workoutLines.enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.caption2)
-                                .foregroundStyle(.axTertiary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .padding(.top, 3)
-                }
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(dayLabel(day))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(day.isToday ? .axAccent : .axSecondary)
-                Text("\(session.duration) min")
-                    .font(.caption)
-                    .foregroundStyle(.axTertiary)
-            }
-        }
-
-        if let exercises = session.exercises, !exercises.isEmpty {
-            exerciseBreakdown(exercises)
-        } else if let workout = session.workout {
-            WorkoutEffortGraphView(
-                workout: workout,
-                sport: session.domain,
-                cyclingTarget: store.cyclingTarget
-            )
-        }
-        }
-        .padding(16)
-        .background(day.isToday ? Color.axAccent.opacity(0.07) : Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(
-            day.isToday ? Color.axAccent.opacity(0.3) : Color.axBorder,
-            lineWidth: 1))
-    }
-
-    // MARK: - Strength exercise breakdown
-
-    private func exerciseBreakdown(_ exercises: [ExerciseSuggestion]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Rectangle().fill(Color.axBorder).frame(height: 1)
-            ForEach(exercises) { ex in
-                HStack(alignment: .top, spacing: 10) {
-                    Text(ex.muscleGroup.rawValue.uppercased())
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.axAccent)
-                        .tracking(0.5)
-                        .frame(width: 64, alignment: .leading)
-                        .padding(.top, 2)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(ex.name)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.axPrimary)
-                            Spacer()
-                            Text(ex.setDisplay)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.axSecondary)
-                        }
-                        Text("Rest \(ex.rest)" + (ex.notes.map { " · \($0)" } ?? ""))
-                            .font(.caption2)
-                            .foregroundStyle(.axTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
-    }
-
-    private func dayLabel(_ day: PlannedDay) -> String {
-        if day.isToday { return "Today" }
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-        if Calendar.current.isDate(day.date, inSameDayAs: tomorrow) { return "Tomorrow" }
-        return day.weekdayShort
-    }
+    // Session rows are rendered by CollapsibleSessionRow (defined below).
 
     // MARK: - Weekly load card
 
@@ -378,6 +277,81 @@ struct PlanView: View {
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(.axTertiary)
             .tracking(2)
+    }
+}
+
+// MARK: - Collapsible upcoming-session row
+
+/// A plan session that shows only a summary until tapped; the workout lines and
+/// the breakdown (effort graph / exercise list) appear only when expanded.
+private struct CollapsibleSessionRow: View {
+    @Environment(AthleteStore.self) private var store
+    let day: PlannedDay
+    let session: PlannedSession
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.spring(duration: 0.3)) { expanded.toggle() }
+            } label: { header }
+            .buttonStyle(.plain)
+
+            if expanded {
+                if !session.workoutLines.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(session.workoutLines.enumerated()), id: \.offset) { _, line in
+                            Text(line).font(.caption2).foregroundStyle(.axTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                SessionBreakdownView(domain: session.domain, workout: session.workout,
+                                     exercises: session.exercises)
+            }
+        }
+        .padding(16)
+        .background(day.isToday ? Color.axAccent.opacity(0.07) : Color.axSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(
+            day.isToday ? Color.axAccent.opacity(0.3) : Color.axBorder, lineWidth: 1))
+    }
+
+    private var header: some View {
+        HStack(spacing: 14) {
+            Image(systemName: session.domain.icon)
+                .font(.title3)
+                .foregroundStyle(day.isPast ? .axTertiary : session.domain.color)
+                .frame(width: 44, height: 44)
+                .background((day.isPast ? Color.white : session.domain.color).opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(session.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(day.isPast ? .axSecondary : .white)
+                    .strikethrough(day.isPast, color: .axTertiary)
+                Text(session.subtitle).font(.caption).foregroundStyle(.axSecondary)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(dayLabel).font(.caption.weight(.semibold))
+                    .foregroundStyle(day.isToday ? .axAccent : .axSecondary)
+                Text("\(session.duration) min").font(.caption).foregroundStyle(.axTertiary)
+            }
+
+            Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                .font(.caption.bold()).foregroundStyle(.axTertiary)
+        }
+    }
+
+    private var dayLabel: String {
+        if day.isToday { return "Today" }
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        if Calendar.current.isDate(day.date, inSameDayAs: tomorrow) { return "Tomorrow" }
+        return day.weekdayShort
     }
 }
 

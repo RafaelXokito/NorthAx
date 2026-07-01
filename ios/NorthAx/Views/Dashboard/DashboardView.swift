@@ -23,6 +23,8 @@ struct DashboardView: View {
 
                         if let week = store.currentWeek {
                             let matches = store.currentWeekMatches
+                            let todays = matches.filter { $0.day.isToday }
+                            if !todays.isEmpty { todaySection(todays) }
                             WeekGlanceView(week: week, matches: matches) { date in
                                 if let target = matches.first(where: { $0.day.date == date }) {
                                     withAnimation(.spring(duration: 0.35)) {
@@ -96,6 +98,64 @@ struct DashboardView: View {
             .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.axBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Today (detailed card below the readiness ring)
+
+    private func todaySection(_ matches: [SessionMatch]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeader("TODAY")
+            VStack(spacing: 10) {
+                ForEach(matches) { m in
+                    todayCard(m)
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedMatch = m }
+                }
+            }
+        }
+    }
+
+    private func todayCard(_ match: SessionMatch) -> some View {
+        let s = match.session
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Image(systemName: s.domain.icon)
+                    .font(.title2)
+                    .foregroundStyle(s.domain.color)
+                    .frame(width: 48, height: 48)
+                    .background(s.domain.color.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 11))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(s.domain.rawValue.uppercased())
+                        .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary).tracking(1.2)
+                    Text(s.title).font(.headline).foregroundStyle(.white)
+                    Text("\(s.duration) min · \(s.intensityLabel)")
+                        .font(.caption).foregroundStyle(.axSecondary)
+                }
+                Spacer()
+                completionBadge(match.completion)
+            }
+            if !s.subtitle.isEmpty {
+                Text(s.subtitle).font(.subheadline).foregroundStyle(.axSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            SessionBreakdownView(domain: s.domain, workout: s.workout, exercises: s.exercises)
+            if let a = match.activity {
+                Rectangle().fill(Color.axBorder).frame(height: 1)
+                HStack(spacing: 16) {
+                    actualStat("Time", a.formattedDuration)
+                    if let dist = a.formattedDistance { actualStat("Dist", dist) }
+                    if let hr = a.avgHeartRate { actualStat("Avg HR", "\(hr)") }
+                    if let load = a.trainingLoad { actualStat("Load", String(format: "%.0f", load)) }
+                    Spacer()
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.axAccent.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axAccent.opacity(0.3), lineWidth: 1))
     }
 
     // MARK: - Plan (session cards)
