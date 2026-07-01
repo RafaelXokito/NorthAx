@@ -210,6 +210,7 @@ class AthleteStore {
         await loadCoachHistory()
         await intervals.refreshStatus()
         await strava.refreshStatus()
+        syncConnectedSourcesIfNeeded()   // pull latest from connected sources on open
     }
 
     func loadPreferences() async {
@@ -316,6 +317,29 @@ class AthleteStore {
     func loadActivities() async {
         if let acts = try? await api.activities(limit: 50) {
             weekActivities = acts
+        }
+    }
+
+    /// When the app opens (or foregrounds), pull the latest from connected sources
+    /// so the plan/dashboard reflect reality without a manual sync. Throttled and
+    /// non-blocking; a no-op when nothing is connected.
+    private var lastSourceSyncAt: Date?
+
+    func syncConnectedSourcesIfNeeded(minInterval: TimeInterval = 600) {
+        guard TokenStore.shared.hasSession else { return }
+        guard intervals.connectionState.isConnected || strava.connectionState.isConnected else { return }
+        if let last = lastSourceSyncAt, Date().timeIntervalSince(last) < minInterval { return }
+        lastSourceSyncAt = Date()
+        Task { await syncConnectedSources() }
+    }
+
+    private func syncConnectedSources() async {
+        var didSync = false
+        if intervals.connectionState.isConnected, (try? await api.intervalsSync()) != nil { didSync = true }
+        if strava.connectionState.isConnected, (try? await api.stravaSync()) != nil { didSync = true }
+        if didSync {
+            await loadActivities()
+            await loadMetricsAndReadiness()
         }
     }
 

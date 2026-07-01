@@ -32,9 +32,13 @@ struct ContentView: View {
                 store.configure(with: user)
             }
         }
-        // First foreground of a new day pre-fetches AI switch suggestions (§9).
+        // First foreground of a new day pre-fetches AI switch suggestions (§9);
+        // foregrounding also pulls the latest from connected sources (throttled).
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { store.prefetchDailySuggestionsIfNeeded() }
+            if phase == .active {
+                store.prefetchDailySuggestionsIfNeeded()
+                store.syncConnectedSourcesIfNeeded()
+            }
         }
     }
 
