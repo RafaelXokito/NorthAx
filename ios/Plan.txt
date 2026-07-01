@@ -19,7 +19,7 @@
 | 10 | Activity Graphs in Completed Workout View | ✅ Done — `ActivityStreams` + `ActivityStreamChart` in `WorkoutDetailView` (HR w/ zone bands, power+FTP line, speed, elevation, cadence). Needs intervals.icu connected (#1) for real data |
 | 11 | Week Navigation in Week at a Glance | ✅ Done — nav header (◀ label ▶) + swipe in `WeekGlanceView` on both Dashboard & Plan; Plan week picker removed; past weeks from recently-synced activities |
 | 12 | Extended intervals.icu Data (sleep, VO2Max, fitness/fatigue/form) | 🟡 Partial — Fitness/Fatigue/Form (CTL·ATL·TSB) chart + VO2Max trend in ReadinessDetail & Metrics (migration 0004). Sleep-stages & sleeping-HR skipped: intervals wellness doesn't expose stage breakdown |
-| 13 | Strava Integration + Cross-Source Activity Data Merging | 🟡 Partial — Strava backend (OAuth + personal-token connect, migration 0005) + iOS connect UI done; sync flows into plan matching. Cross-source field-level merge, priority UI, per-stream source badges, and Strava streams for #10 still to do |
+| 13 | Strava Integration + Cross-Source Activity Data Merging | 🟡 Partial — Strava connect + synced-activity list + activity-source priority with cross-source de-dup by preference (migrations 0005/0006). Field-level gap-fill merge, per-stream source badges, and Strava streams for #10 still to do |
 
 ### Remaining work (priority order)
 
@@ -585,12 +585,12 @@ The navigation lives in the block header row, replacing the plain "WEEK AT A GLA
 - ✅ `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` in env; `STRAVA_REFRESH_TOKEN` for a personal single-athlete connect (no publicly-reachable redirect needed on the Pi).
 - ✅ OAuth token exchange + refresh + `GET /integrations/strava/callback`, plus `POST /integrations/strava/connect/personal` (the path actually used).
 - ✅ Activity sync (`POST /integrations/strava/sync`) — 8 weeks on first connect, incremental after. (Webhooks not implemented — manual/on-connect sync.)
-- ⬜ Field-level activity merge using `ActivitySourcePriority`.
+- 🟡 Cross-source de-dup by `ActivitySourcePriority` (same day+sport+~duration → highest-priority source wins) in the activities endpoint; migration `0006` adds `user_preferences.activity_priority`. Field-level gap-fill merge (take a field from a lower source when the winner lacks it) still to do.
 
 **iOS:**
-- ✅ `StravaService` (connect via personal token / disconnect / status / sync).
+- ✅ `StravaService` (connect via personal token / disconnect / status / sync) + synced-activity list on the Strava page.
 - ✅ Strava card in `IntegrationsView` + `StravaConnectView` (status, sync, disconnect).
-- ⬜ Extend `MetricPriorityView` with an "Activity data" priority section (drag-reorder).
-- ⬜ `ActivitySourcePriority` model for per-activity-field priorities.
+- ✅ `MetricPriorityView` "Activity data" section — a preferred-activity-source picker (primary pick, not full drag-reorder).
+- ✅ `ActivitySourcePriority` model + persistence (`PATCH /preferences/activity-priority`).
 - ⬜ Per-stream source badges in `WorkoutDetailView`; source-aware Strava streams for #10 graphs.
-- 🟡 Strava-only works today (its activities feed plan matching); wellness still comes from intervals/Apple Health.
+- ✅ Strava-only works (its activities feed plan matching + the synced list); wellness still comes from intervals/Apple Health.

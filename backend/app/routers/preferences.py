@@ -40,6 +40,7 @@ def _to_dto(prefs: UserPreferences) -> schemas.UserPreferencesDTO:
         muscle_group_split=[schemas.DaySplitDTO(**d) for d in prefs.muscle_group_split],
         cycling_target=getattr(prefs, "cycling_target", "hr"),
         metric_priority=dict(getattr(prefs, "metric_priority", {}) or {}),
+        activity_priority=list(getattr(prefs, "activity_priority", []) or []),
     )
 
 
@@ -94,6 +95,7 @@ async def replace_preferences(
     if body.cycling_target in ("hr", "power"):
         prefs.cycling_target = body.cycling_target
     prefs.metric_priority = dict(body.metric_priority)
+    prefs.activity_priority = list(body.activity_priority)
     await session.flush()
     await regenerate_plans(session, user_id, dt.date.today(), weeks=4)
     return _to_dto(prefs)
@@ -108,6 +110,18 @@ async def patch_metric_priority(
     prefs = await _get_or_create(session, user_id)
     prefs.metric_priority = dict(body.metric_priority)
     await session.flush()  # no plan regeneration — priority only affects metric reads
+    return _to_dto(prefs)
+
+
+@router.patch("/activity-priority", response_model=schemas.UserPreferencesDTO)
+async def patch_activity_priority(
+    body: schemas.ActivityPriorityPatch,
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> schemas.UserPreferencesDTO:
+    prefs = await _get_or_create(session, user_id)
+    prefs.activity_priority = list(body.activity_priority)
+    await session.flush()  # no plan regeneration — affects activity de-dup only
     return _to_dto(prefs)
 
 

@@ -8,6 +8,7 @@ import Observation
 @Observable
 class StravaService {
     var connectionState: IntervalsConnectionState = .disconnected
+    var syncedActivities: [GarminActivity] = []
     var isSyncing: Bool = false
 
     private let api = NorthAxAPI.shared
@@ -15,6 +16,9 @@ class StravaService {
     func refreshStatus() async {
         if let state = try? await api.stravaStatus() {
             connectionState = state
+            if state.isConnected {
+                syncedActivities = (try? await api.activities(limit: 30, source: "strava")) ?? syncedActivities
+            }
         }
     }
 
@@ -37,6 +41,7 @@ class StravaService {
         do {
             try await api.stravaSync()
             connectionState = try await api.stravaStatus()
+            syncedActivities = (try? await api.activities(limit: 30, source: "strava")) ?? syncedActivities
         } catch {
             // Keep the last good state; a transient sync failure isn't fatal.
         }

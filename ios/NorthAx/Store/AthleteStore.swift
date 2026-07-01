@@ -122,6 +122,13 @@ class AthleteStore {
             Task { _ = try? await api.updateMetricPriority(metricPriority) }
         }
     }
+    /// Ordered activity-source preference (§13); synced to the backend on change.
+    var activityPriority: ActivitySourcePriority = .default {
+        didSet {
+            guard activityPriority != oldValue, !suppressServerSync, TokenStore.shared.hasSession else { return }
+            Task { _ = try? await api.updateActivityPriority(activityPriority) }
+        }
+    }
 
     let intervals = IntervalsService()
     let strava = StravaService()
@@ -214,6 +221,7 @@ class AthleteStore {
         cyclingTarget = prefs.cyclingTarget
         thresholds = prefs.thresholds
         metricPriority = prefs.metricPriority
+        activityPriority = prefs.activityPriority
         suppressServerSync = false
     }
 

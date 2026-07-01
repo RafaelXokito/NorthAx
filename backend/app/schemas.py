@@ -240,6 +240,8 @@ class UserPreferencesDTO(_Base):
     cycling_target: str = "hr"  # "hr" | "power"
     # Per-metric source ranking: { metric -> [source, ...] } (highest first).
     metric_priority: dict[str, list[str]] = Field(default_factory=dict)
+    # Ordered activity-data source preference (§13): [source, ...] (highest first).
+    activity_priority: list[str] = Field(default_factory=list)
 
 
 class CyclingTargetPatch(_Base):
@@ -248,6 +250,10 @@ class CyclingTargetPatch(_Base):
 
 class MetricPriorityPatch(_Base):
     metric_priority: dict[str, list[str]]
+
+
+class ActivityPriorityPatch(_Base):
+    activity_priority: list[str]
 
 
 class DomainsPatch(_Base):

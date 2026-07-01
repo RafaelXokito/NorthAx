@@ -160,6 +160,11 @@ struct UserPreferencesDTO: Codable {
     var cyclingTarget: String = "hr"   // "hr" | "power"
     var thresholds: AthleteThresholdsDTO = AthleteThresholdsDTO()
     var metricPriority: [String: [String]] = [:]   // metric -> [source, ...]
+    var activityPriority: [String] = []            // §13 — ordered activity sources
+}
+
+struct ActivityPriorityPatch: Encodable {
+    var activityPriority: [String]
 }
 
 struct CyclingTargetPatch: Encodable {

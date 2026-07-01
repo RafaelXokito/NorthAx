@@ -114,6 +114,7 @@ struct ParsedPreferences {
     var cyclingTarget: String
     var thresholds: AthleteThresholds
     var metricPriority: MetricSourcePriority
+    var activityPriority: ActivitySourcePriority
 }
 
 extension UserPreferencesDTO {
@@ -140,7 +141,8 @@ extension UserPreferencesDTO {
             split: split,
             cyclingTarget: cyclingTarget,
             thresholds: thresholds.toDomain(),
-            metricPriority: MetricSourcePriority(wire: metricPriority)
+            metricPriority: MetricSourcePriority(wire: metricPriority),
+            activityPriority: ActivitySourcePriority(wire: activityPriority)
         )
     }
 }

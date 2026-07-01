@@ -17,10 +17,20 @@ struct MetricPriorityView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                VStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 10) {
+                    sectionLabel("WELLNESS METRICS")
                     ForEach(MergeableMetric.allCases) { metric in
                         row(metric)
                     }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    sectionLabel("ACTIVITY DATA")
+                    Text("When the same workout is imported from more than one source, NorthAx keeps the one from your preferred source.")
+                        .font(.caption)
+                        .foregroundStyle(.axTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    activityRow
                 }
             }
             .padding(.horizontal, 20)
@@ -33,6 +43,56 @@ struct MetricPriorityView: View {
         .navigationBarTitleDisplayMode(.inline)
 #endif
         .scrollIndicators(.hidden)
+    }
+
+    private var activityRow: some View {
+        let current = store.activityPriority.primary
+        return HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Preferred activity source")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text("Primary: \(current.displayName)")
+                    .font(.caption)
+                    .foregroundStyle(.axSecondary)
+            }
+
+            Spacer()
+
+            Menu {
+                ForEach(ActivitySource.allCases) { src in
+                    Button {
+                        store.activityPriority.setPrimary(src)
+                    } label: {
+                        if src == current {
+                            Label(src.displayName, systemImage: "checkmark")
+                        } else {
+                            Text(src.displayName)
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(current.displayName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.axAccent)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.axTertiary)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.axSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.axTertiary).tracking(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func row(_ metric: MergeableMetric) -> some View {

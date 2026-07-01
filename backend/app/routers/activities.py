@@ -11,10 +11,41 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..deps import get_current_user_id, get_db
 from ..errors import activity_garmin_immutable, activity_not_found
-from ..models import Activity
+from ..models import Activity, UserPreferences
 from ..rate_limit import limit
 
 router = APIRouter(prefix="/activities", tags=["activities"], dependencies=[Depends(limit("default", 300, 60))])
+
+# Default activity-source order when the user hasn't set one (garmin = intervals.icu).
+_DEFAULT_ACTIVITY_PRIORITY = ["garmin", "strava", "manual"]
+_DEDUPE_DURATION_TOLERANCE = 300  # seconds — same workout across sources
+
+
+def _dedupe_by_priority(rows: list[Activity], priority: list[str]) -> list[Activity]:
+    """Collapse the same workout reported by more than one source (same day +
+    domain + near-equal duration), keeping the highest-priority source's row."""
+    rank = {s: i for i, s in enumerate(priority)}
+
+    def r(src: str) -> int:
+        return rank.get(src, len(priority))
+
+    kept: list[Activity] = []
+    for row in rows:
+        dup = None
+        for i, k in enumerate(kept):
+            if (
+                k.source != row.source
+                and k.domain == row.domain
+                and k.start_time.date() == row.start_time.date()
+                and abs(k.duration_seconds - row.duration_seconds) <= _DEDUPE_DURATION_TOLERANCE
+            ):
+                dup = i
+                break
+        if dup is None:
+            kept.append(row)
+        elif r(row.source) < r(kept[dup].source):
+            kept[dup] = row
+    return kept
 
 
 def _dto(row: Activity) -> schemas.ActivityDTO:
@@ -53,7 +84,16 @@ async def list_activities(
     result = await session.execute(
         select(Activity).where(*filters).order_by(Activity.start_time.desc()).limit(limit_).offset(offset)
     )
-    items = [_dto(r) for r in result.scalars().all()]
+    rows = list(result.scalars().all())
+
+    # Cross-source de-dup by the user's activity-source preference (§13). Only when
+    # not filtered to a single source (the per-source views want raw rows).
+    if source is None:
+        prefs = await session.get(UserPreferences, uuid.UUID(user_id))
+        priority = (getattr(prefs, "activity_priority", None) or _DEFAULT_ACTIVITY_PRIORITY)
+        rows = _dedupe_by_priority(rows, priority)
+
+    items = [_dto(r) for r in rows]
     return schemas.PaginatedActivities(
         items=items, total=total or 0, limit=limit_, offset=offset, has_more=offset + len(items) < (total or 0)
     )

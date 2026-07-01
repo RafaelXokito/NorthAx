@@ -140,6 +140,8 @@ class UserPreferences(Base):
     # Per-metric source ranking for multi-integration conflict resolution:
     # { metric -> [source, ...] } (see docs/multi-source-metrics.md).
     metric_priority: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Ordered activity-data source preference (§13): [source, ...], highest first.
+    activity_priority: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

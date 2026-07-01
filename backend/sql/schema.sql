@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   muscle_group_split   JSONB NOT NULL DEFAULT '[]',
   cycling_target       TEXT NOT NULL DEFAULT 'hr',   -- 'hr' (default) | 'power'
   metric_priority      JSONB NOT NULL DEFAULT '{}',  -- { metric -> [source,...] } conflict resolution
+  activity_priority    JSONB NOT NULL DEFAULT '[]',  -- [source,...] activity-source preference (§13)
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Migration for existing DBs (idempotent):
@@ -104,6 +105,7 @@ ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS cycling_target TEXT NOT NU
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS domain_schedules JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS thresholds JSONB NOT NULL DEFAULT '{}';
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS metric_priority JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS activity_priority JSONB NOT NULL DEFAULT '[]';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- activities

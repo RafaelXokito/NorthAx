@@ -13,6 +13,9 @@ struct StravaConnectView: View {
 
                 if state.isConnected {
                     connectedCard(state)
+                    if !store.strava.syncedActivities.isEmpty {
+                        syncedActivitiesList
+                    }
                 } else {
                     connectCard(state)
                 }
@@ -128,6 +131,50 @@ struct StravaConnectView: View {
         .background(Color.axSurface)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
+    }
+
+    private var syncedActivitiesList: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("SYNCED ACTIVITIES")
+                .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary).tracking(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 10) {
+                ForEach(store.strava.syncedActivities) { activity in
+                    HStack(spacing: 12) {
+                        Image(systemName: activity.type.domain.icon)
+                            .font(.subheadline)
+                            .foregroundStyle(activity.type.domain.color)
+                            .frame(width: 36, height: 36)
+                            .background(activity.type.domain.color.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(activity.name)
+                                .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                            HStack(spacing: 6) {
+                                Text(activity.formattedDuration)
+                                if let dist = activity.formattedDistance { Text("·"); Text(dist) }
+                                if let hr = activity.avgHeartRate { Text("·"); Text("\(hr) bpm avg") }
+                            }
+                            .font(.caption).foregroundStyle(.axTertiary)
+                        }
+                        Spacer()
+                        Text(relativeDate(activity.startTime))
+                            .font(.caption).foregroundStyle(.axTertiary)
+                    }
+                    .padding(14)
+                    .background(Color.axSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axBorder, lineWidth: 1))
+                }
+            }
+        }
+    }
+
+    private func relativeDate(_ date: Date) -> String {
+        let days = Int(Date().timeIntervalSince(date) / 86400)
+        if days == 0 { return "Today" }
+        if days == 1 { return "Yesterday" }
+        return "\(days)d ago"
     }
 }
 

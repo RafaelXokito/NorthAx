@@ -125,6 +125,15 @@ struct NorthAxAPI {
         return dto.toDomain()
     }
 
+    /// Sync the activity-source preference used to de-duplicate cross-source
+    /// workouts (§13); does not regenerate plans.
+    func updateActivityPriority(_ priority: ActivitySourcePriority) async throws -> ParsedPreferences {
+        let dto: UserPreferencesDTO = try await client.patch(
+            "preferences/activity-priority", body: ActivityPriorityPatch(activityPriority: priority.wire)
+        )
+        return dto.toDomain()
+    }
+
     // MARK: - Coach
 
     func coachHistory(limit: Int = 50) async throws -> [CoachMessage] {
@@ -226,10 +235,10 @@ struct NorthAxAPI {
         _ = try await client.send("DELETE", "integrations/strava/disconnect")
     }
 
-    func activities(limit: Int = 20) async throws -> [GarminActivity] {
-        let page: PaginatedActivities = try await client.get(
-            "activities", query: [URLQueryItem(name: "limit", value: String(limit))]
-        )
+    func activities(limit: Int = 20, source: String? = nil) async throws -> [GarminActivity] {
+        var query = [URLQueryItem(name: "limit", value: String(limit))]
+        if let source { query.append(URLQueryItem(name: "source", value: source)) }
+        let page: PaginatedActivities = try await client.get("activities", query: query)
         return page.items.map { $0.toGarminActivity() }
     }
 
