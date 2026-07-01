@@ -250,8 +250,11 @@ SWITCH_SYSTEM = (
     "upcoming hard session). "
     "For ENDURANCE alternatives (Cycling, Running, Swimming) include a `blocks` array "
     "(warm-up → work → cool-down; repeat blocks for intervals; each step has cue, minutes, "
-    "and zone 1-5). For STRENGTH alternatives include `muscleGroups` (a list of the muscle "
-    "groups to train). intensityLabel MUST be one of: Very Easy, Easy, Moderate, Tempo, Hard, "
+    "and zone 1-5). For STRENGTH alternatives include `muscleGroups`, chosen from EXACTLY "
+    "these values: Chest, Back, Shoulders, Biceps, Triceps, Quads, Hamstrings, Glutes, Calves, "
+    "Core. For a full-body session list several specific groups (e.g. Chest, Back, Quads, Core) "
+    "— never the literal 'Full Body'. "
+    "intensityLabel MUST be one of: Very Easy, Easy, Moderate, Tempo, Hard, "
     "Threshold, VO2. duration is minutes (15-240). estimatedLoad is a rough TSS-like number. "
     "Reply with ONLY a JSON object, no prose, no markdown fences, shaped exactly as: "
     '{"suggestions": [{"domain": "<sport>", "title": "<string>", "duration": <int>, '

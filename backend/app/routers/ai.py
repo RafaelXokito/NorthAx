@@ -336,17 +336,18 @@ def _build_switch_dtos(parsed: dict, cycling_target: str) -> list[schemas.Switch
             workout = workouts.workout_to_dict(built)
 
         exercises = None
-        groups_in = s.get("muscleGroups")
-        if domain == "Strength" and isinstance(groups_in, list):
+        if domain == "Strength":
+            groups_in = s.get("muscleGroups") if isinstance(s.get("muscleGroups"), list) else []
             groups = [MuscleGroup(g) for g in groups_in if g in MuscleGroup._value2member_map_]
-            if groups:
-                exercises = [
-                    schemas.ExerciseDTO(
-                        name=e.name, muscle_group=e.muscle_group.value, sets=e.sets,
-                        reps_range=e.reps_range, rest=e.rest, notes=e.notes,
-                    )
-                    for e in s_engine.exercises_for(groups, intensity)
-                ]
+            # Empty / "Full Body" / unrecognised → exercises_for falls back to a
+            # full-body selection, so a strength suggestion always has a breakdown.
+            exercises = [
+                schemas.ExerciseDTO(
+                    name=e.name, muscle_group=e.muscle_group.value, sets=e.sets,
+                    reps_range=e.reps_range, rest=e.rest, notes=e.notes,
+                )
+                for e in s_engine.exercises_for(groups, intensity)
+            ]
 
         out.append(schemas.SwitchSuggestionDTO(
             domain=domain,

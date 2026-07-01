@@ -150,9 +150,11 @@ def plan_days_to_json(plan: WeeklyPlan, cycling_target: str = "hr") -> list[dict
                 "workout": workout,
             }
             # Strength sessions carry a movement-by-movement breakdown (curated DB,
-            # loaded per the session's intensity) instead of an effort graph.
-            groups = getattr(s, "muscle_groups", None)
-            if s.domain.value == "Strength" and groups:
+            # loaded per the session's intensity) instead of an effort graph. When
+            # the day's split has no groups (a "Full Body" day) exercises_for falls
+            # back to a full-body selection, so there's always a list.
+            if s.domain.value == "Strength":
+                groups = getattr(s, "muscle_groups", None) or []
                 exercises = s_engine.exercises_for(groups, s.intensity_label)
                 entry["exercises"] = [_exercise_to_json(e) for e in exercises]
             sessions.append(entry)

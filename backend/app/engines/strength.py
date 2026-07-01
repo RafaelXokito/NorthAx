@@ -167,10 +167,17 @@ def _build_exercises(groups: list[MuscleGroup], intensity: Intensity) -> list[Ex
     return result
 
 
+# A balanced push / pull / legs / core selection for "Full Body" (or unspecified)
+# strength sessions, so they always resolve to a real movement list.
+_FULL_BODY_DEFAULT = [MuscleGroup.chest, MuscleGroup.back, MuscleGroup.quads, MuscleGroup.core]
+
+
 def exercises_for(groups: list[MuscleGroup], intensity_label: str) -> list[ExerciseSuggestion]:
     """Curated exercise breakdown for a plan's strength session — same movement DB
-    and loading rules as generate_session, driven by the session's intensity label."""
-    return _build_exercises(groups, _intensity_from_label(intensity_label))
+    and loading rules as generate_session, driven by the session's intensity label.
+    Falls back to a full-body selection when no specific groups are given (e.g. a
+    "Full Body" session or an empty muscle-group split)."""
+    return _build_exercises(groups or _FULL_BODY_DEFAULT, _intensity_from_label(intensity_label))
 
 
 def _estimate_duration(exercises: list[ExerciseSuggestion]) -> int:
