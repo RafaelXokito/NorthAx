@@ -44,11 +44,12 @@ struct ContentView: View {
                 DashboardView()
             }
 
-            Tab("Coach", systemImage: "bubble.left.and.bubble.right", value: AppTab.coach) {
-                NavigationStack {
-                    CoachView()
-                }
-            }
+            // Coach tab hidden for now — kept for later (CoachView + AppTab.coach remain).
+            // Tab("Coach", systemImage: "bubble.left.and.bubble.right", value: AppTab.coach) {
+            //     NavigationStack {
+            //         CoachView()
+            //     }
+            // }
 
             Tab("Metrics", systemImage: "chart.xyaxis.line", value: AppTab.metrics) {
                 NavigationStack {
