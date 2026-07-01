@@ -52,6 +52,44 @@ async def connect(user_id: str = Depends(get_current_user_id)) -> schemas.Strava
     return schemas.StravaConnectResponse(authorization_url=url)
 
 
+@router.post("/connect/personal", response_model=schemas.StravaStatus, dependencies=_authed)
+async def connect_personal(
+    user_id: str = Depends(get_current_user_id), session: AsyncSession = Depends(get_db)
+) -> schemas.StravaStatus:
+    """Connect using the server's personal STRAVA_REFRESH_TOKEN (single athlete,
+    no redirect) — mirrors intervals' api-key connect."""
+    if not settings.strava_refresh_token:
+        raise _not_configured()
+    client = StravaClient()
+    try:
+        token = await client.refresh(settings.strava_refresh_token)
+        access = token["access_token"]
+        athlete = await client.fetch_athlete(access)
+    except StravaNotConfigured as exc:
+        raise _not_configured() from exc
+    except Exception as exc:  # noqa: BLE001
+        raise AppError("STRAVA_CONNECT_FAILED", "Could not connect Strava with the configured token.", 400) from exc
+
+    now = dt.datetime.now(dt.timezone.utc)
+    if token.get("expires_at"):
+        expires_at = dt.datetime.fromtimestamp(int(token["expires_at"]), tz=dt.timezone.utc)
+    else:
+        expires_at = now + dt.timedelta(seconds=int(token.get("expires_in", 21600)))
+    name = " ".join(p for p in (athlete.get("firstname"), athlete.get("lastname")) if p) or None
+
+    conn = await session.get(StravaConnection, uuid.UUID(user_id))
+    if conn is None:
+        conn = StravaConnection(user_id=uuid.UUID(user_id), athlete_id=str(athlete.get("id") or "0"),
+                                access_token="", refresh_token="", token_expires_at=expires_at)
+        session.add(conn)
+    conn.athlete_id = str(athlete.get("id") or "0")
+    conn.access_token = encrypt_token(access)
+    conn.refresh_token = encrypt_token(token.get("refresh_token") or settings.strava_refresh_token)
+    conn.token_expires_at = expires_at
+    conn.display_name = name
+    return schemas.StravaStatus(connected=True, display_name=name, last_sync_at=conn.last_sync_at)
+
+
 @router.get("/callback")
 async def callback(code: str | None = None, state: str | None = None, error: str | None = None):
     """OAuth redirect handler (no bearer token). Exchanges the code, stores

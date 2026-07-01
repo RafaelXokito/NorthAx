@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     strava_oauth_token_url: str = "https://www.strava.com/oauth/token"
     strava_api_base: str = "https://www.strava.com/api/v3"
     strava_scopes: str = "activity:read_all"
+    # Personal single-athlete refresh token — connect without a live redirect
+    # (mirrors the intervals.icu api-key fallback). Obtained once via OAuth.
+    strava_refresh_token: str = ""
 
     # Token-at-rest encryption (AES-256-GCM, 32-byte hex key)
     encryption_key: str = ""

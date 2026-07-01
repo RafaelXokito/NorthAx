@@ -58,6 +58,14 @@ class StravaClient:
             {"refresh_token": refresh_token, "grant_type": "refresh_token"}
         )
 
+    async def fetch_athlete(self, token: str) -> dict:
+        async with httpx.AsyncClient(timeout=15) as http:
+            resp = await http.get(
+                f"{self.api_base}/athlete", headers={"Authorization": f"Bearer {token}"}
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     async def fetch_activities(self, token: str, after: dt.datetime) -> list[dict]:
         url = f"{self.api_base}/athlete/activities"
         params = {"after": int(after.timestamp()), "per_page": 100}
