@@ -309,6 +309,17 @@ class AthleteStore {
         }
     }
 
+    /// Cached activity streams for the completed-workout charts (§10).
+    private var activityStreamsCache: [String: ActivityStreams] = [:]
+
+    func activityStreams(for activityId: String) async -> ActivityStreams? {
+        if let cached = activityStreamsCache[activityId] { return cached }
+        guard TokenStore.shared.hasSession,
+              let streams = try? await api.activityStreams(activityId: activityId) else { return nil }
+        activityStreamsCache[activityId] = streams
+        return streams
+    }
+
     /// The plan for the current week (falls back to the first available week).
     var currentWeek: WeeklyPlan? {
         weeklyPlans.first(where: { $0.isCurrentWeek }) ?? weeklyPlans.first

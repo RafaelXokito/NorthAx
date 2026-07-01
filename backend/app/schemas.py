@@ -467,3 +467,17 @@ class IntervalsWorkoutPushRequest(_Base):
 class IntervalsWorkoutPushResponse(_Base):
     workout_id: str
     scheduled_date: dt.date
+
+
+# ── Activity streams (§10) ───────────────────────────────────────────────────
+class ActivityStreamsDTO(_Base):
+    """Downsampled time-series for a completed activity. Arrays are index-aligned
+    with `time` (seconds from start); any metric absent in the source is empty."""
+    activity_id: str
+    time: list[float] = Field(default_factory=list)
+    heart_rate: list[float] = Field(default_factory=list)
+    power: list[float] = Field(default_factory=list)
+    velocity: list[float] = Field(default_factory=list)   # m/s (client → pace)
+    altitude: list[float] = Field(default_factory=list)
+    cadence: list[float] = Field(default_factory=list)
+    source: str = "intervals.icu"

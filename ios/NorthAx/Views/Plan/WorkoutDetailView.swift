@@ -8,6 +8,7 @@ struct WorkoutDetailView: View {
     @Environment(AthleteStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var marking = false
+    @State private var streams: ActivityStreams?
 
     private var session: PlannedSession { match.session }
 
@@ -19,6 +20,7 @@ struct WorkoutDetailView: View {
                     breakdownSection
                     plannedTargets
                     if let activity = match.activity { actualVsPlanned(activity) }
+                    if let streams, streams.hasData { activityDataSection(streams) }
                     if match.completion != .done { switchSection }
                     if match.completion == .planned || match.completion == .missed { markCompleteButton }
                 }
@@ -32,7 +34,58 @@ struct WorkoutDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
+            .task {
+                if match.completion == .done, let id = match.activity?.id {
+                    streams = await store.activityStreams(for: id)
+                }
+            }
         }
+    }
+
+    // MARK: - Activity data (§10): time-series charts for a completed workout
+
+    private func activityDataSection(_ s: ActivityStreams) -> some View {
+        card("ACTIVITY DATA") {
+            VStack(alignment: .leading, spacing: 18) {
+                if !s.heartRate.isEmpty {
+                    ActivityStreamChart(title: "Heart rate", values: s.heartRate, color: .axRed,
+                                        unit: "bpm", zoneBands: hrZoneBands(), durationSeconds: s.durationSeconds)
+                }
+                if !s.power.isEmpty {
+                    ActivityStreamChart(title: "Power", values: s.power, color: .axAccent, unit: "w",
+                                        referenceLine: store.thresholds.ftpWatts.map(Double.init),
+                                        referenceLabel: "FTP", durationSeconds: s.durationSeconds)
+                }
+                if !s.velocity.isEmpty {
+                    ActivityStreamChart(title: "Speed", values: s.speedKmh, color: .axGreen,
+                                        unit: "km/h", durationSeconds: s.durationSeconds)
+                }
+                if !s.altitude.isEmpty {
+                    ActivityStreamChart(title: "Elevation", values: s.altitude, color: .axBlue,
+                                        unit: "m", durationSeconds: s.durationSeconds)
+                }
+                if !s.cadence.isEmpty {
+                    ActivityStreamChart(title: "Cadence", values: s.cadence, color: .axPurple,
+                                        unit: "rpm", durationSeconds: s.durationSeconds)
+                }
+                Label("From \(s.source)", systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.caption2).foregroundStyle(.axTertiary)
+            }
+        }
+    }
+
+    /// HR zone bands as a fraction of the athlete's max HR (no bands if unset).
+    private func hrZoneBands() -> [ActivityStreamChart.ZoneBand] {
+        guard let maxHr = store.thresholds.maxHr, maxHr > 0 else { return [] }
+        let m = Double(maxHr)
+        let zones: [(Double, Double, Color)] = [
+            (0.50, 0.60, .axBlue),
+            (0.60, 0.70, .axGreen),
+            (0.70, 0.80, .axAccent),
+            (0.80, 0.90, Color(red: 1.0, green: 0.45, blue: 0.2)),
+            (0.90, 1.05, .axRed),
+        ]
+        return zones.map { .init(lower: $0.0 * m, upper: $0.1 * m, color: $0.2) }
     }
 
     // MARK: - Header

@@ -16,7 +16,7 @@
 | 7 | Main Page Plan-Centric + Week at a Glance | 🟡 Partial — dashboard redesigned, `WeekGlanceView`, `WorkoutDetailView`, `PlanMatchingEngine` done; **activity graphs (HR/pace/power/elevation) not yet implemented** |
 | 8 | Readiness Ring — Compact + Detail Popup | ✅ Done — `ReadinessDetailView` with trend graphs; main page ring is compact and tappable |
 | 9 | Daily Pre-fetched AI Switch Suggestions | 🟡 Partial — `SwitchSuggestion` model, AI suggestions in `WorkoutDetailView`, loading shimmer, deterministic fallback done; **rate limit (2×/day) and `BGAppRefreshTask` not yet implemented** |
-| 10 | Activity Graphs in Completed Workout View | ⬜ Not done — HR, pace, power, elevation, cadence time-series charts not implemented |
+| 10 | Activity Graphs in Completed Workout View | ✅ Done — `ActivityStreams` + `ActivityStreamChart` in `WorkoutDetailView` (HR w/ zone bands, power+FTP line, speed, elevation, cadence). Needs intervals.icu connected (#1) for real data |
 
 ### Remaining work (priority order)
 
@@ -97,7 +97,7 @@
 
 ---
 
-## 4. Apple Health Integration (Read & Write)
+## 4. ✅ Apple Health Integration (Read & Write)
 
 **Goal:** Bidirectional HealthKit integration — read health/fitness metrics to enrich the dashboard and readiness score, and write completed workouts back to Apple Health.
 
@@ -114,22 +114,22 @@
 - Sync NorthAx-generated readiness scores or training load as custom HKQuantitySamples if HealthKit allows custom types (fallback: log to workout metadata).
 
 **Tasks:**
-- Add `HealthKit` capability to the Xcode project entitlements.
-- Create a `HealthKitService` that wraps `HKHealthStore`, handles permission requests, and exposes async read/write methods.
-- Define the full set of read permissions needed (HRV, RHR, VO2Max, sleep, activity, workouts) and write permissions (HKWorkout, active calories, distance).
-- On first launch (or in Settings), prompt the user for HealthKit authorisation with a clear explanation of what is read and why.
-- Integrate read metrics into `AthleteStore` / `ReadinessEngine` — supplement Garmin data when Garmin is not connected.
-- On session completion (when the user marks a session done), write the workout to HealthKit.
-- Add a toggle in Settings → "Apple Health" to enable/disable read and write independently.
-- Handle the case where HealthKit is unavailable (e.g. iPad without paired watch) gracefully.
+- ✅ Add `HealthKit` capability to the Xcode project entitlements.
+- ✅ Create a `HealthKitService` that wraps `HKHealthStore`, handles permission requests, and exposes async read/write methods.
+- ✅ Define the full set of read permissions needed (HRV, RHR, VO2Max, sleep, activity, workouts) and write permissions (HKWorkout, active calories, distance).
+- ✅ On first launch (or in Settings), prompt the user for HealthKit authorisation with a clear explanation of what is read and why.
+- ✅ Integrate read metrics into `AthleteStore` / `ReadinessEngine` — supplement Garmin data when Garmin is not connected.
+- ✅ On session completion (when the user marks a session done), write the workout to HealthKit.
+- ✅ Add a toggle in Settings → "Apple Health" to enable/disable read and write independently.
+- ✅ Handle the case where HealthKit is unavailable (e.g. iPad without paired watch) gracefully.
 
 ---
 
-## 5. Settings Restructure — Dedicated Integrations & Plan Views
+## 5. ✅ Settings Restructure — Dedicated Integrations & Plan Views
 
 **Goal:** Break the current monolithic Settings screen into focused sub-screens. Two key ones: an Integrations hub and a Plan configuration screen.
 
-### 5a. Integrations View
+### 5a. ✅ Integrations View
 
 **Goal:** A dedicated screen listing all supported third-party integrations with their connection status.
 
@@ -139,7 +139,7 @@
 - Tapping a disconnected integration starts the connect flow.
 - Entry point: Settings → Integrations (replaces the current inline intervals.icu row).
 
-### 5b. Plan View (replaces Training Schedule / Training Frequency)
+### 5b. ✅ Plan View (replaces Training Schedule / Training Frequency)
 
 **Goal:** A single "Plan" screen in Settings where the user manages everything about their training structure.
 
@@ -169,18 +169,18 @@
 - Enrolling triggers a prompt: "Your plan will be updated to include [Sport]. Regenerate now?"
 
 **Tasks:**
-- Add a `IntegrationsView` screen and link it from Settings.
-- Rename / repurpose `TrainingFrequencyView` into the new `PlanView` (Settings sub-screen).
-- Define a `SportConfig` protocol / struct that each sport implements to declare its config block view.
-- Move `MuscleGroupSplitView` logic into the Gym sport config block (remove its standalone Settings entry).
-- Add a `CyclingTargetView` block (HR zones vs Power zones toggle + zone configuration).
-- Implement the "+" sport enrollment sheet with available sports list.
-- Persist enrolled sports + per-sport config via the API; trigger plan regeneration on changes.
-- Remove now-redundant standalone Settings rows (Training Frequency, Muscle Group Split, intervals.icu inline row).
+- ✅ Add a `IntegrationsView` screen and link it from Settings.
+- ✅ Rename / repurpose `TrainingFrequencyView` into the new `TrainingPlanView` (Settings sub-screen).
+- ✅ Move `MuscleGroupSplitView` logic into the Gym sport config block via `MuscleSplitEditor`.
+- ✅ Add cycling target (HR vs power) toggle inside the Cycling sport config block.
+- ✅ Implement the "+" sport enrollment sheet (`EnrollSportSheet`) with available sports list.
+- ✅ Persist enrolled sports + per-sport config via the API; trigger plan regeneration on changes.
+- ✅ Remove now-redundant standalone Settings rows (Training Frequency, Muscle Group Split, intervals.icu inline row).
+- ⬜ Define a formal `SportConfig` protocol so new sports self-register their config block (currently each sport's config is hardcoded in `TrainingPlanView`).
 
 ---
 
-## 6. Plan Generation Rate Limit (2×/day)
+## 6. ⬜ Plan Generation Rate Limit (2×/day)
 
 **Goal:** Prevent users from regenerating their plan more than twice per calendar day, to avoid abuse and encourage deliberate plan changes.
 
@@ -191,26 +191,26 @@
 - Changing training schedule / enrolled sports does NOT auto-trigger generation — it only prompts the user, who then chooses to regenerate (and that counts toward the limit).
 
 **Backend:**
-- Track `plan_generations_today` and `last_plan_generation_date` on the athlete profile (or a dedicated audit table).
-- The plan generation endpoint returns HTTP 429 with a body like `{"error": "plan_limit_reached", "resets_at": "<ISO timestamp of next midnight>"}` when the limit is exceeded.
+- ⬜ Track `plan_generations_today` and `last_plan_generation_date` on the athlete profile (or a dedicated audit table).
+- ⬜ The plan generation endpoint returns HTTP 429 with a body like `{"error": "plan_limit_reached", "resets_at": "<ISO timestamp of next midnight>"}` when the limit is exceeded.
 
 **iOS:**
-- Before showing the "Generate Plan" / "Rebuild Plan" button/action, fetch (or use cached) remaining generation count for today.
-- Display remaining attempts near the generate action: e.g. "1 of 2 generations remaining today".
-- When the limit is hit, disable the button and show a message: "You've used both plan generations for today. Come back tomorrow to rebuild your plan."
-- Show the reset time in the user's local timezone: "Resets at midnight (2 Jul)".
-- Handle the 429 response gracefully in case the local count is stale.
+- ⬜ Before showing the "Generate Plan" / "Rebuild Plan" button/action, fetch (or use cached) remaining generation count for today.
+- ⬜ Display remaining attempts near the generate action: e.g. "1 of 2 generations remaining today".
+- ⬜ When the limit is hit, disable the button and show a message: "You've used both plan generations for today. Come back tomorrow to rebuild your plan."
+- ⬜ Show the reset time in the user's local timezone: "Resets at midnight (2 Jul)".
+- ⬜ Handle the 429 response gracefully in case the local count is stale.
 
 **Tasks:**
-- Add `planGenerationsToday: Int` and `planGenerationResetAt: Date` to the athlete profile model / API response.
-- Update `NorthAxAPI` / `PlanEngine` to surface the 429 and parse the `resets_at` field.
-- In `PlanView` (and anywhere else a regeneration can be triggered), gate the action behind the remaining count.
-- Show a remaining-count badge / label next to the generate button.
-- Write a unit test: attempting a third generation within the same day returns the correct error and the UI disables the button.
+- ⬜ Add `planGenerationsToday: Int` and `planGenerationResetAt: Date` to the athlete profile model / API response.
+- ⬜ Update `NorthAxAPI` / `PlanEngine` to surface the 429 and parse the `resets_at` field.
+- ⬜ In `TrainingPlanView` (and anywhere else a regeneration can be triggered), gate the action behind the remaining count.
+- ⬜ Show a remaining-count badge / label next to the generate button.
+- ⬜ Write a unit test: attempting a third generation within the same day returns the correct error and the UI disables the button.
 
 ---
 
-## 7. Main Page — Plan-Centric Layout with "Week at a Glance"
+## 7. 🟡 Main Page — Plan-Centric Layout with "Week at a Glance"
 
 **Goal:** Make the main (Dashboard) screen plan-first. The dominant element is the current week's training plan with live completion tracking, cross-referenced against workouts already imported from intervals.icu (and Apple Health / Garmin).
 
@@ -279,24 +279,24 @@ Matching a planned session to an actual imported workout:
 - The matched state is cached locally and refreshed whenever the store syncs.
 
 ### Tasks:
-- Redesign `DashboardView` to be plan-centric: Week at a Glance strip at top, session cards below.
-- Build `WeekGlanceView` — 7-day strip component with day state indicators and sport icons.
-- Add completion state (`planned | done | missed | rest`) to the `PlannedSession` model.
-- Build `PlanMatchingEngine` that pairs `PlannedSession` items against imported workouts by date + sport.
-- Update `AthleteStore` to fetch both the weekly plan and the week's imported workouts, and run matching.
-- Keep `PlannedSessionCard` compact — no inline graph, no CTA buttons. Tapping the card always navigates to `WorkoutDetailView`.
-- Build `WorkoutDetailView`: effort graph, planned targets, actual-vs-planned table, activity graphs, notes, source badge.
-- Define an `ActivityGraphData` model to carry the time-series streams (HR, pace, power, elevation, cadence) returned by the integration alongside the matched workout.
-- Render activity graphs only when the corresponding data stream is non-empty; skip the section entirely for planned/missed sessions.
-- Apply HR zone background bands to the HR chart using the athlete's configured LTHR / max HR thresholds.
-- In `WorkoutDetailView`, when a match exists, render a second effort graph for the actual workout alongside the planned one.
-- Remove the "Start session" / "Log manually" CTA entirely — no in-app session tracking at this stage.
-- Ensure `ActivitySwitcherView` (sport switcher) adapts or is removed in favour of the plan-first layout.
+- ✅ Redesign `DashboardView` to be plan-centric: Week at a Glance strip at top, session cards below.
+- ✅ Build `WeekGlanceView` — 7-day strip component with day state indicators and sport icons.
+- ✅ Add completion state (`planned | done | missed | rest`) to the `PlannedSession` model.
+- ✅ Build `PlanMatchingEngine` that pairs `PlannedSession` items against imported workouts by date + sport.
+- ✅ Update `AthleteStore` to fetch both the weekly plan and the week's imported workouts, and run matching.
+- ✅ Keep `PlannedSessionCard` (`SessionMatchCard`) compact — no inline graph, no CTA buttons. Tapping navigates to `WorkoutDetailView`.
+- ✅ Build `WorkoutDetailView`: effort graph, planned targets, actual-vs-planned stats table, source badge.
+- ✅ Remove the "Start session" / "Log manually" CTA — replaced by "Mark complete" in `WorkoutDetailView`.
+- ✅ `ActivitySwitcherView` superseded — switch suggestions now live in `WorkoutDetailView` (see #9).
+- ⬜ Define `ActivityGraphData` model to carry time-series streams (HR, pace, power, elevation, cadence).
+- ⬜ Render activity graphs (HR, pace, power, elevation, cadence) in `WorkoutDetailView` for completed sessions.
+- ⬜ Apply HR zone background bands to the HR chart using the athlete's LTHR / max HR thresholds.
+- ⬜ Render a second effort graph for the *actual* workout intensity alongside the planned one when a match exists.
 - Note: the current `ActivitySwitcherView` uses a deterministic rules engine (not AI) for all sports except Strength (which gets a background AI enrichment call). Under this plan-centric redesign, switch suggestions become AI-generated and pre-fetched at day start (see feature #9).
 
 ---
 
-## 9. Daily Pre-fetched AI Switch Suggestions
+## 9. 🟡 Daily Pre-fetched AI Switch Suggestions
 
 **Goal:** At the start of each day, proactively request AI-generated alternative session suggestions from the backend — one per planned workout that day. This replaces the current on-demand deterministic switcher with context-aware AI recommendations that are ready before the user even opens the app.
 
@@ -332,28 +332,26 @@ The backend returns a ranked list of 2–4 alternative sessions, each with:
 
 ### iOS tasks
 
-- Add `dailySuggestions: [PlannedSessionID: [SwitchSuggestion]]` to `AthleteStore` — keyed by the planned session so each card shows its own alternatives.
-- Store `lastSuggestionFetchDate` in UserDefaults; compare to today on app foreground.
-- Register a `BGAppRefreshTask` for midnight fetch (best-effort; OS may delay it).
-- In `WorkoutDetailView`, show the pre-fetched alternatives as a "Switch to..." section. If suggestions aren't ready yet, show a loading shimmer; if fetch failed, show the deterministic fallback silently.
-- The AI rationale text is shown per suggestion card (e.g. "Your HRV is 12% below baseline and you have a long ride Thursday — a shorter aerobic run preserves freshness better than tempo today.").
-- Cache suggestions locally so they survive a foreground/background cycle without re-fetching.
-- Invalidate the cache and re-fetch if: the user's readiness metrics update significantly (>10% HRV change), or the weekly plan is regenerated.
+- ✅ Add `dailySuggestions: [PlannedSessionID: [SwitchSuggestion]]` to `AthleteStore` — keyed by the planned session so each card shows its own alternatives.
+- ✅ Store `lastSuggestionFetchDate` in UserDefaults; compare to today on app foreground.
+- ✅ In `WorkoutDetailView`, show the pre-fetched alternatives as a "Switch to..." section. If suggestions aren't ready yet, show a loading shimmer; if fetch failed, show the deterministic fallback silently.
+- ✅ The AI rationale text is shown per suggestion card.
+- ✅ Cache suggestions locally so they survive a foreground/background cycle without re-fetching.
+- ✅ Invalidate the cache and re-fetch if: the user's readiness metrics update significantly (>10% HRV change), or the weekly plan is regenerated.
+- ⬜ Register a `BGAppRefreshTask` for midnight fetch (best-effort; OS may delay it).
 
 ### Switch rate limit (2×/day)
 
-- The user may apply a switch suggestion at most **2 times per calendar day** (midnight-to-midnight local time), across all sessions combined.
-- The limit resets at midnight local time.
-- **Backend:** track `session_switches_today` and `last_switch_date` on the athlete profile. The apply-switch endpoint returns HTTP 429 with `{"error": "switch_limit_reached", "resets_at": "<ISO timestamp>"}` when exceeded.
-- **iOS:** track remaining switches locally (`switchesRemainingToday: Int`, default 2, persisted in UserDefaults with a date key). Decrement on each successful switch.
-  - In `WorkoutDetailView`, when `switchesRemainingToday == 0`, show the suggestions list as greyed-out with a lock badge and message: "You've used both activity switches for today. Come back tomorrow."
-  - Show remaining count near the "Switch to..." section header: e.g. "Switch to... (1 of 2 remaining today)".
-  - Handle the backend 429 gracefully in case the local count is stale (re-sync from error response).
-  - The count badge disappears once both switches are used — no need to show "0 remaining".
+- ⬜ The user may apply a switch suggestion at most **2 times per calendar day** (midnight-to-midnight local time), across all sessions combined.
+- ⬜ **Backend:** track `session_switches_today` and `last_switch_date` on the athlete profile. The apply-switch endpoint returns HTTP 429 with `{"error": "switch_limit_reached", "resets_at": "<ISO timestamp>"}` when exceeded.
+- ⬜ **iOS:** track remaining switches locally (`switchesRemainingToday: Int`, default 2, persisted in UserDefaults with a date key). Decrement on each successful switch.
+  - ⬜ In `WorkoutDetailView`, when `switchesRemainingToday == 0`, show the suggestions list as greyed-out with a lock badge and message: "You've used both activity switches for today. Come back tomorrow."
+  - ⬜ Show remaining count near the "Switch to..." section header: e.g. "Switch to... (1 of 2 remaining today)".
+  - ⬜ Handle the backend 429 gracefully in case the local count is stale (re-sync from error response).
 
 ---
 
-## 8. Readiness Ring — Compact Main Page + Dedicated Detail Popup
+## 8. ✅ Readiness Ring — Compact Main Page + Dedicated Detail Popup
 
 **Goal:** The readiness ring on the main page should be clean and minimal — just the ring and the score. All explanatory content (description, conditions, contributing metrics, graphs) moves into a dedicated popup/sheet that opens when the user taps the ring.
 
@@ -383,9 +381,31 @@ Opens as a modal sheet (large detent) when the ring is tapped. Contains:
 5. **Source badges** — small labels on each metric graph indicating where the data came from (Apple Health, Garmin, intervals.icu, Manual).
 
 ### Tasks:
-- Strip `ReadinessRingView` (or `DashboardView`) of the description and conditions block; leave only the ring + score + label.
-- Build `ReadinessDetailView` as a SwiftUI sheet containing the sections above.
-- Wire the tap gesture on the ring in `DashboardView` to present `ReadinessDetailView`.
-- Move the conditions/factors rendering logic from the dashboard into `ReadinessDetailView`.
-- Add per-metric `MetricChartView` instances (leveraging the existing `MetricChartView`) for each contributing metric inside the sheet.
-- Ensure the sheet handles the empty-data state gracefully (e.g. "Connect a data source to see your HRV trend").
+- ✅ Strip `DashboardView` of the description and conditions block; ring shows score + label only.
+- ✅ Build `ReadinessDetailView` as a SwiftUI sheet with score header, explanation, conditions, and trend graphs.
+- ✅ Wire the tap gesture on the ring in `DashboardView` to present `ReadinessDetailView`.
+- ✅ Move the conditions/factors rendering logic from the dashboard into `ReadinessDetailView`.
+- ✅ Add per-metric `MetricChartView` instances (HRV, RHR, sleep, TSB) with source badges inside the sheet.
+- ✅ Ensure the sheet handles the empty-data state gracefully ("Connect a data source to see your HRV trend").
+
+---
+
+## 10. ✅ Activity Graphs in Completed Workout View
+
+**Goal:** When a session card is tapped and the session is matched to a completed workout, show time-series graphs from the integration data (intervals.icu / Garmin / Apple Health) so the athlete can review their effort in detail.
+
+**Graphs (shown only when data is available):**
+- **Heart Rate over time** — full HR trace with HR zone bands as coloured background.
+- **Pace over time** (running/swimming) — actual pace trace vs planned target line.
+- **Power over time** (cycling, if power data available) — actual power trace vs planned target, with FTP reference line.
+- **Elevation profile** (running/cycling, if GPS data available) — gradient area chart.
+- **Cadence over time** (running/cycling, if available) — line chart.
+
+**Tasks:**
+- ✅ Define `ActivityStreams` model carrying time-series streams (HR, power, velocity, altitude, cadence + time).
+- ✅ Extend the API / `IntervalsClient` to return downsampled time-series streams (`GET /intervals/activity/{id}/streams`).
+- ✅ Add an "Activity Data" section to `WorkoutDetailView` that renders each non-empty stream as a chart.
+- ✅ Apply HR zone background bands using the athlete's max HR from `AthleteThresholds`.
+- 🟡 Reference lines: FTP line on the power chart done; overlaying the *planned* pace/power target not done (plan targets are zone-based, not a single value).
+- ✅ Show a source badge in the section (from the matched integration).
+- ✅ Skip the section entirely for planned or missed sessions (only shown for `.done` with stream data).

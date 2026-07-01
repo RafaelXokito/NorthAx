@@ -248,6 +248,18 @@ struct DayOverrideRequest: Encodable {
     var session: PlannedSessionDTO?   // nil → clear to a rest day
 }
 
+/// Time-series streams for a completed activity (§10).
+struct ActivityStreamsDTO: Decodable {
+    var activityId: String
+    var time: [Double]
+    var heartRate: [Double]
+    var power: [Double]
+    var velocity: [Double]
+    var altitude: [Double]
+    var cadence: [Double]
+    var source: String
+}
+
 struct StrengthSessionResponse: Decodable {
     var muscleGroups: [String]
     var title: String

@@ -121,6 +121,18 @@ class IntervalsClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def fetch_activity_streams(
+        self, token: str, activity_id: str, *, api_key: bool = False
+    ) -> list | dict:
+        """Time-series streams for one activity (§10). Requests only the metrics we
+        chart to keep the payload small."""
+        url = f"{self.api_base}/activity/{activity_id}/streams"
+        params = {"types": "time,heartrate,watts,velocity_smooth,altitude,cadence"}
+        async with httpx.AsyncClient(timeout=20) as http:
+            resp = await http.get(url, params=params, **self._auth_kwargs(token, api_key))
+            resp.raise_for_status()
+            return resp.json()
+
     async def create_event(
         self, token: str, event: dict, *, api_key: bool = False, athlete_id: str = "0"
     ) -> dict:

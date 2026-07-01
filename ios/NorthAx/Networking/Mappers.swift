@@ -230,6 +230,14 @@ extension SwitchSuggestionDTO {
     }
 }
 
+extension ActivityStreamsDTO {
+    func toDomain() -> ActivityStreams {
+        ActivityStreams(activityId: activityId, time: time, heartRate: heartRate,
+                        power: power, velocity: velocity, altitude: altitude,
+                        cadence: cadence, source: source)
+    }
+}
+
 // MARK: - Garmin
 
 extension IntervalsStatusDTO {
