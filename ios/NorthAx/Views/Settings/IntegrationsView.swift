@@ -14,7 +14,6 @@ struct IntegrationsView: View {
     }
 
     private let comingSoon: [ComingSoon] = [
-        ComingSoon(name: "Strava",       icon: "figure.run", color: .axAccent),
         ComingSoon(name: "Wahoo",        icon: "bolt.fill",  color: .axBlue)
     ]
 
@@ -24,6 +23,7 @@ struct IntegrationsView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     sectionLabel("CONNECTED")
                     intervalsRow
+                    stravaRow
                     appleHealthRow
                 }
 
@@ -66,6 +66,41 @@ struct IntegrationsView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("intervals.icu")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(state.displayLabel)
+                        .font(.caption)
+                        .foregroundStyle(state.isConnected ? .axGreen : .axSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.axTertiary)
+            }
+            .padding(16)
+            .background(Color.axSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+        }
+    }
+
+    // MARK: - Strava
+
+    private var stravaRow: some View {
+        let state = store.strava.connectionState
+        return NavigationLink(destination: StravaConnectView()) {
+            HStack(spacing: 14) {
+                Image(systemName: "figure.run")
+                    .font(.subheadline)
+                    .foregroundStyle(.axAccent)
+                    .frame(width: 36, height: 36)
+                    .background(Color.axAccent.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Strava")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
                     Text(state.displayLabel)

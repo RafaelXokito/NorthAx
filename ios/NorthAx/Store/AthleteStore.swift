@@ -124,6 +124,7 @@ class AthleteStore {
     }
 
     let intervals = IntervalsService()
+    let strava = StravaService()
     let health = HealthKitService()
 
     private let api = NorthAxAPI.shared
@@ -201,6 +202,7 @@ class AthleteStore {
         prefetchDailySuggestionsIfNeeded()
         await loadCoachHistory()
         await intervals.refreshStatus()
+        await strava.refreshStatus()
     }
 
     func loadPreferences() async {

@@ -19,7 +19,7 @@
 | 10 | Activity Graphs in Completed Workout View | ✅ Done — `ActivityStreams` + `ActivityStreamChart` in `WorkoutDetailView` (HR w/ zone bands, power+FTP line, speed, elevation, cadence). Needs intervals.icu connected (#1) for real data |
 | 11 | Week Navigation in Week at a Glance | ✅ Done — nav header (◀ label ▶) + swipe in `WeekGlanceView` on both Dashboard & Plan; Plan week picker removed; past weeks from recently-synced activities |
 | 12 | Extended intervals.icu Data (sleep, VO2Max, fitness/fatigue/form) | 🟡 Partial — Fitness/Fatigue/Form (CTL·ATL·TSB) chart + VO2Max trend in ReadinessDetail & Metrics (migration 0004). Sleep-stages & sleeping-HR skipped: intervals wellness doesn't expose stage breakdown |
-| 13 | Strava Integration + Cross-Source Activity Data Merging | ⬜ Not done — Strava OAuth not implemented; per-activity field-level merge not implemented |
+| 13 | Strava Integration + Cross-Source Activity Data Merging | 🟡 Partial — Strava backend (OAuth + personal-token connect, migration 0005) + iOS connect UI done; sync flows into plan matching. Cross-source field-level merge, priority UI, per-stream source badges, and Strava streams for #10 still to do |
 
 ### Remaining work (priority order)
 
@@ -528,7 +528,7 @@ The navigation lives in the block header row, replacing the plain "WEEK AT A GLA
 
 ---
 
-## 13. ⬜ Strava Integration + Cross-Source Activity Data Merging
+## 13. 🟡 Strava Integration + Cross-Source Activity Data Merging
 
 **Goal:** Add Strava as a second supported sport-activity integration. For users without intervals.icu, Strava provides activity data (GPS, pace, HR, cadence, elevation). When both integrations are active, merge activity data field-by-field using a per-field source priority, so no data is discarded — whichever source has a field the other lacks, that field is used.
 
@@ -582,15 +582,15 @@ The navigation lives in the block header row, replacing the plain "WEEK AT A GLA
 ### Tasks:
 
 **Backend:**
-- ⬜ Add `STRAVA_CLIENT_ID` + `STRAVA_CLIENT_SECRET` to server environment (do not commit).
-- ⬜ Implement Strava OAuth token exchange and refresh endpoint (`POST /integrations/strava/connect`, `GET /integrations/strava/callback`).
-- ⬜ Implement activity sync from Strava (`GET /integrations/strava/sync`) — fetch activities and streams for the last 8 weeks on first connect, then webhook / incremental on subsequent syncs.
-- ⬜ Implement field-level activity merge on the backend using `ActivitySourcePriority`; return merged activity records to the iOS app.
+- ✅ `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` in env; `STRAVA_REFRESH_TOKEN` for a personal single-athlete connect (no publicly-reachable redirect needed on the Pi).
+- ✅ OAuth token exchange + refresh + `GET /integrations/strava/callback`, plus `POST /integrations/strava/connect/personal` (the path actually used).
+- ✅ Activity sync (`POST /integrations/strava/sync`) — 8 weeks on first connect, incremental after. (Webhooks not implemented — manual/on-connect sync.)
+- ⬜ Field-level activity merge using `ActivitySourcePriority`.
 
 **iOS:**
-- ⬜ Add `StravaService` (or extend `IntervalsService` pattern) for OAuth connect/disconnect and status.
-- ⬜ Add Strava card to `IntegrationsView` — show connection status, last sync time, disconnect action.
-- ⬜ Extend `MetricPriorityView` with an "Activity data" priority section (drag-reorder sources).
-- ⬜ Extend `ActivitySourcePriority` / `MetricSourcePriority` model to cover per-activity-field priorities.
-- ⬜ In `WorkoutDetailView` activity graphs section, show per-stream source badges when streams come from different sources (e.g. "HR · intervals.icu", "Power · Strava").
-- ⬜ Handle the case where only Strava is connected (no intervals.icu): Strava becomes the sole activity source, with Apple Health supplementing wellness fields.
+- ✅ `StravaService` (connect via personal token / disconnect / status / sync).
+- ✅ Strava card in `IntegrationsView` + `StravaConnectView` (status, sync, disconnect).
+- ⬜ Extend `MetricPriorityView` with an "Activity data" priority section (drag-reorder).
+- ⬜ `ActivitySourcePriority` model for per-activity-field priorities.
+- ⬜ Per-stream source badges in `WorkoutDetailView`; source-aware Strava streams for #10 graphs.
+- 🟡 Strava-only works today (its activities feed plan matching); wellness still comes from intervals/Apple Health.

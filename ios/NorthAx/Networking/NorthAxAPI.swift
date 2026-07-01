@@ -203,6 +203,29 @@ struct NorthAxAPI {
         return dto.toDomain()
     }
 
+    // MARK: - Strava (§13)
+
+    func stravaStatus() async throws -> IntervalsConnectionState {
+        let dto: IntervalsStatusDTO = try await client.get("integrations/strava/status")
+        return dto.toConnectionState()
+    }
+
+    /// Connect the single athlete via the server's personal refresh token (no redirect).
+    func stravaConnectPersonal() async throws -> IntervalsConnectionState {
+        let dto: IntervalsStatusDTO = try await client.post("integrations/strava/connect/personal", timeout: 30)
+        return dto.toConnectionState()
+    }
+
+    @discardableResult
+    func stravaSync() async throws -> Bool {
+        _ = try await client.send("POST", "integrations/strava/sync")
+        return true
+    }
+
+    func stravaDisconnect() async throws {
+        _ = try await client.send("DELETE", "integrations/strava/disconnect")
+    }
+
     func activities(limit: Int = 20) async throws -> [GarminActivity] {
         let page: PaginatedActivities = try await client.get(
             "activities", query: [URLQueryItem(name: "limit", value: String(limit))]
