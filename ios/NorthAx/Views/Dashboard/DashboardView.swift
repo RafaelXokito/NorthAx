@@ -22,12 +22,9 @@ struct DashboardView: View {
                     }
 
                     if store.currentWeek != nil, let data = store.weekData(offset: weekOffset) {
-                        if weekOffset == 0 {
-                            // Today's session — detailed; a rest card when nothing's planned.
-                            todaySection(data.matches.filter { $0.day.isToday })
-                        } else {
-                            weekSummaryCard(data)
-                        }
+                        // Today's session always reflects today — independent of the
+                        // week being browsed in the strip below.
+                        todaySection(store.currentWeekMatches.filter { $0.day.isToday })
                         WeekGlanceView(week: data.week, matches: data.matches,
                                        offset: $weekOffset, maxForward: store.maxFutureWeekOffset) { date in
                             if let m = data.matches.first(where: { $0.day.date == date }) { selectedMatch = m }
@@ -99,34 +96,7 @@ struct DashboardView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Non-current week summary + back pill (§11)
-
-    private func weekSummaryCard(_ data: WeekData) -> some View {
-        let total = data.matches.count
-        let done = data.matches.filter { $0.completion == .done }.count
-        return HStack(spacing: 14) {
-            Image(systemName: "calendar")
-                .font(.title2).foregroundStyle(.axAccent)
-                .frame(width: 48, height: 48)
-                .background(Color.axAccent.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 11))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(data.isHistorical ? "COMPLETED" : "PLANNED")
-                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary).tracking(1.2)
-                Text(total == 0 ? "No session data" : "\(total) session\(total == 1 ? "" : "s")")
-                    .font(.headline).foregroundStyle(.white)
-                if total > 0 && data.isHistorical {
-                    Text("\(done) completed").font(.caption).foregroundStyle(.axSecondary)
-                }
-            }
-            Spacer()
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
-    }
+    // MARK: - Back-to-this-week pill (§11)
 
     private var backToThisWeekPill: some View {
         Button {
