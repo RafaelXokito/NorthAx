@@ -14,15 +14,16 @@ struct MetricDetail: Identifiable {
     let series: [Double]    // full history, oldest→newest
     let dates: [Date]       // aligned with `series`
     let format: (Double) -> String   // value formatter for the graph axes/scrub
+    let sourceLabel: String?         // which integration provided today's value
 
     init(id: String, title: String, icon: String, color: Color, value: String,
          statusLabel: String, statusColor: Color, description: String,
          rows: [(String, String)], series: [Double], dates: [Date],
-         format: @escaping (Double) -> String) {
+         format: @escaping (Double) -> String, sourceLabel: String? = nil) {
         self.id = id; self.title = title; self.icon = icon; self.color = color
         self.value = value; self.statusLabel = statusLabel; self.statusColor = statusColor
         self.description = description; self.rows = rows; self.series = series
-        self.dates = dates; self.format = format
+        self.dates = dates; self.format = format; self.sourceLabel = sourceLabel
     }
 }
 
@@ -79,6 +80,12 @@ struct MetricDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     MetricHeader(detail: detail)
+
+                    if let source = detail.sourceLabel {
+                        Label("Source: \(source)", systemImage: "antenna.radiowaves.left.and.right")
+                            .font(.caption)
+                            .foregroundStyle(.axTertiary)
+                    }
 
                     if detail.series.count > 1 {
                         Picker("Range", selection: $range) {

@@ -34,6 +34,12 @@ struct TrainingMetrics {
     var sleepSeries: [Double] = []
     var tsbSeries: [Double] = []   // Fitness − Fatigue (chronicLoad − acuteLoad)
 
+    /// Which source won each mergeable metric (keyed by `MergeableMetric.rawValue`),
+    /// filled in by `MetricResolver`. Empty when there's only one source.
+    var provenance: [String: MetricSource] = [:]
+
+    func source(for metric: MergeableMetric) -> MetricSource? { provenance[metric.rawValue] }
+
     // Derived
     var trainingBalance: Double { chronicLoad - acuteLoad }  // positive = fresh
     var trainingRatio: Double   { acuteLoad / max(1, chronicLoad) }
@@ -56,7 +62,12 @@ struct TrainingMetrics {
             hrvSeries: ramp(from: 49, to: 58, wiggle: 2.5),
             restingHRSeries: ramp(from: 49, to: 46, wiggle: 1),
             sleepSeries: ramp(from: 6.6, to: 7.5, wiggle: 0.45),
-            tsbSeries: ramp(from: -3, to: 4, wiggle: 3)
+            tsbSeries: ramp(from: -3, to: 4, wiggle: 3),
+            provenance: [
+                MergeableMetric.hrv.rawValue: .healthkit,
+                MergeableMetric.restingHR.rawValue: .intervals,
+                MergeableMetric.sleep.rawValue: .intervals
+            ]
         )
     }
 
@@ -74,7 +85,12 @@ struct TrainingMetrics {
             hrvSeries: ramp(from: 55, to: 42, wiggle: 2.5),
             restingHRSeries: ramp(from: 47, to: 54, wiggle: 1),
             sleepSeries: ramp(from: 7.2, to: 5.8, wiggle: 0.5),
-            tsbSeries: ramp(from: 3, to: -26, wiggle: 3.5)
+            tsbSeries: ramp(from: 3, to: -26, wiggle: 3.5),
+            provenance: [
+                MergeableMetric.hrv.rawValue: .healthkit,
+                MergeableMetric.restingHR.rawValue: .intervals,
+                MergeableMetric.sleep.rawValue: .intervals
+            ]
         )
     }
 

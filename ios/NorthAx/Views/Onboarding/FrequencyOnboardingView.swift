@@ -139,6 +139,9 @@ struct FrequencyOnboardingView: View {
                     store.trainingFrequency = localFrequency
                     store.hasSetFrequency = true
                     dismiss()  // closes the sheet when presented from the Plan tab
+                    if localFrequency.totalTrainingDays > 0 {
+                        Task { await store.applyPlanChanges() }
+                    }
                 } label: {
                     Text(localFrequency.totalTrainingDays == 0 ? "Skip for now" : "Build My Plan →")
                         .font(.headline)

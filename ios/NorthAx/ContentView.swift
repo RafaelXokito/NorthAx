@@ -16,7 +16,12 @@ struct ContentView: View {
                 SignInView()
                     .environment(authService)
             }
+
+            if store.isGeneratingPlan {
+                PlanGeneratingView()
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: store.isGeneratingPlan)
         .preferredColorScheme(.dark)
         // `initial: true` so a session restored during AuthService.init() (which
         // sets currentUser before this view starts observing) still triggers the

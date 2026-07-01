@@ -96,8 +96,29 @@ class DailyMetrics(Base):
 
     body_weight: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
     ai_explanation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Which source won each mergeable metric: { metric -> source }. Provenance for
+    # the multi-source resolution (see docs/multi-source-metrics.md).
+    metric_sources: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MetricReading(Base):
+    """One source's raw wellness contribution for a day. `daily_metrics` is
+    derived from these by resolving per-metric conflicts against the user's
+    priority (see docs/multi-source-metrics.md). HealthKit stays on-device and is
+    never stored here — only server-side sources (intervals, manual)."""
+    __tablename__ = "metric_readings"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    source: Mapped[str] = mapped_column(String, primary_key=True)  # "intervals" | "manual"
+    values: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class UserPreferences(Base):
@@ -115,6 +136,9 @@ class UserPreferences(Base):
     muscle_group_split: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     # Structured-workout target for cycling: "hr" (default) or "power".
     cycling_target: Mapped[str] = mapped_column(String, nullable=False, default="hr")
+    # Per-metric source ranking for multi-integration conflict resolution:
+    # { metric -> [source, ...] } (see docs/multi-source-metrics.md).
+    metric_priority: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

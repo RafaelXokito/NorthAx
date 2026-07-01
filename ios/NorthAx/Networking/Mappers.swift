@@ -61,7 +61,8 @@ extension DailyMetricsResponse {
             hrvSeries: hrvSeries ?? [],
             restingHRSeries: restingHrSeries ?? [],
             sleepSeries: sleepSeries ?? [],
-            tsbSeries: tsbSeries ?? []
+            tsbSeries: tsbSeries ?? [],
+            provenance: (metricSources ?? [:]).compactMapValues { MetricSource(rawValue: $0) }
         )
     }
 }
@@ -101,6 +102,7 @@ struct ParsedPreferences {
     var split: WeeklyMuscleGroupSplit
     var cyclingTarget: String
     var thresholds: AthleteThresholds
+    var metricPriority: MetricSourcePriority
 }
 
 extension UserPreferencesDTO {
@@ -126,7 +128,8 @@ extension UserPreferencesDTO {
             frequency: TrainingFrequency(schedules: scheds),
             split: split,
             cyclingTarget: cyclingTarget,
-            thresholds: thresholds.toDomain()
+            thresholds: thresholds.toDomain(),
+            metricPriority: MetricSourcePriority(wire: metricPriority)
         )
     }
 }

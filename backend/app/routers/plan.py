@@ -10,12 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from .. import schemas
+from ..db import session_scope
 from ..deps import get_current_user_id, get_db
 from ..engines.plan import monday_of
 from ..errors import AppError, plan_week_not_found
 from ..models import WeeklyPlanRow
 from ..rate_limit import limit
-from ..services import mappers, plan_service
+from ..services import ai, mappers, plan_ai, plan_service
 
 router = APIRouter(prefix="/plan", tags=["plan"], dependencies=[Depends(limit("default", 300, 60))])
 
@@ -66,6 +67,38 @@ async def generate(
     today = dt.date.today()
     rows = await plan_service.regenerate_plans(session, user_id, today, weeks=4)
     return [_dto(r, today) for r in rows]
+
+
+@router.post(
+    "/generate-ai",
+    response_model=list[schemas.WeeklyPlanDTO],
+    dependencies=[Depends(limit("ai_plan", 20, 3600))],
+)
+async def generate_ai(
+    weeks: int = Query(default=2, ge=1, le=4),
+    user_id: str = Depends(get_current_user_id),
+) -> list[schemas.WeeklyPlanDTO]:
+    """Personalise the next `weeks` with the AI planner. Runs in three phases so
+    the DB connection is released during the slow model call (multi-user safe),
+    mirroring the coach endpoint (§8.2)."""
+    today = dt.date.today()
+
+    # Phase 1 — read: skeleton + prompt inputs (short-lived, RLS-scoped session).
+    async with session_scope(user_id) as session:
+        plans, id_map, block, context, cycling_target = await plan_ai.prepare(
+            session, user_id, today, weeks
+        )
+
+    # Phase 2 — AI: no DB transaction held (best-effort; skeleton is the fallback).
+    if id_map:
+        parsed = await ai.plan_generate(context, block)
+        if parsed:
+            plan_ai.apply_overrides(id_map, parsed)
+
+    # Phase 3 — write: upsert + trim, then build the DTOs while still attached.
+    async with session_scope(user_id) as session:
+        rows = await plan_ai.persist(session, user_id, today, weeks, plans, cycling_target)
+        return [_dto(r, today) for r in rows]
 
 
 @router.patch("/week/{week_start}/day/{date}", response_model=schemas.WeeklyPlanDTO)

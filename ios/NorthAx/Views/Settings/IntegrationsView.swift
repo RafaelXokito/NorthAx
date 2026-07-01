@@ -28,6 +28,11 @@ struct IntegrationsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 14) {
+                    sectionLabel("DATA PRIORITY")
+                    dataPriorityRow
+                }
+
+                VStack(alignment: .leading, spacing: 14) {
                     sectionLabel("COMING SOON")
                     VStack(spacing: 10) {
                         ForEach(comingSoon) { comingSoonRow($0) }
@@ -104,6 +109,40 @@ struct IntegrationsView: View {
                     Text(status)
                         .font(.caption)
                         .foregroundStyle(connected ? .axGreen : .axSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.axTertiary)
+            }
+            .padding(16)
+            .background(Color.axSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+        }
+    }
+
+    // MARK: - Data priority
+
+    private var dataPriorityRow: some View {
+        NavigationLink(destination: MetricPriorityView()) {
+            HStack(spacing: 14) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.subheadline)
+                    .foregroundStyle(.axGreen)
+                    .frame(width: 36, height: 36)
+                    .background(Color.axGreen.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Source priority")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text("Choose which source wins per metric")
+                        .font(.caption)
+                        .foregroundStyle(.axSecondary)
                 }
 
                 Spacer()

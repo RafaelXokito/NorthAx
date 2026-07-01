@@ -39,6 +39,7 @@ def _to_dto(prefs: UserPreferences) -> schemas.UserPreferencesDTO:
         thresholds=schemas.AthleteThresholdsDTO.model_validate(prefs.thresholds or {}),
         muscle_group_split=[schemas.DaySplitDTO(**d) for d in prefs.muscle_group_split],
         cycling_target=getattr(prefs, "cycling_target", "hr"),
+        metric_priority=dict(getattr(prefs, "metric_priority", {}) or {}),
     )
 
 
@@ -92,8 +93,21 @@ async def replace_preferences(
     prefs.muscle_group_split = _split_json(body.muscle_group_split)
     if body.cycling_target in ("hr", "power"):
         prefs.cycling_target = body.cycling_target
+    prefs.metric_priority = dict(body.metric_priority)
     await session.flush()
     await regenerate_plans(session, user_id, dt.date.today(), weeks=4)
+    return _to_dto(prefs)
+
+
+@router.patch("/metric-priority", response_model=schemas.UserPreferencesDTO)
+async def patch_metric_priority(
+    body: schemas.MetricPriorityPatch,
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> schemas.UserPreferencesDTO:
+    prefs = await _get_or_create(session, user_id)
+    prefs.metric_priority = dict(body.metric_priority)
+    await session.flush()  # no plan regeneration — priority only affects metric reads
     return _to_dto(prefs)
 
 

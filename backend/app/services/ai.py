@@ -55,6 +55,27 @@ STRENGTH_SYSTEM = (
     "Be specific about muscle groups and loading principles. No generic fitness advice."
 )
 
+PLAN_INTENSITIES = ("Very Easy", "Easy", "Moderate", "Tempo", "Hard", "Threshold", "VO2")
+
+PLAN_SYSTEM = (
+    "You are an elite endurance and strength coach designing a personalised 2-week "
+    "training block for one athlete. You are given a FIXED skeleton: each session is "
+    "already assigned to a specific day and sport — you must NOT add, remove, move, or "
+    "reassign sessions, and you must return exactly one entry per id you are given. For "
+    "each session decide its title, a short subtitle describing the workout, its duration "
+    "in minutes, and its intensity. Apply progressive overload and sensible week-to-week "
+    "variation across the two weeks, respect recovery (do not stack hard days back-to-back, "
+    "ease off when readiness or recent load is poor), and tailor the work to the athlete's "
+    "history and current metrics. For Strength sessions keep the focus on the muscle groups "
+    "noted for that day. "
+    f"intensityLabel MUST be exactly one of: {', '.join(PLAN_INTENSITIES)}. "
+    "duration is an integer number of minutes between 15 and 240. "
+    "Reply with ONLY a JSON object, no prose, no markdown fences, shaped exactly as: "
+    '{"sessions": [{"id": <int>, "title": "<string>", "subtitle": "<string>", '
+    '"duration": <int>, "intensityLabel": "<one of the allowed values>"}, ...]}.'
+)
+
+
 COACH_SYSTEM_TEMPLATE = """You are the NorthAx AI coach — a calm, direct, science-backed athletic coach
 embedded in a training OS. You have access to the athlete's real biometric data
 and training history.
@@ -205,6 +226,24 @@ async def strength_augment(
     if not parsed or "rationale" not in parsed:
         return None
     parsed.setdefault("recoveryWarnings", [])
+    return parsed
+
+
+# ── 8.6 Plan generation (default model; JSON) ────────────────────────────────
+async def plan_generate(athlete_context: str, sessions_block: str) -> dict | None:
+    """Design a 2-week block. Returns the parsed ``{"sessions": [...]}`` dict, or
+    None on any failure so the caller can keep the deterministic plan (§8.5)."""
+    prompt = (
+        f"Athlete profile and current status:\n{athlete_context}\n\n"
+        "Sessions to design (return one JSON entry per id; keep the day and sport "
+        f"fixed):\n{sessions_block}"
+    )
+    raw = await _run(
+        settings.ai_model_default, PLAN_SYSTEM, prompt, settings.ai_cli_default_timeout
+    )
+    parsed = _extract_json(raw or "")
+    if not parsed or not isinstance(parsed.get("sessions"), list):
+        return None
     return parsed
 
 

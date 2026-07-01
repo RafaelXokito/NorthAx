@@ -76,6 +76,7 @@ struct DailyMetricsResponse: Decodable {
     var restingHrSeries: [Double]?
     var sleepSeries: [Double]?
     var tsbSeries: [Double]?
+    var metricSources: [String: String]?   // metric -> winning source (provenance)
 }
 
 // MARK: - Plan (§6.7) + structured workouts
@@ -153,10 +154,26 @@ struct UserPreferencesDTO: Codable {
     var muscleGroupSplit: [DaySplitDTO]
     var cyclingTarget: String = "hr"   // "hr" | "power"
     var thresholds: AthleteThresholdsDTO = AthleteThresholdsDTO()
+    var metricPriority: [String: [String]] = [:]   // metric -> [source, ...]
 }
 
 struct CyclingTargetPatch: Encodable {
     var cyclingTarget: String
+}
+
+struct MetricPriorityPatch: Encodable {
+    var metricPriority: [String: [String]]
+}
+
+// Manual wellness entry. `date` is a "yyyy-MM-dd" string (not a full datetime);
+// omitted (nil) fields simply aren't provided by the manual source.
+struct ManualMetricsRequest: Encodable {
+    var date: String
+    var hrv: Double?
+    var restingHr: Int?
+    var sleepDuration: Double?
+    var sleepScore: Int?
+    var bodyWeight: Double?
 }
 
 struct DomainsPatch: Encodable {

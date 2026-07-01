@@ -24,12 +24,28 @@ struct NorthAxAPI {
         return dto.toDomain()
     }
 
+    /// Submit user-entered wellness values as a `manual` source; the server
+    /// re-resolves the day against all sources and returns the merged metrics.
+    @discardableResult
+    func submitManualMetrics(_ req: ManualMetricsRequest) async throws -> TrainingMetrics {
+        let dto: DailyMetricsResponse = try await client.post("metrics/manual", body: req)
+        return dto.toDomain()
+    }
+
     // MARK: - Plan & preferences
 
     func plans(weeks: Int = 4) async throws -> [WeeklyPlan] {
         let dtos: [WeeklyPlanResponse] = try await client.get(
             "plan/weeks", query: [URLQueryItem(name: "weeks", value: String(weeks))]
         )
+        return dtos.map { $0.toDomain() }
+    }
+
+    /// Generate the next two weeks with the AI planner. Falls back server-side to
+    /// the deterministic engine, so this always returns a valid plan. Uses a long
+    /// timeout — the model call can take a while.
+    func generatePlanAI() async throws -> [WeeklyPlan] {
+        let dtos: [WeeklyPlanResponse] = try await client.post("plan/generate-ai", timeout: 120)
         return dtos.map { $0.toDomain() }
     }
 
@@ -73,6 +89,15 @@ struct NorthAxAPI {
     func updateCyclingTarget(_ target: String) async throws -> ParsedPreferences {
         let dto: UserPreferencesDTO = try await client.patch(
             "preferences/target", body: CyclingTargetPatch(cyclingTarget: target)
+        )
+        return dto.toDomain()
+    }
+
+    /// Sync the per-metric source ranking used for multi-integration conflict
+    /// resolution; does not regenerate plans.
+    func updateMetricPriority(_ priority: MetricSourcePriority) async throws -> ParsedPreferences {
+        let dto: UserPreferencesDTO = try await client.patch(
+            "preferences/metric-priority", body: MetricPriorityPatch(metricPriority: priority.wire)
         )
         return dto.toDomain()
     }

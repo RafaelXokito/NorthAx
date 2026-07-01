@@ -33,8 +33,8 @@ final class APIClient {
         try decode(await perform("GET", path, query, nil, authenticated))
     }
 
-    func post<T: Decodable>(_ path: String, body: Encodable? = nil, authenticated: Bool = true) async throws -> T {
-        try decode(await perform("POST", path, nil, encode(body), authenticated))
+    func post<T: Decodable>(_ path: String, body: Encodable? = nil, authenticated: Bool = true, timeout: TimeInterval? = nil) async throws -> T {
+        try decode(await perform("POST", path, nil, encode(body), authenticated, timeout: timeout))
     }
 
     func put<T: Decodable>(_ path: String, body: Encodable? = nil, authenticated: Bool = true) async throws -> T {
@@ -78,12 +78,13 @@ final class APIClient {
         catch { throw APIError.decoding }
     }
 
-    private func makeRequest(_ method: String, _ path: String, _ query: [URLQueryItem]?, _ bodyData: Data?, _ authenticated: Bool) -> URLRequest {
+    private func makeRequest(_ method: String, _ path: String, _ query: [URLQueryItem]?, _ bodyData: Data?, _ authenticated: Bool, _ timeout: TimeInterval?) -> URLRequest {
         let url = APIConfig.baseURL.appendingPathComponent(path)
         var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         if let query, !query.isEmpty { comps.queryItems = query }
         var req = URLRequest(url: comps.url ?? url)
         req.httpMethod = method
+        if let timeout { req.timeoutInterval = timeout }
         if let bodyData {
             req.httpBody = bodyData
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -94,8 +95,8 @@ final class APIClient {
         return req
     }
 
-    private func perform(_ method: String, _ path: String, _ query: [URLQueryItem]?, _ bodyData: Data?, _ authenticated: Bool, allowRetry: Bool = true) async throws -> Data {
-        let request = makeRequest(method, path, query, bodyData, authenticated)
+    private func perform(_ method: String, _ path: String, _ query: [URLQueryItem]?, _ bodyData: Data?, _ authenticated: Bool, allowRetry: Bool = true, timeout: TimeInterval? = nil) async throws -> Data {
+        let request = makeRequest(method, path, query, bodyData, authenticated, timeout)
 
         let data: Data
         let response: URLResponse
@@ -108,7 +109,7 @@ final class APIClient {
 
         if http.statusCode == 401, authenticated, allowRetry {
             if await refresher.refresh(using: self) {
-                return try await perform(method, path, query, bodyData, authenticated, allowRetry: false)
+                return try await perform(method, path, query, bodyData, authenticated, allowRetry: false, timeout: timeout)
             }
             tokens.clear()
             await MainActor.run { NotificationCenter.default.post(name: .northaxSessionExpired, object: nil) }

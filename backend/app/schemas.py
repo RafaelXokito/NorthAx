@@ -113,6 +113,24 @@ class DailyMetricsInput(_Base):
         return v
 
 
+class ManualMetricsInput(_Base):
+    """User-entered raw wellness values for a day (all optional). Stored as a
+    `manual` source reading and resolved against other sources by priority."""
+    date: dt.date
+    hrv: float | None = Field(default=None, gt=0)
+    resting_hr: int | None = Field(default=None, gt=0)
+    sleep_duration: float | None = Field(default=None, ge=0)
+    sleep_score: int | None = Field(default=None, ge=0, le=100)
+    body_weight: float | None = Field(default=None, gt=0)
+
+    @field_validator("date")
+    @classmethod
+    def _not_future(cls, v: dt.date) -> dt.date:
+        if v > dt.date.today():
+            raise ValueError("date must not be in the future")
+        return v
+
+
 class DailyMetricsResponse(_Base):
     date: dt.date
     hrv: float
@@ -137,6 +155,8 @@ class DailyMetricsResponse(_Base):
     resting_hr_series: list[float] = []
     sleep_series: list[float] = []
     tsb_series: list[float] = []
+    # Which source won each mergeable metric: { metric -> source } (provenance).
+    metric_sources: dict[str, str] = {}
 
 
 # ── Readiness (§6.4) ─────────────────────────────────────────────────────────
@@ -214,10 +234,16 @@ class UserPreferencesDTO(_Base):
     thresholds: AthleteThresholdsDTO = Field(default_factory=AthleteThresholdsDTO)
     muscle_group_split: list[DaySplitDTO] = Field(default_factory=list)
     cycling_target: str = "hr"  # "hr" | "power"
+    # Per-metric source ranking: { metric -> [source, ...] } (highest first).
+    metric_priority: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class CyclingTargetPatch(_Base):
     cycling_target: str  # "hr" | "power"
+
+
+class MetricPriorityPatch(_Base):
+    metric_priority: dict[str, list[str]]
 
 
 class DomainsPatch(_Base):

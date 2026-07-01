@@ -23,7 +23,7 @@ from ..services.intervals import (
     normalize_intervals_activity,
     normalize_intervals_wellness,
 )
-from ..services.metrics_assembly import assemble_daily_metrics
+from ..services.metrics_assembly import assemble_daily_metrics, record_source_readings
 from ..services.plan_service import regenerate_plans
 
 log = logging.getLogger("northax.jobs")
@@ -126,7 +126,8 @@ async def intervals_sync(user_id: str) -> dict:
             if not date_str:
                 continue
             day = dt.date.fromisoformat(date_str) if isinstance(date_str, str) else date_str
-            if await assemble_daily_metrics(session, user_id, day, wellness):
+            await record_source_readings(session, user_id, day, "intervals", wellness)
+            if await assemble_daily_metrics(session, user_id, day):
                 metrics_days += 1
 
         conn.last_sync_at = dt.datetime.now(dt.timezone.utc)

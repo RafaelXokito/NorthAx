@@ -3,6 +3,7 @@ import SwiftUI
 struct MetricsView: View {
     @Environment(AthleteStore.self) private var store
     @State private var selected: MetricDetail?
+    @State private var showManualEntry = false
 
     var body: some View {
         ScrollView {
@@ -34,7 +35,16 @@ struct MetricsView: View {
         .navigationBarTitleDisplayMode(.large)
 #endif
         .scrollIndicators(.hidden)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showManualEntry = true } label: {
+                    Image(systemName: "square.and.pencil")
+                }
+                .accessibilityLabel("Log metrics manually")
+            }
+        }
         .sheet(item: $selected) { MetricDetailView(detail: $0) }
+        .sheet(isPresented: $showManualEntry) { ManualEntryView() }
     }
 
     // MARK: - Card (header + graph; tap opens the detail modal)
@@ -81,7 +91,8 @@ struct MetricsView: View {
                 ],
                 series: metrics.hrvSeries,
                 dates: dates,
-                format: { "\(Int($0.rounded())) ms" }
+                format: { "\(Int($0.rounded())) ms" },
+                sourceLabel: metrics.source(for: .hrv)?.displayName
             ),
             MetricDetail(
                 id: "Sleep",
@@ -101,7 +112,8 @@ struct MetricsView: View {
                 ],
                 series: metrics.sleepSeries,
                 dates: dates,
-                format: { String(format: "%.1f h", $0) }
+                format: { String(format: "%.1f h", $0) },
+                sourceLabel: metrics.source(for: .sleep)?.displayName
             ),
             MetricDetail(
                 id: "Training Load",
@@ -139,7 +151,8 @@ struct MetricsView: View {
                 ],
                 series: metrics.restingHRSeries,
                 dates: dates,
-                format: { "\(Int($0.rounded())) bpm" }
+                format: { "\(Int($0.rounded())) bpm" },
+                sourceLabel: metrics.source(for: .restingHR)?.displayName
             )
         ]
     }

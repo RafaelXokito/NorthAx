@@ -60,11 +60,28 @@ CREATE TABLE IF NOT EXISTS daily_metrics (
   -- Cached AI readiness explanation (§8.1). NULL until first computed.
   ai_explanation       JSONB,
 
+  -- Which source won each mergeable metric: { metric -> source } (provenance).
+  metric_sources       JSONB NOT NULL DEFAULT '{}',
+
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   UNIQUE (user_id, date)
 );
 CREATE INDEX IF NOT EXISTS daily_metrics_user_date_idx ON daily_metrics(user_id, date DESC);
+ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS metric_sources JSONB NOT NULL DEFAULT '{}';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- metric_readings — one source's raw wellness contribution per day; daily_metrics
+-- is derived from these by resolving conflicts against the user's priority.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS metric_readings (
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  date         DATE NOT NULL,
+  source       TEXT NOT NULL,               -- 'intervals' | 'manual'
+  values       JSONB NOT NULL DEFAULT '{}',
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, date, source)
+);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- user_preferences
@@ -77,12 +94,14 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   thresholds           JSONB NOT NULL DEFAULT '{}',
   muscle_group_split   JSONB NOT NULL DEFAULT '[]',
   cycling_target       TEXT NOT NULL DEFAULT 'hr',   -- 'hr' (default) | 'power'
+  metric_priority      JSONB NOT NULL DEFAULT '{}',  -- { metric -> [source,...] } conflict resolution
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Migration for existing DBs (idempotent):
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS cycling_target TEXT NOT NULL DEFAULT 'hr';
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS domain_schedules JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS thresholds JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS metric_priority JSONB NOT NULL DEFAULT '{}';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- activities
@@ -168,7 +187,8 @@ DECLARE t TEXT;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
     'refresh_tokens', 'daily_metrics', 'user_preferences',
-    'activities', 'weekly_plans', 'coach_messages', 'intervals_connections'
+    'activities', 'weekly_plans', 'coach_messages', 'intervals_connections',
+    'metric_readings'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS user_isolation ON %I', t);

@@ -12,6 +12,7 @@ struct TrainingPlanView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                if store.pendingPlanChanges { updatePlanBar }
                 enrolledSportsSection
                 frequencySummary
             }
@@ -50,18 +51,48 @@ struct TrainingPlanView: View {
             Text("This sport and its scheduled days will be removed from your plan.")
         }
         .confirmationDialog(
-            "Plan updated",
+            "\(enrolledSport?.rawValue ?? "Sport") added",
             isPresented: Binding(get: { enrolledSport != nil }, set: { if !$0 { enrolledSport = nil } }),
             titleVisibility: .visible
         ) {
-            Button("Regenerate now") {
-                store.regeneratePlan()
-                enrolledSport = nil
-            }
-            Button("Later", role: .cancel) {}
+            Button("Got it") { enrolledSport = nil }
         } message: {
-            Text("Your plan will be updated to include \(enrolledSport?.rawValue ?? "this sport"). Regenerate now?")
+            Text("Set its training days below, then tap Update plan to regenerate your plan with the AI coach.")
         }
+    }
+
+    // MARK: - Update plan bar (staged changes)
+
+    private var updatePlanBar: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(.axAccent)
+                Text("You have unsaved plan changes")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.axPrimary)
+                Spacer()
+            }
+            Text("Generate a new two-week plan with your AI coach, tailored to your schedule, recent training, and recovery.")
+                .font(.caption)
+                .foregroundStyle(.axSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                Task { await store.applyPlanChanges() }
+            } label: {
+                Text("Update plan")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Color.axAccent)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+        }
+        .padding(16)
+        .background(Color.axAccent.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axAccent.opacity(0.25), lineWidth: 1))
     }
 
     // MARK: - Enrolled sports
@@ -166,13 +197,13 @@ private struct SportConfigBlock: View {
             isPresented: $showScheduleRegen,
             titleVisibility: .visible
         ) {
-            Button("Rebuild plan") {
-                store.regeneratePlan()
+            Button("Update plan") {
                 showScheduleRegen = false
+                Task { await store.applyPlanChanges() }
             }
             Button("Later", role: .cancel) {}
         } message: {
-            Text("Your schedule changed — rebuild your plan?")
+            Text("Your schedule changed — generate a new two-week plan with the AI coach?")
         }
     }
 

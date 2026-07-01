@@ -5,6 +5,7 @@ from app.services.metrics_assembly import (
     build_hrv_trend,
     compute_loads,
     compute_sleep_debt,
+    resolve_readings,
     rolling_mean,
 )
 
@@ -64,3 +65,44 @@ def test_compute_loads_weekly_change_clamped():
     totals[ref - dt.timedelta(days=10)] = 1.0                       # tiny prior week
     _, _, weekly = compute_loads(totals, ref)
     assert weekly == 9.9999  # clamped, would otherwise be 489.0
+
+
+# ── resolve_readings (multi-source conflict resolution) ──────────────────────
+def test_resolve_default_prefers_intervals():
+    rows = {"intervals": {"hrv": 55, "atl": 40, "ctl": 60}, "manual": {"hrv": 48}}
+    merged, prov = resolve_readings(rows, priority={})
+    assert merged["hrv"] == 55
+    assert prov["hrv"] == "intervals"
+    assert merged["atl"] == 40 and merged["ctl"] == 60  # load passthrough (intervals-only)
+
+
+def test_resolve_priority_prefers_manual():
+    rows = {"intervals": {"hrv": 55}, "manual": {"hrv": 48}}
+    merged, prov = resolve_readings(rows, priority={"hrv": ["manual", "intervals"]})
+    assert merged["hrv"] == 48
+    assert prov["hrv"] == "manual"
+
+
+def test_resolve_skips_source_without_value():
+    # Manual is preferred but has no HRV → falls through to intervals.
+    rows = {"intervals": {"hrv": 55}, "manual": {"body_weight": 78}}
+    merged, prov = resolve_readings(rows, priority={"hrv": ["manual", "intervals"]})
+    assert merged["hrv"] == 55 and prov["hrv"] == "intervals"
+    assert merged["body_weight"] == 78 and prov["bodyWeight"] == "manual"
+
+
+def test_resolve_healthkit_in_priority_is_ignored_server_side():
+    # HealthKit never reaches the server; it's filtered out of the order.
+    rows = {"intervals": {"hrv": 55}}
+    merged, prov = resolve_readings(rows, priority={"hrv": ["healthkit", "intervals"]})
+    assert merged["hrv"] == 55 and prov["hrv"] == "intervals"
+
+
+def test_resolve_sleep_takes_all_fields_from_winner():
+    rows = {
+        "intervals": {"sleep_duration": 7.0, "sleep_score": 80},
+        "manual": {"sleep_duration": 6.5},
+    }
+    merged, prov = resolve_readings(rows, priority={"sleep": ["manual", "intervals"]})
+    assert merged["sleep_duration"] == 6.5 and prov["sleep"] == "manual"
+    assert "sleep_score" not in merged  # manual didn't supply it

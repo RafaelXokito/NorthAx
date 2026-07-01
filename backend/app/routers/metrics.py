@@ -38,6 +38,7 @@ def _to_response(
         today_load=float(row.today_load),
         weekly_load_change=float(row.weekly_load_change),
         body_weight=float(row.body_weight) if row.body_weight is not None else None,
+        metric_sources=dict(getattr(row, "metric_sources", {}) or {}),
         **(series or {}),
     )
 
@@ -103,6 +104,25 @@ async def submit_daily(
     except IntegrityError as exc:
         raise metrics_already_exists(body.date.isoformat()) from exc
     return _to_response(row)
+
+
+@router.post("/manual", response_model=schemas.DailyMetricsResponse, status_code=201)
+async def submit_manual(
+    body: schemas.ManualMetricsInput,
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> schemas.DailyMetricsResponse:
+    """Record user-entered values as a `manual` source reading, then re-resolve the
+    day's metrics against all sources (per the user's priority)."""
+    from ..services.metrics_assembly import assemble_daily_metrics, record_source_readings
+
+    values = body.model_dump(exclude={"date"}, exclude_none=True)
+    await record_source_readings(session, user_id, body.date, "manual", values)
+    if not await assemble_daily_metrics(session, user_id, body.date):
+        # No source (incl. this entry) supplies HRV yet — readiness needs it.
+        raise metrics_not_found(body.date.isoformat())
+    row = await _get_by_date(session, user_id, body.date)
+    return _to_response(row, await _series(session, user_id, body.date))
 
 
 @router.get("/daily", response_model=schemas.DailyMetricsResponse)
