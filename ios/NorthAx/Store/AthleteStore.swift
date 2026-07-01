@@ -100,6 +100,10 @@ class AthleteStore {
     /// Imported workouts (intervals.icu / Garmin) used to mark planned sessions
     /// done on the plan-centric dashboard (§7).
     var weekActivities: [GarminActivity] = []
+    /// Pre-fetched AI switch suggestions (§9), keyed by `SessionMatch.suggestionKey`.
+    var dailySuggestions: [String: [SwitchSuggestion]] = [:]
+    /// Suggestion keys currently being fetched — drives the detail view's loading state.
+    var suggestionsLoading: Set<String> = []
     var planWasRecentlyUpdated: Bool = false
     /// True while the AI planner runs — drives the full-screen loading overlay.
     var isGeneratingPlan: Bool = false
@@ -194,6 +198,7 @@ class AthleteStore {
         await loadMetricsAndReadiness()
         await loadPlans()
         await loadActivities()
+        prefetchDailySuggestionsIfNeeded()
         await loadCoachHistory()
         await intervals.refreshStatus()
     }
@@ -315,6 +320,57 @@ class AthleteStore {
         return PlanMatchingEngine.matches(week: week, activities: weekActivities)
     }
 
+    // MARK: - Daily switch suggestions (§9)
+
+    private static let lastSuggestionFetchKey = "northax.lastSuggestionFetchDate"
+
+    /// On the first foreground of a new day (or when the cache is empty after a
+    /// relaunch), pre-fetch AI alternatives for each of today's planned sessions.
+    /// Each request is independent; failures leave that key empty so the detail
+    /// view falls back to the deterministic switcher.
+    func prefetchDailySuggestionsIfNeeded() {
+        guard TokenStore.shared.hasSession, let week = currentWeek else { return }
+        let todayKey = Self.calendarDayKey(Date())
+        let last = UserDefaults.standard.string(forKey: Self.lastSuggestionFetchKey)
+        guard last != todayKey || dailySuggestions.isEmpty else { return }
+
+        let cal = Calendar.current
+        let todays: [(PlannedDay, PlannedSession)] = week.days
+            .filter { cal.isDateInToday($0.date) }
+            .flatMap { day in day.sessions.map { (day, $0) } }
+        UserDefaults.standard.set(todayKey, forKey: Self.lastSuggestionFetchKey)
+        guard !todays.isEmpty else { return }
+
+        for (day, session) in todays {
+            let key = SessionMatch.suggestionKey(day: day, session: session)
+            guard dailySuggestions[key] == nil, !suggestionsLoading.contains(key) else { continue }
+            suggestionsLoading.insert(key)
+            Task {
+                let result = (try? await api.switchSuggestions(session: session, date: day.date)) ?? []
+                dailySuggestions[key] = result
+                suggestionsLoading.remove(key)
+            }
+        }
+    }
+
+    /// Deterministic alternatives for other enrolled sports — the silent offline
+    /// fallback when AI suggestions aren't available (§9).
+    func fallbackSuggestions(excluding domain: TrainingDomain) -> [SwitchSuggestion] {
+        enabledDomains.filter { $0 != domain }.prefix(3).map { d in
+            let o = switchSuggestion(for: d)
+            return SwitchSuggestion(
+                domain: d, title: o.title, duration: o.duration, intensityLabel: o.intensityLabel,
+                description: o.intensityDescription, rationale: nil, estimatedLoad: nil,
+                workout: nil, exercises: nil, isAI: false
+            )
+        }
+    }
+
+    private static func calendarDayKey(_ date: Date) -> String {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
+    }
+
     func loadCoachHistory() async {
         if let history = try? await api.coachHistory(limit: 50), !history.isEmpty {
             messages = history
@@ -418,6 +474,11 @@ class AthleteStore {
         } else {
             await loadPlans()  // fall back to whatever the server has
         }
+
+        // New plan invalidates today's cached switch suggestions (§9).
+        dailySuggestions = [:]
+        UserDefaults.standard.removeObject(forKey: Self.lastSuggestionFetchKey)
+        prefetchDailySuggestionsIfNeeded()
 
         planWasRecentlyUpdated = true
         Task {

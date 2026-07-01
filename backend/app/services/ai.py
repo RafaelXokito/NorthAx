@@ -238,6 +238,47 @@ async def strength_augment(
     return parsed
 
 
+# ── 9. Daily switch suggestions (default model; JSON) ────────────────────────
+SWITCH_SYSTEM = (
+    "You are an elite coach proposing alternative training sessions for an athlete's "
+    "planned session today, given their current readiness, recent training load, and the "
+    "rest of their week. Return 2-4 ranked alternatives (best first). Keep alternatives "
+    "roughly load-equivalent UNLESS readiness or accumulated fatigue clearly warrants easing "
+    "off — never suggest something reckless. Alternatives may be the same sport at a different "
+    "intensity/duration, or a different enrolled sport. For each, give a one- to two-sentence "
+    "rationale grounded in the athlete's actual numbers (reference HRV, sleep, load, or an "
+    "upcoming hard session). "
+    "For ENDURANCE alternatives (Cycling, Running, Swimming) include a `blocks` array "
+    "(warm-up → work → cool-down; repeat blocks for intervals; each step has cue, minutes, "
+    "and zone 1-5). For STRENGTH alternatives include `muscleGroups` (a list of the muscle "
+    "groups to train). intensityLabel MUST be one of: Very Easy, Easy, Moderate, Tempo, Hard, "
+    "Threshold, VO2. duration is minutes (15-240). estimatedLoad is a rough TSS-like number. "
+    "Reply with ONLY a JSON object, no prose, no markdown fences, shaped exactly as: "
+    '{"suggestions": [{"domain": "<sport>", "title": "<string>", "duration": <int>, '
+    '"intensityLabel": "<allowed>", "description": "<short>", "rationale": "<1-2 sentences>", '
+    '"estimatedLoad": <number>, "blocks": [{"repeat": <int>, "steps": [{"cue": "<string>", '
+    '"minutes": <int>, "zone": <1-5>}]}], "muscleGroups": ["<group>", ...]}, ...]} '
+    "(include blocks only for endurance, muscleGroups only for strength)."
+)
+
+
+async def switch_suggestions(athlete_context: str, session_desc: str) -> dict | None:
+    """Ranked AI alternatives for one planned session. Returns the parsed
+    ``{"suggestions": [...]}`` dict, or None on failure so the caller can fall
+    back to the deterministic switcher (§9)."""
+    prompt = (
+        f"Athlete profile and current status:\n{athlete_context}\n\n"
+        f"Planned session to find alternatives for:\n{session_desc}"
+    )
+    raw = await _run(
+        settings.ai_model_default, SWITCH_SYSTEM, prompt, settings.ai_cli_default_timeout
+    )
+    parsed = _extract_json(raw or "")
+    if not parsed or not isinstance(parsed.get("suggestions"), list):
+        return None
+    return parsed
+
+
 # ── 8.6 Plan generation (default model; JSON) ────────────────────────────────
 async def plan_generate(athlete_context: str, sessions_block: str) -> dict | None:
     """Design a 2-week block. Returns the parsed ``{"sessions": [...]}`` dict, or

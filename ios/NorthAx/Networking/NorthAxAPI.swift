@@ -117,6 +117,20 @@ struct NorthAxAPI {
 
     // MARK: - Strength
 
+    /// Pre-fetched AI alternatives for one planned session (§9). Returns [] on
+    /// failure so the caller can fall back to the deterministic switcher.
+    func switchSuggestions(session: PlannedSession, date: Date) async throws -> [SwitchSuggestion] {
+        let body = SwitchSuggestionRequest(
+            domain: session.domain.rawValue, title: session.title,
+            duration: session.duration, intensityLabel: session.intensityLabel,
+            date: JSONCoders.calendarDate.string(from: date)
+        )
+        let resp: SwitchSuggestionsResponse = try await client.post(
+            "ai/switch-suggestions", body: body, timeout: 120
+        )
+        return resp.suggestions.compactMap { $0.toDomain() }
+    }
+
     func strengthSession(muscleGroups: [MuscleGroup], readinessScore: Int?) async throws -> StrengthSession {
         let dto: StrengthSessionResponse = try await client.post(
             "ai/strength/generate",

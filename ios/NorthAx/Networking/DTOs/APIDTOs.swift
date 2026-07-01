@@ -217,6 +217,32 @@ struct ExerciseDTO: Codable {
     var notes: String?
 }
 
+// MARK: - Switch suggestions (§9)
+
+struct SwitchSuggestionRequest: Encodable {
+    var domain: String
+    var title: String
+    var duration: Int
+    var intensityLabel: String
+    var date: String   // "yyyy-MM-dd"
+}
+
+struct SwitchSuggestionDTO: Decodable {
+    var domain: String
+    var title: String
+    var duration: Int
+    var intensityLabel: String
+    var description: String
+    var rationale: String
+    var estimatedLoad: Double?
+    var workout: StructuredWorkoutDTO?
+    var exercises: [ExerciseDTO]?
+}
+
+struct SwitchSuggestionsResponse: Decodable {
+    var suggestions: [SwitchSuggestionDTO]
+}
+
 struct StrengthSessionResponse: Decodable {
     var muscleGroups: [String]
     var title: String

@@ -211,6 +211,25 @@ extension StrengthSessionResponse {
     }
 }
 
+// MARK: - Switch suggestions (§9)
+
+extension SwitchSuggestionDTO {
+    func toDomain() -> SwitchSuggestion? {
+        guard let d = TrainingDomain(rawValue: domain) else { return nil }
+        return SwitchSuggestion(
+            domain: d, title: title, duration: duration, intensityLabel: intensityLabel,
+            description: description, rationale: rationale, estimatedLoad: estimatedLoad,
+            workout: workout,
+            exercises: exercises?.compactMap { e in
+                guard let mg = MuscleGroup(rawValue: e.muscleGroup) else { return nil }
+                return ExerciseSuggestion(name: e.name, muscleGroup: mg, sets: e.sets,
+                                          repsRange: e.repsRange, rest: e.rest, notes: e.notes)
+            },
+            isAI: true
+        )
+    }
+}
+
 // MARK: - Garmin
 
 extension IntervalsStatusDTO {

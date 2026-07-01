@@ -7,6 +7,7 @@ enum AppTab { case dashboard, coach, metrics, plan, settings }
 struct ContentView: View {
     @State private var authService = AuthService()
     @State private var store = AthleteStore()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -30,6 +31,10 @@ struct ContentView: View {
             if let user {
                 store.configure(with: user)
             }
+        }
+        // First foreground of a new day pre-fetches AI switch suggestions (§9).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { store.prefetchDailySuggestionsIfNeeded() }
         }
     }
 

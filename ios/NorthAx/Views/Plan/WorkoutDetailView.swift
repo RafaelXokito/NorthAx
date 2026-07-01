@@ -19,6 +19,7 @@ struct WorkoutDetailView: View {
                     breakdownSection
                     plannedTargets
                     if let activity = match.activity { actualVsPlanned(activity) }
+                    if match.completion != .done { switchSection }
                     if match.completion == .planned || match.completion == .missed { markCompleteButton }
                 }
                 .padding(20)
@@ -133,6 +134,68 @@ struct WorkoutDetailView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    // MARK: - Switch suggestions (§9): pre-fetched AI alternatives, else fallback
+
+    @ViewBuilder
+    private var switchSection: some View {
+        let key = match.suggestionKey
+        let ai = store.dailySuggestions[key]
+        let loading = store.suggestionsLoading.contains(key)
+        card("SWITCH TO…") {
+            if loading && ai == nil {
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small).tint(.axAccent)
+                    Text("Finding smart alternatives…").font(.caption).foregroundStyle(.axSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                let list = (ai?.isEmpty == false) ? ai! : store.fallbackSuggestions(excluding: session.domain)
+                if list.isEmpty {
+                    Text("No alternatives available.").font(.caption).foregroundStyle(.axTertiary)
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(list) { suggestionRow($0) }
+                    }
+                    if !(list.first?.isAI ?? false) {
+                        Text("Basic suggestions — smart recommendations aren't available right now.")
+                            .font(.caption2).foregroundStyle(.axTertiary)
+                            .padding(.top, 2)
+                    }
+                }
+            }
+        }
+    }
+
+    private func suggestionRow(_ s: SwitchSuggestion) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: s.domain.icon)
+                .font(.subheadline).foregroundStyle(s.domain.color)
+                .frame(width: 34, height: 34)
+                .background(s.domain.color.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(s.title).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                    Spacer()
+                    Text("\(s.duration) min").font(.caption).foregroundStyle(.axSecondary)
+                }
+                Text(s.intensityLabel + (s.estimatedLoad.map { " · ~\(Int($0)) load" } ?? ""))
+                    .font(.caption).foregroundStyle(.axSecondary)
+                if let r = s.rationale, !r.isEmpty {
+                    Text(r).font(.caption2).foregroundStyle(.axAccent)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if !s.description.isEmpty {
+                    Text(s.description).font(.caption2).foregroundStyle(.axTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Mark complete (preserves the HealthKit write path, §4)

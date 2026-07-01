@@ -387,6 +387,33 @@ class DayOverrideRequest(_Base):
     session: PlannedSessionDTO | None = None  # null → mark as rest day
 
 
+# ── Switch suggestions (§9) ──────────────────────────────────────────────────
+class SwitchSuggestionRequest(_Base):
+    """The planned session the athlete may want to swap. The backend assembles
+    the surrounding context (metrics, recent load, rest of week, thresholds)."""
+    domain: str
+    title: str
+    duration: int
+    intensity_label: str
+    date: dt.date
+
+
+class SwitchSuggestionDTO(_Base):
+    domain: str
+    title: str
+    duration: int
+    intensity_label: str
+    description: str
+    rationale: str
+    estimated_load: float | None = None
+    workout: StructuredWorkoutDTO | None = None   # endurance block structure
+    exercises: list[ExerciseDTO] | None = None    # strength movement list
+
+
+class SwitchSuggestionsResponse(_Base):
+    suggestions: list[SwitchSuggestionDTO]
+
+
 # ── Coach (§6.8, §6.9) ───────────────────────────────────────────────────────
 class CoachMessageDTO(_Base):
     id: uuid.UUID

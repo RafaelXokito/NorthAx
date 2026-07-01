@@ -44,6 +44,18 @@ struct SessionMatch: Identifiable {
     let session: PlannedSession
     let completion: SessionCompletion
     let activity: GarminActivity?
+
+    /// Stable key for caching daily switch suggestions (§9) — survives plan
+    /// reloads (unlike the random `session.id`) as long as the plan is unchanged.
+    var suggestionKey: String { SessionMatch.suggestionKey(day: day, session: session) }
+
+    static func suggestionKey(day: PlannedDay, session: PlannedSession) -> String {
+        "\(dateKey.string(from: day.date))|\(session.domain.rawValue)|\(session.title)"
+    }
+
+    private static let dateKey: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f
+    }()
 }
 
 /// Client-side matching of a week's planned sessions to imported workouts

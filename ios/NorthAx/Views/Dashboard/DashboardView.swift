@@ -11,7 +11,7 @@ struct DashboardView: View {
 
     var body: some View {
         ZStack {
-            Color.axBackground.ignoresSafeArea(edges: .top)
+            Color.axBackground.ignoresSafeArea()
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
