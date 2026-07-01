@@ -21,31 +21,49 @@ _DEFAULT_ACTIVITY_PRIORITY = ["garmin", "strava", "manual"]
 _DEDUPE_DURATION_TOLERANCE = 300  # seconds — same workout across sources
 
 
-def _dedupe_by_priority(rows: list[Activity], priority: list[str]) -> list[Activity]:
+_MERGE_FILL_INT = ("avg_heart_rate", "max_heart_rate", "calories")
+_MERGE_FILL_FLOAT = ("distance_meters", "elevation_gain", "training_load")
+
+
+def _merge_by_priority(rows: list[Activity], priority: list[str]) -> list[schemas.ActivityDTO]:
     """Collapse the same workout reported by more than one source (same day +
-    domain + near-equal duration), keeping the highest-priority source's row."""
+    domain + near-equal duration) into one record: the highest-priority source
+    wins, and any field it lacks is gap-filled from the next source that has it."""
     rank = {s: i for i, s in enumerate(priority)}
 
     def r(src: str) -> int:
         return rank.get(src, len(priority))
 
-    kept: list[Activity] = []
+    groups: list[list[Activity]] = []
     for row in rows:
-        dup = None
-        for i, k in enumerate(kept):
+        placed = False
+        for g in groups:
+            k = g[0]
             if (
-                k.source != row.source
-                and k.domain == row.domain
+                k.domain == row.domain
                 and k.start_time.date() == row.start_time.date()
                 and abs(k.duration_seconds - row.duration_seconds) <= _DEDUPE_DURATION_TOLERANCE
+                and all(m.source != row.source for m in g)  # one row per source per group
             ):
-                dup = i
+                g.append(row)
+                placed = True
                 break
-        if dup is None:
-            kept.append(row)
-        elif r(row.source) < r(kept[dup].source):
-            kept[dup] = row
-    return kept
+        if not placed:
+            groups.append([row])
+
+    out: list[schemas.ActivityDTO] = []
+    for g in groups:
+        g.sort(key=lambda x: r(x.source))  # winner first
+        dto = _dto(g[0])
+        for other in g[1:]:
+            for field in _MERGE_FILL_INT:
+                if getattr(dto, field) is None and getattr(other, field) is not None:
+                    setattr(dto, field, int(getattr(other, field)))
+            for field in _MERGE_FILL_FLOAT:
+                if getattr(dto, field) is None and getattr(other, field) is not None:
+                    setattr(dto, field, float(getattr(other, field)))
+        out.append(dto)
+    return out
 
 
 def _dto(row: Activity) -> schemas.ActivityDTO:
@@ -86,17 +104,67 @@ async def list_activities(
     )
     rows = list(result.scalars().all())
 
-    # Cross-source de-dup by the user's activity-source preference (§13). Only when
+    # Cross-source merge by the user's activity-source preference (§13). Only when
     # not filtered to a single source (the per-source views want raw rows).
     if source is None:
         prefs = await session.get(UserPreferences, uuid.UUID(user_id))
         priority = (getattr(prefs, "activity_priority", None) or _DEFAULT_ACTIVITY_PRIORITY)
-        rows = _dedupe_by_priority(rows, priority)
-
-    items = [_dto(r) for r in rows]
+        items = _merge_by_priority(rows, priority)
+    else:
+        items = [_dto(r) for r in rows]
     return schemas.PaginatedActivities(
         items=items, total=total or 0, limit=limit_, offset=offset, has_more=offset + len(items) < (total or 0)
     )
+
+
+@router.get("/{external_id}/streams", response_model=schemas.ActivityStreamsDTO)
+async def activity_streams(
+    external_id: str,
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> schemas.ActivityStreamsDTO:
+    """Source-aware time-series streams for a completed activity (§10 / §13):
+    resolves the activity's source and fetches from intervals.icu or Strava.
+    Empty arrays when not connected or no streams exist."""
+    from ..services.streams import normalize_streams
+
+    row = (await session.execute(
+        select(Activity).where(
+            Activity.user_id == uuid.UUID(user_id), Activity.external_id == external_id
+        )
+    )).scalars().first()
+    src = row.source if row else "garmin"
+
+    if src == "strava":
+        from ..jobs.tasks import _valid_strava_token
+        from ..models import StravaConnection
+        from ..services.strava import StravaClient, normalize_strava_streams
+
+        conn = await session.get(StravaConnection, uuid.UUID(user_id))
+        if conn is None:
+            return schemas.ActivityStreamsDTO(activity_id=external_id, source="Strava")
+        try:
+            token = await _valid_strava_token(session, conn)
+            raw = await StravaClient().fetch_activity_streams(token, external_id)
+        except Exception:  # noqa: BLE001
+            return schemas.ActivityStreamsDTO(activity_id=external_id, source="Strava")
+        return normalize_streams(external_id, normalize_strava_streams(raw), source="Strava")
+
+    from ..jobs.tasks import _valid_access_token
+    from ..models import IntervalsConnection
+    from ..services.intervals import IntervalsClient
+
+    conn = await session.get(IntervalsConnection, uuid.UUID(user_id))
+    if conn is None:
+        return schemas.ActivityStreamsDTO(activity_id=external_id, source="intervals.icu")
+    try:
+        token = await _valid_access_token(session, conn)
+        raw = await IntervalsClient().fetch_activity_streams(
+            token, external_id, api_key=(conn.auth_mode == "apikey")
+        )
+    except Exception:  # noqa: BLE001
+        return schemas.ActivityStreamsDTO(activity_id=external_id, source="intervals.icu")
+    return normalize_streams(external_id, raw, source="intervals.icu")
 
 
 @router.post("", response_model=schemas.ActivityDTO, status_code=201)

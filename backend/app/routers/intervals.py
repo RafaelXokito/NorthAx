@@ -138,49 +138,6 @@ async def sync(
     return result
 
 
-_STREAM_MAX_POINTS = 200
-
-
-def _normalize_streams(activity_id: str, raw) -> schemas.ActivityStreamsDTO:
-    """Turn intervals.icu's stream payload (a list of {type, data} objects, or a
-    dict of type→data) into downsampled, index-aligned float arrays (§10)."""
-    streams: dict[str, list] = {}
-    if isinstance(raw, list):
-        for s in raw:
-            if isinstance(s, dict) and s.get("type") is not None and isinstance(s.get("data"), list):
-                streams[str(s["type"])] = s["data"]
-    elif isinstance(raw, dict):
-        streams = {k: v for k, v in raw.items() if isinstance(v, list)}
-
-    n = max((len(v) for v in streams.values()), default=0)
-    dto = schemas.ActivityStreamsDTO(activity_id=str(activity_id))
-    if n == 0:
-        return dto
-    stride = max(1, n // _STREAM_MAX_POINTS)
-
-    def clean(key: str) -> list[float]:
-        data = streams.get(key)
-        if not isinstance(data, list) or not any(isinstance(x, (int, float)) for x in data):
-            return []
-        out: list[float] = []
-        last = 0.0
-        for i, x in enumerate(data):
-            if i % stride:
-                continue
-            if isinstance(x, (int, float)):
-                last = float(x)
-            out.append(last)
-        return out
-
-    dto.heart_rate = clean("heartrate")
-    dto.power = clean("watts")
-    dto.velocity = clean("velocity_smooth")
-    dto.altitude = clean("altitude")
-    dto.cadence = clean("cadence")
-    dto.time = clean("time") or [float(i) for i in range(0, n, stride)]
-    return dto
-
-
 @router.get(
     "/activity/{activity_id}/streams",
     response_model=schemas.ActivityStreamsDTO,
@@ -208,7 +165,9 @@ async def activity_streams(
         raise _not_configured() from exc
     except Exception:  # noqa: BLE001 — no streams / deleted / no GPS → empty
         return schemas.ActivityStreamsDTO(activity_id=activity_id)
-    return _normalize_streams(activity_id, raw)
+    from ..services.streams import normalize_streams
+
+    return normalize_streams(activity_id, raw, source="intervals.icu")
 
 
 @router.delete("/disconnect", status_code=status.HTTP_204_NO_CONTENT, dependencies=_authed)

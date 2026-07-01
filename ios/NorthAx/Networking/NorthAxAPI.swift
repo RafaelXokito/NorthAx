@@ -208,7 +208,8 @@ struct NorthAxAPI {
     /// Time-series streams for a completed activity (§10). Empty arrays when the
     /// integration has no streams for it.
     func activityStreams(activityId: String) async throws -> ActivityStreams {
-        let dto: ActivityStreamsDTO = try await client.get("intervals/activity/\(activityId)/streams")
+        // Source-aware: the backend resolves the activity's source (intervals/Strava).
+        let dto: ActivityStreamsDTO = try await client.get("activities/\(activityId)/streams")
         return dto.toDomain()
     }
 
