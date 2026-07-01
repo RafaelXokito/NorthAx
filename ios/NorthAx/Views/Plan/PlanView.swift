@@ -4,49 +4,58 @@ struct PlanView: View {
     @Environment(AthleteStore.self) private var store
     @State private var selectedWeekIndex: Int = 0
     @State private var showPlanSetup = false
+    @State private var selectedMatch: SessionMatch?
 
     var body: some View {
-        ScrollView {
-            if store.weeklyPlans.isEmpty {
-                noPlanState
-                    .padding(.horizontal, 20)
-                    .padding(.top, 24)
-            } else {
-                VStack(spacing: 20) {
-                    if store.planWasRecentlyUpdated { planUpdatedBanner }
-                    weekPicker
-                    if let week = currentWeek {
-                        weekDotRow(week)
-                        upcomingSessions(week)
-                    } else {
-                        emptyState
+        ScrollViewReader { proxy in
+            ScrollView {
+                if store.weeklyPlans.isEmpty {
+                    noPlanState
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                } else {
+                    VStack(spacing: 20) {
+                        if store.planWasRecentlyUpdated { planUpdatedBanner }
+                        weekPicker
+                        if let week = currentWeek {
+                            let matches = selectedWeekMatches
+                            WeekGlanceView(week: week, matches: matches) { date in
+                                if let target = matches.first(where: { $0.day.date == date }) {
+                                    withAnimation(.spring(duration: 0.35)) {
+                                        proxy.scrollTo(target.id, anchor: .top)
+                                    }
+                                }
+                            }
+                            weekSessions(matches)
+                        } else {
+                            emptyState
+                        }
+                        weeklyLoadCard
                     }
-                    weeklyLoadCard
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 48)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 48)
             }
-        }
-        .background(Color.axBackground)
-        .navigationTitle("Training Plan")
+            .background(Color.axBackground)
+            .navigationTitle("Training Plan")
 #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.large)
 #endif
-        .scrollIndicators(.hidden)
-        .sheet(isPresented: $showPlanSetup) {
-            FrequencyOnboardingView()
-                .environment(store)
-        }
-        .onAppear {
-            // Jump to current week on appear
-            if let idx = store.weeklyPlans.firstIndex(where: { $0.isCurrentWeek }) {
-                selectedWeekIndex = idx
+            .scrollIndicators(.hidden)
+            .sheet(isPresented: $showPlanSetup) {
+                FrequencyOnboardingView().environment(store)
             }
-        }
-        .onChange(of: store.weeklyPlans) { _, _ in
-            if let idx = store.weeklyPlans.firstIndex(where: { $0.isCurrentWeek }) {
-                selectedWeekIndex = idx
+            .sheet(item: $selectedMatch) { WorkoutDetailView(match: $0) }
+            .onAppear {
+                if let idx = store.weeklyPlans.firstIndex(where: { $0.isCurrentWeek }) {
+                    selectedWeekIndex = idx
+                }
+            }
+            .onChange(of: store.weeklyPlans) { _, _ in
+                if let idx = store.weeklyPlans.firstIndex(where: { $0.isCurrentWeek }) {
+                    selectedWeekIndex = idx
+                }
             }
         }
     }
@@ -103,78 +112,17 @@ struct PlanView: View {
         }
     }
 
-    // MARK: - Week dot row
+    // MARK: - Week sessions (with live completion state)
 
-    private func weekDotRow(_ week: WeeklyPlan) -> some View {
+    private var selectedWeekMatches: [SessionMatch] {
+        guard let week = currentWeek else { return [] }
+        return PlanMatchingEngine.matches(week: week, activities: store.weekActivities)
+    }
+
+    private func weekSessions(_ matches: [SessionMatch]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("WEEK AT A GLANCE")
-
-            HStack(spacing: 0) {
-                ForEach(week.days) { day in
-                    VStack(spacing: 6) {
-                        Text(day.weekdayShort)
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(day.isToday ? .axAccent : .axTertiary)
-                            .tracking(0.5)
-
-                        ZStack {
-                            Circle()
-                                .fill(dotFill(day))
-                                .frame(width: 36, height: 36)
-
-                            if day.isToday {
-                                Circle()
-                                    .stroke(Color.axAccent, lineWidth: 1.5)
-                                    .frame(width: 36, height: 36)
-                            }
-
-                            Image(systemName: dotIcon(day))
-                                .font(.system(size: 13))
-                                .foregroundStyle(dotIconColor(day))
-                        }
-
-                        Text(day.dayNumber)
-                            .font(.system(size: 9))
-                            .foregroundStyle(day.isToday ? .axAccent : .axTertiary)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-            .padding(16)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.axBorder, lineWidth: 1))
-        }
-    }
-
-    private func dotFill(_ day: PlannedDay) -> Color {
-        if day.isPast && !day.isToday { return Color.white.opacity(0.06) }
-        if day.isRest { return Color.white.opacity(0.04) }
-        if let domain = day.sessions.first?.domain { return domain.color.opacity(day.isToday ? 0.22 : 0.14) }
-        return Color.white.opacity(0.04)
-    }
-
-    private func dotIcon(_ day: PlannedDay) -> String {
-        if day.isRest { return "moon" }
-        return day.sessions.count > 1 ? "square.stack.fill" : (day.sessions.first?.domain.icon ?? "moon")
-    }
-
-    private func dotIconColor(_ day: PlannedDay) -> Color {
-        if day.isPast && !day.isToday { return .axTertiary }
-        if day.isToday { return .axAccent }
-        if day.isRest { return .axTertiary }
-        return day.sessions.first?.domain.color ?? .axTertiary
-    }
-
-    // MARK: - Upcoming sessions list
-
-    private func upcomingSessions(_ week: WeeklyPlan) -> some View {
-        let trainingDays = week.days.filter { !$0.isRest && !$0.sessions.isEmpty }
-
-        return VStack(alignment: .leading, spacing: 14) {
-            sectionLabel(week.isCurrentWeek ? "UPCOMING SESSIONS" : "PLANNED SESSIONS")
-
-            if trainingDays.isEmpty {
+            sectionLabel((currentWeek?.isCurrentWeek ?? false) ? "THIS WEEK" : "PLANNED SESSIONS")
+            if matches.isEmpty {
                 Text("No training days this week.")
                     .font(.subheadline)
                     .foregroundStyle(.axTertiary)
@@ -182,17 +130,15 @@ struct PlanView: View {
                     .padding(.vertical, 20)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(trainingDays) { day in
-                        ForEach(day.sessions) { session in
-                            CollapsibleSessionRow(day: day, session: session)
-                        }
+                    ForEach(matches) { m in
+                        Button { selectedMatch = m } label: { SessionMatchCard(match: m) }
+                            .buttonStyle(.plain)
+                            .id(m.id)
                     }
                 }
             }
         }
     }
-
-    // Session rows are rendered by CollapsibleSessionRow (defined below).
 
     // MARK: - Weekly load card
 
@@ -277,81 +223,6 @@ struct PlanView: View {
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(.axTertiary)
             .tracking(2)
-    }
-}
-
-// MARK: - Collapsible upcoming-session row
-
-/// A plan session that shows only a summary until tapped; the workout lines and
-/// the breakdown (effort graph / exercise list) appear only when expanded.
-private struct CollapsibleSessionRow: View {
-    @Environment(AthleteStore.self) private var store
-    let day: PlannedDay
-    let session: PlannedSession
-    @State private var expanded = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Button {
-                withAnimation(.spring(duration: 0.3)) { expanded.toggle() }
-            } label: { header }
-            .buttonStyle(.plain)
-
-            if expanded {
-                if !session.workoutLines.isEmpty {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(Array(session.workoutLines.enumerated()), id: \.offset) { _, line in
-                            Text(line).font(.caption2).foregroundStyle(.axTertiary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-                SessionBreakdownView(domain: session.domain, workout: session.workout,
-                                     exercises: session.exercises)
-            }
-        }
-        .padding(16)
-        .background(day.isToday ? Color.axAccent.opacity(0.07) : Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(
-            day.isToday ? Color.axAccent.opacity(0.3) : Color.axBorder, lineWidth: 1))
-    }
-
-    private var header: some View {
-        HStack(spacing: 14) {
-            Image(systemName: session.domain.icon)
-                .font(.title3)
-                .foregroundStyle(day.isPast ? .axTertiary : session.domain.color)
-                .frame(width: 44, height: 44)
-                .background((day.isPast ? Color.white : session.domain.color).opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(session.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(day.isPast ? .axSecondary : .white)
-                    .strikethrough(day.isPast, color: .axTertiary)
-                Text(session.subtitle).font(.caption).foregroundStyle(.axSecondary)
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(dayLabel).font(.caption.weight(.semibold))
-                    .foregroundStyle(day.isToday ? .axAccent : .axSecondary)
-                Text("\(session.duration) min").font(.caption).foregroundStyle(.axTertiary)
-            }
-
-            Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                .font(.caption.bold()).foregroundStyle(.axTertiary)
-        }
-    }
-
-    private var dayLabel: String {
-        if day.isToday { return "Today" }
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-        if Calendar.current.isDate(day.date, inSameDayAs: tomorrow) { return "Tomorrow" }
-        return day.weekdayShort
     }
 }
 

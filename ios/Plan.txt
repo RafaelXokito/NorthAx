@@ -2,21 +2,48 @@
 
 ---
 
-## 1. Fix intervals.icu Integration Error
+## Status Overview
+
+| # | Feature | Status |
+|---|---------|--------|
+| 1 | Fix intervals.icu Integration Error | ⬜ Not done — backend config issue; iOS error message not improved |
+| 2 | Workout Effort Graph (Block Visualization) | ✅ Done — `WorkoutEffortGraphView` implemented and used in Plan + Workout Detail |
+| 3 | Per-Sport Training Day Assignment | ✅ Done — merged into #5b (`TrainingPlanView` weekday grid per sport) |
+| 4 | Apple Health Integration (Read & Write) | ✅ Done — `HealthKitService` + `AppleHealthView`, read/write toggles, entitlement added |
+| 5a | Settings — Integrations View | ✅ Done — `IntegrationsView` with intervals.icu, Apple Health, coming-soon slots |
+| 5b | Settings — Plan View (enrolled sports + config) | ✅ Done — `TrainingPlanView`, `EnrollSportSheet`, `MuscleSplitEditor`, `WeekdayGridView` |
+| 6 | Plan Generation Rate Limit (2×/day) | ⬜ Not done — no `planGenerationsToday` tracking, no 429 handling, no UI badge |
+| 7 | Main Page Plan-Centric + Week at a Glance | 🟡 Partial — dashboard redesigned, `WeekGlanceView`, `WorkoutDetailView`, `PlanMatchingEngine` done; **activity graphs (HR/pace/power/elevation) not yet implemented** |
+| 8 | Readiness Ring — Compact + Detail Popup | ✅ Done — `ReadinessDetailView` with trend graphs; main page ring is compact and tappable |
+| 9 | Daily Pre-fetched AI Switch Suggestions | 🟡 Partial — `SwitchSuggestion` model, AI suggestions in `WorkoutDetailView`, loading shimmer, deterministic fallback done; **rate limit (2×/day) and `BGAppRefreshTask` not yet implemented** |
+| 10 | Activity Graphs in Completed Workout View | ⬜ Not done — HR, pace, power, elevation, cadence time-series charts not implemented |
+
+### Remaining work (priority order)
+
+1. **#7 activity graphs** — `ActivityGraphData` model + HR/pace/power/elevation/cadence charts in `WorkoutDetailView` for completed sessions
+2. **#6 plan generation rate limit** — backend 429 + iOS badge + disabled state
+3. **#9 switch rate limit** — backend 429 + iOS greyed-out state + remaining count badge
+4. **#9 background fetch** — `BGAppRefreshTask` for midnight suggestion pre-fetch
+5. **#1 intervals.icu server fix** — backend config + iOS improved error message
+6. **#10** — same as #7 activity graphs (covered above)
+
+---
+
+## 1. ⬜ Fix intervals.icu Integration Error
 
 **Issue:** Tapping "Connect intervals.icu" returns "Error: intervals.icu integration is not configured on this server."
 
 **Goal:** Make the integration work end-to-end.
 
 **Tasks:**
-- Investigate the backend configuration required for intervals.icu OAuth/API key setup.
-- Ensure the server-side environment variables / config for intervals.icu are present and documented.
-- On the iOS side, surface a more helpful error message if the server config is missing (e.g. "Please contact support — intervals.icu is not yet enabled on your account").
-- Test the full connect → authorize → sync flow once the server is configured.
+- ⬜ Investigate the backend configuration required for intervals.icu OAuth/API key setup.
+- ⬜ Ensure the server-side environment variables / config for intervals.icu are present and documented.
+- ⬜ On the iOS side, surface a more helpful error message if the server config is missing (e.g. "Please contact support — intervals.icu is not yet enabled on your account").
+- ⬜ Test the full connect → authorize → sync flow once the server is configured.
 
 ---
 
-## 2. Workout Effort Graph (Block Visualization)
+## 2. ✅ Workout Effort Graph (Block Visualization)
 
 **Goal:** Show a horizontal timeline graph of a workout's blocks, where:
 - X axis = time (0 → total workout duration)
@@ -36,16 +63,18 @@
   [35–40 min] Cooldown    → 5:40 min/km  (low zone, e.g. blue)
 
 **Tasks:**
-- Design a `WorkoutEffortGraphView` SwiftUI component that takes an array of workout blocks.
-- Each block has: name, duration (minutes), target intensity value, sport type.
-- Render blocks as adjacent rectangles scaled by duration on X, coloured by zone/intensity on Y.
-- Add the graph to the Plan view (per-session detail) and/or the Coach view session card.
-- Ensure the intensity metric displayed respects the user's preferred unit (km vs mile, HR vs power).
-- Support the graph being tappable per block to show block details.
+- ✅ Design a `WorkoutEffortGraphView` SwiftUI component that takes an array of workout blocks.
+- ✅ Each block has: name, duration (minutes), target intensity value, sport type.
+- ✅ Render blocks as adjacent rectangles scaled by duration on X, coloured by zone/intensity on Y.
+- ✅ Add the graph to the Plan view (per-session detail) and/or the Coach view session card.
+- ✅ Ensure the intensity metric displayed respects the user's preferred unit (km vs mile, HR vs power).
+- ✅ Support the graph being tappable per block to show block details.
 
 ---
 
-## 3. Per-Sport Training Day Assignment
+## 3. ✅ Per-Sport Training Day Assignment
+
+> Delivered as part of #5b (`TrainingPlanView` weekday grid per enrolled sport).
 
 **Goal:** Let the user specify which days of the week they want to train each sport — either in Settings or during the plan onboarding flow.
 
@@ -60,11 +89,11 @@
 - If the user changes their sport day assignments later, trigger a plan regeneration prompt ("Your schedule changed — would you like to rebuild your plan?").
 
 **Tasks:**
-- Add a `trainingDays` field per sport to the athlete profile model (e.g. `[Sport: Set<Weekday>]`).
-- Build a `TrainingScheduleView` (Settings sub-screen) with a day-grid picker per sport.
-- Wire the onboarding coach message to ask "Which days do you want to run / cycle / etc.?" and parse the response into the schedule.
-- Persist the schedule via the API and reflect it in the generated WeeklyPlan.
-- Validate that the total assigned days is consistent with the user's chosen training frequency.
+- ✅ Add a `trainingDays` field per sport to the athlete profile model (via `TrainingFrequency` schedules).
+- ✅ Build a weekday grid picker per sport (delivered as `WeekdayGridView` inside `TrainingPlanView`).
+- ⬜ Wire the onboarding coach message to ask "Which days do you want to run / cycle / etc.?" and parse the response into the schedule.
+- ✅ Persist the schedule via the API and reflect it in the generated WeeklyPlan.
+- ✅ Validate that the total assigned days is consistent with the user's chosen training frequency.
 
 ---
 
@@ -220,9 +249,19 @@ A full-screen push (or large sheet) that opens when any session card is tapped. 
    - Side-by-side table: Planned vs Actual for duration, distance, avg pace/power, avg HR, load.
    - A second effort graph showing the *actual* workout intensity over time (from intervals.icu data) overlaid or alongside the planned graph, so the athlete can see how closely they executed the plan.
 
-5. **Workout notes** — free-text field the athlete or coach attached to the session (read-only for now).
+5. **Activity graphs** (shown only for completed sessions, data sourced from integrations):
+   - **Heart Rate over time** — full HR trace for the workout duration. Show HR zones as coloured background bands so the athlete can see time-in-zone at a glance.
+   - **Pace over time** (running/swimming) — actual pace trace vs the planned pace target line.
+   - **Power over time** (cycling, if power data available) — actual power trace vs planned target, with FTP reference line.
+   - **Elevation profile** (running/cycling, if GPS data available) — gradient area chart.
+   - **Cadence over time** (running/cycling, if available) — line chart.
+   - Each graph is only rendered if its data is actually present in the matched workout — no empty or zeroed-out charts.
+   - Graphs are scrollable vertically within the view; the section header reads "Activity Data" with a source badge (intervals.icu / Garmin / Apple Health).
+   - Data sourced from whichever integration reported the matched workout (intervals.icu first, Garmin fallback, Apple Health last).
 
-6. **Source** — small badge indicating where the matched workout data came from (intervals.icu / Garmin / Apple Health).
+6. **Workout notes** — free-text field the athlete or coach attached to the session (read-only for now).
+
+7. **Source** — small badge indicating where the matched workout data came from (intervals.icu / Garmin / Apple Health).
 
 ### Workout Matching Logic
 
@@ -246,7 +285,10 @@ Matching a planned session to an actual imported workout:
 - Build `PlanMatchingEngine` that pairs `PlannedSession` items against imported workouts by date + sport.
 - Update `AthleteStore` to fetch both the weekly plan and the week's imported workouts, and run matching.
 - Keep `PlannedSessionCard` compact — no inline graph, no CTA buttons. Tapping the card always navigates to `WorkoutDetailView`.
-- Build `WorkoutDetailView`: effort graph, planned targets, actual-vs-planned table, notes, source badge.
+- Build `WorkoutDetailView`: effort graph, planned targets, actual-vs-planned table, activity graphs, notes, source badge.
+- Define an `ActivityGraphData` model to carry the time-series streams (HR, pace, power, elevation, cadence) returned by the integration alongside the matched workout.
+- Render activity graphs only when the corresponding data stream is non-empty; skip the section entirely for planned/missed sessions.
+- Apply HR zone background bands to the HR chart using the athlete's configured LTHR / max HR thresholds.
 - In `WorkoutDetailView`, when a match exists, render a second effort graph for the actual workout alongside the planned one.
 - Remove the "Start session" / "Log manually" CTA entirely — no in-app session tracking at this stage.
 - Ensure `ActivitySwitcherView` (sport switcher) adapts or is removed in favour of the plan-first layout.
@@ -297,6 +339,17 @@ The backend returns a ranked list of 2–4 alternative sessions, each with:
 - The AI rationale text is shown per suggestion card (e.g. "Your HRV is 12% below baseline and you have a long ride Thursday — a shorter aerobic run preserves freshness better than tempo today.").
 - Cache suggestions locally so they survive a foreground/background cycle without re-fetching.
 - Invalidate the cache and re-fetch if: the user's readiness metrics update significantly (>10% HRV change), or the weekly plan is regenerated.
+
+### Switch rate limit (2×/day)
+
+- The user may apply a switch suggestion at most **2 times per calendar day** (midnight-to-midnight local time), across all sessions combined.
+- The limit resets at midnight local time.
+- **Backend:** track `session_switches_today` and `last_switch_date` on the athlete profile. The apply-switch endpoint returns HTTP 429 with `{"error": "switch_limit_reached", "resets_at": "<ISO timestamp>"}` when exceeded.
+- **iOS:** track remaining switches locally (`switchesRemainingToday: Int`, default 2, persisted in UserDefaults with a date key). Decrement on each successful switch.
+  - In `WorkoutDetailView`, when `switchesRemainingToday == 0`, show the suggestions list as greyed-out with a lock badge and message: "You've used both activity switches for today. Come back tomorrow."
+  - Show remaining count near the "Switch to..." section header: e.g. "Switch to... (1 of 2 remaining today)".
+  - Handle the backend 429 gracefully in case the local count is stale (re-sync from error response).
+  - The count badge disappears once both switches are used — no need to show "0 remaining".
 
 ---
 

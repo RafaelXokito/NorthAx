@@ -12,42 +12,35 @@ struct DashboardView: View {
     var body: some View {
         ZStack {
             Color.axBackground.ignoresSafeArea()
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 28) {
-                        headerSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    headerSection
 
-                        if let readiness = store.readiness {
-                            compactReadiness(readiness)
-                        }
-
-                        if let week = store.currentWeek {
-                            let matches = store.currentWeekMatches
-                            let todays = matches.filter { $0.day.isToday }
-                            if !todays.isEmpty { todaySection(todays) }
-                            WeekGlanceView(week: week, matches: matches) { date in
-                                if let target = matches.first(where: { $0.day.date == date }) {
-                                    withAnimation(.spring(duration: 0.35)) {
-                                        proxy.scrollTo(target.id, anchor: .top)
-                                    }
-                                }
-                            }
-                            planSection(matches)
-                        }
-
-                        if store.readiness == nil && store.currentWeek == nil {
-                            noDataSection
-                        }
-#if DEBUG
-                        if store.isDebugSession { debugToggle }
-#endif
+                    if let readiness = store.readiness {
+                        compactReadiness(readiness)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 48)
+
+                    if let week = store.currentWeek {
+                        // Today's session — detailed; a rest card when nothing's planned.
+                        todaySection(store.currentWeekMatches.filter { $0.day.isToday })
+                        // Week overview; tapping a day opens the full plan.
+                        WeekGlanceView(week: week, matches: store.currentWeekMatches) { _ in
+                            store.selectedTab = .plan
+                        }
+                    }
+
+                    if store.readiness == nil && store.currentWeek == nil {
+                        noDataSection
+                    }
+#if DEBUG
+                    if store.isDebugSession { debugToggle }
+#endif
                 }
-                .scrollIndicators(.hidden)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 48)
             }
+            .scrollIndicators(.hidden)
         }
         .sheet(isPresented: $showReadinessDetail) {
             if let readiness = store.readiness {
@@ -105,14 +98,42 @@ struct DashboardView: View {
     private func todaySection(_ matches: [SessionMatch]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader("TODAY")
-            VStack(spacing: 10) {
-                ForEach(matches) { m in
-                    todayCard(m)
-                        .contentShape(Rectangle())
-                        .onTapGesture { selectedMatch = m }
+            if matches.isEmpty {
+                todayRestCard
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(matches) { m in
+                        todayCard(m)
+                            .contentShape(Rectangle())
+                            .onTapGesture { selectedMatch = m }
+                    }
                 }
             }
         }
+    }
+
+    // Shown when today has no planned session — a rest day still gets a card.
+    private var todayRestCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "moon.stars.fill")
+                .font(.title2).foregroundStyle(.axTertiary)
+                .frame(width: 48, height: 48)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 11))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("REST DAY")
+                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary).tracking(1.2)
+                Text("No session planned").font(.headline).foregroundStyle(.white)
+                Text("Recovery is training too — rest up for tomorrow.")
+                    .font(.caption).foregroundStyle(.axSecondary)
+            }
+            Spacer()
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.axSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private func todayCard(_ match: SessionMatch) -> some View {
@@ -156,72 +177,6 @@ struct DashboardView: View {
         .background(Color.axAccent.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axAccent.opacity(0.3), lineWidth: 1))
-    }
-
-    // MARK: - Plan (session cards)
-
-    private func planSection(_ matches: [SessionMatch]) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader((store.currentWeek?.isCurrentWeek ?? false) ? "THIS WEEK" : "PLANNED")
-            if matches.isEmpty {
-                Text("No sessions scheduled this week.")
-                    .font(.subheadline)
-                    .foregroundStyle(.axTertiary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 20)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(matches) { match in
-                        Button { selectedMatch = match } label: { sessionCard(match) }
-                            .buttonStyle(.plain)
-                            .id(match.id)
-                    }
-                }
-            }
-        }
-    }
-
-    private func sessionCard(_ match: SessionMatch) -> some View {
-        let session = match.session
-        let past = match.completion == .missed || match.completion == .done
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
-                Image(systemName: session.domain.icon)
-                    .font(.title3)
-                    .foregroundStyle(past ? .axTertiary : session.domain.color)
-                    .frame(width: 44, height: 44)
-                    .background((past ? Color.white : session.domain.color).opacity(0.10))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(session.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text("\(dayLabel(match.day)) · \(session.duration) min · \(session.intensityLabel)")
-                        .font(.caption)
-                        .foregroundStyle(.axSecondary)
-                }
-                Spacer()
-                completionBadge(match.completion)
-            }
-
-            // Actual stats when a matching workout was found.
-            if let a = match.activity {
-                Rectangle().fill(Color.axBorder).frame(height: 1)
-                HStack(spacing: 16) {
-                    actualStat("Time", a.formattedDuration)
-                    if let dist = a.formattedDistance { actualStat("Dist", dist) }
-                    if let hr = a.avgHeartRate { actualStat("Avg HR", "\(hr)") }
-                    if let load = a.trainingLoad { actualStat("Load", String(format: "%.0f", load)) }
-                    Spacer()
-                }
-            }
-        }
-        .padding(16)
-        .background(match.day.isToday ? Color.axAccent.opacity(0.06) : Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(
-            match.day.isToday ? Color.axAccent.opacity(0.3) : Color.axBorder, lineWidth: 1))
     }
 
     private func completionBadge(_ c: SessionCompletion) -> some View {
@@ -271,13 +226,6 @@ struct DashboardView: View {
         Text(text)
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(.axTertiary).tracking(2)
-    }
-
-    private func dayLabel(_ day: PlannedDay) -> String {
-        if day.isToday { return "Today" }
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-        if Calendar.current.isDate(day.date, inSameDayAs: tomorrow) { return "Tomorrow" }
-        return day.weekdayShort
     }
 
     private var greeting: String {
