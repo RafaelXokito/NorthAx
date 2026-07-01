@@ -1,37 +1,185 @@
 import SwiftUI
 
+/// Plan-centric main screen (§7 + §8): a compact tap-for-detail readiness ring,
+/// the week-at-a-glance strip, and the week's session cards with live completion
+/// state matched against imported workouts. Session detail and the readiness
+/// breakdown both open as sheets.
 struct DashboardView: View {
     @Environment(AthleteStore.self) private var store
-    @State private var showSwitcher = false
-    @State private var sessionDone = false
+    @State private var showReadinessDetail = false
+    @State private var selectedMatch: SessionMatch?
 
     var body: some View {
         ZStack {
             Color.axBackground.ignoresSafeArea(edges: .top)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    headerSection
-                    if let readiness = store.readiness {
-                        readinessSection(readiness)
-                        insightsSection(readiness)
-                        sessionSection(readiness)
-                    } else {
-                        noDataSection
-                    }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 28) {
+                        headerSection
+
+                        if let readiness = store.readiness {
+                            compactReadiness(readiness)
+                        }
+
+                        if let week = store.currentWeek {
+                            let matches = store.currentWeekMatches
+                            WeekGlanceView(week: week, matches: matches) { date in
+                                if let target = matches.first(where: { $0.day.date == date }) {
+                                    withAnimation(.spring(duration: 0.35)) {
+                                        proxy.scrollTo(target.id, anchor: .top)
+                                    }
+                                }
+                            }
+                            planSection(matches)
+                        }
+
+                        if store.readiness == nil && store.currentWeek == nil {
+                            noDataSection
+                        }
 #if DEBUG
-                    if store.isDebugSession {
-                        debugToggle
-                    }
+                        if store.isDebugSession { debugToggle }
 #endif
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 48)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 48)
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
         }
-        .sheet(isPresented: $showSwitcher) {
-            ActivitySwitcherView()
+        .sheet(isPresented: $showReadinessDetail) {
+            if let readiness = store.readiness {
+                ReadinessDetailView(readiness: readiness)
+            }
+        }
+        .sheet(item: $selectedMatch) { WorkoutDetailView(match: $0) }
+    }
+
+    // MARK: - Header
+
+    private var headerSection: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(greeting).font(.subheadline).foregroundStyle(.axSecondary)
+                Text(store.athleteName).font(.largeTitle.bold()).foregroundStyle(.white)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(weekdayString)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.axTertiary).tracking(1.5)
+                Text(dateString).font(.subheadline.weight(.semibold)).foregroundStyle(.axSecondary)
+            }
+        }
+    }
+
+    // MARK: - Compact readiness (tap → detail sheet)
+
+    private func compactReadiness(_ r: DailyReadiness) -> some View {
+        Button { showReadinessDetail = true } label: {
+            VStack(spacing: 10) {
+                ReadinessRingView(score: r.score, status: r.status)
+                    .frame(width: 150, height: 150)
+                Text(r.status.rawValue)
+                    .font(.headline)
+                    .foregroundStyle(r.status.ringColor)
+                HStack(spacing: 4) {
+                    Text("Tap to see why").font(.caption)
+                    Image(systemName: "chevron.right").font(.caption2)
+                }
+                .foregroundStyle(.axTertiary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 22)
+            .background(Color.axSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.axBorder, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Plan (session cards)
+
+    private func planSection(_ matches: [SessionMatch]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeader((store.currentWeek?.isCurrentWeek ?? false) ? "THIS WEEK" : "PLANNED")
+            if matches.isEmpty {
+                Text("No sessions scheduled this week.")
+                    .font(.subheadline)
+                    .foregroundStyle(.axTertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(matches) { match in
+                        Button { selectedMatch = match } label: { sessionCard(match) }
+                            .buttonStyle(.plain)
+                            .id(match.id)
+                    }
+                }
+            }
+        }
+    }
+
+    private func sessionCard(_ match: SessionMatch) -> some View {
+        let session = match.session
+        let past = match.completion == .missed || match.completion == .done
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                Image(systemName: session.domain.icon)
+                    .font(.title3)
+                    .foregroundStyle(past ? .axTertiary : session.domain.color)
+                    .frame(width: 44, height: 44)
+                    .background((past ? Color.white : session.domain.color).opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(session.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text("\(dayLabel(match.day)) · \(session.duration) min · \(session.intensityLabel)")
+                        .font(.caption)
+                        .foregroundStyle(.axSecondary)
+                }
+                Spacer()
+                completionBadge(match.completion)
+            }
+
+            // Actual stats when a matching workout was found.
+            if let a = match.activity {
+                Rectangle().fill(Color.axBorder).frame(height: 1)
+                HStack(spacing: 16) {
+                    actualStat("Time", a.formattedDuration)
+                    if let dist = a.formattedDistance { actualStat("Dist", dist) }
+                    if let hr = a.avgHeartRate { actualStat("Avg HR", "\(hr)") }
+                    if let load = a.trainingLoad { actualStat("Load", String(format: "%.0f", load)) }
+                    Spacer()
+                }
+            }
+        }
+        .padding(16)
+        .background(match.day.isToday ? Color.axAccent.opacity(0.06) : Color.axSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(
+            match.day.isToday ? Color.axAccent.opacity(0.3) : Color.axBorder, lineWidth: 1))
+    }
+
+    private func completionBadge(_ c: SessionCompletion) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: c.icon).font(.system(size: 10, weight: .semibold))
+            Text(c.label).font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundStyle(c.color)
+        .padding(.horizontal, 9).padding(.vertical, 5)
+        .background(c.color.opacity(0.12))
+        .clipShape(Capsule())
+    }
+
+    private func actualStat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .semibold)).foregroundStyle(.axTertiary).tracking(0.5)
+            Text(value).font(.system(size: 13, weight: .semibold)).foregroundStyle(.axPrimary)
         }
     }
 
@@ -41,7 +189,7 @@ struct DashboardView: View {
         NoDataView(
             icon: "waveform.path.ecg",
             title: "No training data yet",
-            message: "Connect a data source to see your daily readiness, recovery, and training-load guidance. There's nothing to show until then.",
+            message: "Connect a data source to see your daily readiness, and set up a plan to track your training week. There's nothing to show until then.",
             actionTitle: "Enable integrations"
         ) {
             store.selectedTab = .settings
@@ -49,326 +197,27 @@ struct DashboardView: View {
         .padding(.top, 8)
     }
 
-    // MARK: - Header
-
-    private var headerSection: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(greeting)
-                    .font(.subheadline)
-                    .foregroundStyle(.axSecondary)
-                Text(store.athleteName)
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(.white)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(weekdayString)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.axTertiary)
-                    .tracking(1.5)
-                Text(dateString)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.axSecondary)
-            }
-        }
-    }
-
-    // MARK: - Readiness
-
-    private func readinessSection(_ readiness: DailyReadiness) -> some View {
-        VStack(spacing: 22) {
-            ReadinessRingView(score: readiness.score, status: readiness.status)
-                .frame(width: 190, height: 190)
-                .frame(maxWidth: .infinity)
-
-            Text(readiness.status.verdict)
-                .font(.title.bold())
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-
-            Text(readiness.explanation)
-                .font(.subheadline)
-                .foregroundStyle(.axSecondary)
-                .multilineTextAlignment(.center)
-                .lineSpacing(5)
-                .fixedSize(horizontal: false, vertical: true)
-
-            coachingNoteView(readiness)
-        }
-        .padding(24)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.axBorder, lineWidth: 1))
-    }
-
-    private func coachingNoteView(_ readiness: DailyReadiness) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "brain.head.profile")
-                .font(.subheadline)
-                .foregroundStyle(.axAccent)
-                .padding(.top, 1)
-            Text(readiness.coachingNote)
-                .font(.subheadline.italic())
-                .foregroundStyle(.axAccent)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.axAccent.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axAccent.opacity(0.2), lineWidth: 1))
-    }
-
-    // MARK: - Key signals
-
-    private func insightsSection(_ readiness: DailyReadiness) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader("KEY SIGNALS")
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(readiness.keyInsights) { insight in
-                        MetricInsightCard(insight: insight)
-                    }
-                }
-                .padding(.horizontal, 1)
-            }
-        }
-    }
-
-    // MARK: - Session card
-
-    private func sessionSection(_ readiness: DailyReadiness) -> some View {
-        // Resolved session — override takes priority over engine recommendation.
-        let activeDomain   = store.sessionOverride?.domain ?? readiness.suggestedDomain
-        let activeTitle    = store.sessionOverride?.title ?? readiness.suggestedSessionTitle
-        let activeDuration = store.sessionOverride?.duration ?? readiness.suggestedDuration
-        let activeLabel    = store.sessionOverride?.intensityLabel ?? readiness.suggestedIntensityLabel
-        let activeDesc     = store.sessionOverride?.intensityDescription ?? readiness.suggestedIntensityDescription
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                sectionHeader("TODAY'S SESSION")
-                Spacer()
-                // "Override active" badge
-                if store.sessionOverride != nil {
-                    HStack(spacing: 4) {
-                        Circle().fill(Color.axAccent).frame(width: 6, height: 6)
-                        Text("Custom")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.axAccent)
-                    }
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 16) {
-                // Domain + title row
-                HStack(spacing: 12) {
-                    Image(systemName: activeDomain.icon)
-                        .font(.title3)
-                        .foregroundStyle(activeDomain.color)
-                        .frame(width: 46, height: 46)
-                        .background(activeDomain.color.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 11))
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(activeDomain.rawValue.uppercased())
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.axTertiary)
-                            .tracking(1.2)
-                        Text(activeTitle)
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                    }
-
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 3) {
-                        Text("\(activeDuration) min")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                        Text(activeLabel)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.axSecondary)
-                    }
-                }
-
-                Text(activeDesc)
-                    .font(.subheadline)
-                    .foregroundStyle(.axSecondary)
-
-                // Strength exercises list
-                if let strength = store.sessionOverride?.strengthSession {
-                    strengthExerciseList(strength)
-                }
-
-                Rectangle().fill(Color.axBorder).frame(height: 1)
-
-                // Score pills (for non-override or matching domain)
-                if store.sessionOverride == nil {
-                    HStack(spacing: 8) {
-                        scorePill("HRV",   readiness.hrvScore)
-                        scorePill("Sleep", readiness.sleepScore)
-                        scorePill("Load",  readiness.loadScore)
-                    }
-                    Rectangle().fill(Color.axBorder).frame(height: 1)
-                }
-
-                // Action row
-                HStack(spacing: 10) {
-                    Button {
-                        // Mark today's session done → write it to Apple Health
-                        // (if write is enabled). One-tap, no separate timer.
-                        sessionDone = true
-                        Task {
-                            await store.markSessionDone(
-                                domain: activeDomain, title: activeTitle, durationMin: activeDuration
-                            )
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: sessionDone ? "checkmark" : "play.fill")
-                            Text(sessionDone ? "Session Done" : "Start Session")
-                        }
-                        .font(.headline)
-                        .foregroundStyle(Color.black)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(sessionDone ? Color.axGreen : activeDomain.color)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                    }
-                    .disabled(sessionDone)
-
-                    // Switch / Reset button
-                    if store.sessionOverride != nil {
-                        Button {
-                            store.clearSessionOverride()
-                        } label: {
-                            Image(systemName: "arrow.counterclockwise")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(.axSecondary)
-                                .frame(width: 50, height: 50)
-                                .background(Color.axSurface)
-                                .clipShape(RoundedRectangle(cornerRadius: 14))
-                                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.axBorder, lineWidth: 1))
-                        }
-                    } else {
-                        Button {
-                            showSwitcher = true
-                        } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "arrow.left.arrow.right")
-                                    .font(.system(size: 12, weight: .bold))
-                                Text("Switch")
-                                    .font(.system(size: 13, weight: .semibold))
-                            }
-                            .foregroundStyle(.axSecondary)
-                            .frame(width: 100, height: 50)
-                            .background(Color.axSurface)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.axBorder, lineWidth: 1))
-                        }
-                    }
-                }
-            }
-            .padding(20)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
-        }
-    }
-
-    // Inline strength exercises preview
-    private func strengthExerciseList(_ session: StrengthSession) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Muscle group chips
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(session.muscleGroups) { group in
-                        HStack(spacing: 4) {
-                            Circle().fill(group.color).frame(width: 5, height: 5)
-                            Text(group.rawValue)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(group.color)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(group.color.opacity(0.08))
-                        .clipShape(Capsule())
-                    }
-                }
-            }
-
-            Rectangle().fill(Color.axBorder).frame(height: 1)
-
-            // Exercises
-            ForEach(session.exercises) { ex in
-                HStack {
-                    Circle().fill(ex.muscleGroup.color).frame(width: 5, height: 5)
-                    Text(ex.name)
-                        .font(.subheadline)
-                        .foregroundStyle(.axPrimary)
-                    Spacer()
-                    Text(ex.setDisplay)
-                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(.axSecondary)
-                    Text("· \(ex.rest)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.axTertiary)
-                }
-            }
-
-            // Warnings
-            ForEach(session.recoveryWarnings, id: \.self) { warning in
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.axRed)
-                        .padding(.top, 2)
-                    Text(warning)
-                        .font(.caption)
-                        .foregroundStyle(.axRed)
-                        .lineSpacing(2)
-                }
-            }
-        }
-    }
-
-    // MARK: - Debug
-
 #if DEBUG
     private var debugToggle: some View {
         @Bindable var bindable = store
         return Toggle("Simulate fatigue", isOn: $bindable.useFatiguedScenario)
-            .font(.caption)
-            .foregroundStyle(.axTertiary)
-            .tint(.axRed)
-            .padding(.horizontal, 4)
+            .font(.caption).foregroundStyle(.axTertiary).tint(.axRed).padding(.horizontal, 4)
     }
 #endif
 
     // MARK: - Helpers
 
-    @ViewBuilder
-    private func scorePill(_ label: String, _ score: Int) -> some View {
-        HStack(spacing: 4) {
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(.axSecondary)
-            Text("\(score)")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.white)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Color.white.opacity(0.06))
-        .clipShape(Capsule())
-    }
-
     private func sectionHeader(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
+            .foregroundStyle(.axTertiary).tracking(2)
+    }
+
+    private func dayLabel(_ day: PlannedDay) -> String {
+        if day.isToday { return "Today" }
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        if Calendar.current.isDate(day.date, inSameDayAs: tomorrow) { return "Tomorrow" }
+        return day.weekdayShort
     }
 
     private var greeting: String {

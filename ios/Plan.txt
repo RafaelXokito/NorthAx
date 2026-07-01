@@ -148,3 +148,191 @@
 - Implement the "+" sport enrollment sheet with available sports list.
 - Persist enrolled sports + per-sport config via the API; trigger plan regeneration on changes.
 - Remove now-redundant standalone Settings rows (Training Frequency, Muscle Group Split, intervals.icu inline row).
+
+---
+
+## 6. Plan Generation Rate Limit (2×/day)
+
+**Goal:** Prevent users from regenerating their plan more than twice per calendar day, to avoid abuse and encourage deliberate plan changes.
+
+**Rules:**
+- A user may generate (or regenerate) their plan at most 2 times per calendar day (midnight-to-midnight in the user's local timezone).
+- The limit resets at midnight local time.
+- Both explicit regenerations ("Rebuild my plan") and first-time generation count toward the limit.
+- Changing training schedule / enrolled sports does NOT auto-trigger generation — it only prompts the user, who then chooses to regenerate (and that counts toward the limit).
+
+**Backend:**
+- Track `plan_generations_today` and `last_plan_generation_date` on the athlete profile (or a dedicated audit table).
+- The plan generation endpoint returns HTTP 429 with a body like `{"error": "plan_limit_reached", "resets_at": "<ISO timestamp of next midnight>"}` when the limit is exceeded.
+
+**iOS:**
+- Before showing the "Generate Plan" / "Rebuild Plan" button/action, fetch (or use cached) remaining generation count for today.
+- Display remaining attempts near the generate action: e.g. "1 of 2 generations remaining today".
+- When the limit is hit, disable the button and show a message: "You've used both plan generations for today. Come back tomorrow to rebuild your plan."
+- Show the reset time in the user's local timezone: "Resets at midnight (2 Jul)".
+- Handle the 429 response gracefully in case the local count is stale.
+
+**Tasks:**
+- Add `planGenerationsToday: Int` and `planGenerationResetAt: Date` to the athlete profile model / API response.
+- Update `NorthAxAPI` / `PlanEngine` to surface the 429 and parse the `resets_at` field.
+- In `PlanView` (and anywhere else a regeneration can be triggered), gate the action behind the remaining count.
+- Show a remaining-count badge / label next to the generate button.
+- Write a unit test: attempting a third generation within the same day returns the correct error and the UI disables the button.
+
+---
+
+## 7. Main Page — Plan-Centric Layout with "Week at a Glance"
+
+**Goal:** Make the main (Dashboard) screen plan-first. The dominant element is the current week's training plan with live completion tracking, cross-referenced against workouts already imported from intervals.icu (and Apple Health / Garmin).
+
+### Week at a Glance (top of the main page)
+
+A compact horizontal strip showing all 7 days of the current week (Mon–Sun). Each day shows:
+- The sport icon(s) planned for that day (or a rest icon if no session planned).
+- A completion state per session: Planned / Done / Missed / Rest.
+  - **Done** = a matching completed workout was found in the imported data (intervals.icu / Garmin / Apple Health).
+  - **Missed** = the planned day has passed and no matching workout was found.
+  - **Planned** = scheduled in the future (or today, not yet done).
+  - **Rest** = no session scheduled.
+- Today is highlighted. Tapping a day scrolls to that session card below.
+
+### Session Cards (below the strip)
+
+The rest of the main page lists the week's session cards in order. Each card shows:
+- Sport, planned date, target duration and intensity summary.
+- Completion badge (Done / Missed / Planned).
+- If **Done**: show the actual workout's key stats pulled from intervals.icu (actual distance, avg HR, avg pace/power, TSS/load) alongside the planned targets so the user can see how closely they matched.
+- If **Planned** and it is today: no "Start session" CTA — the card is tappable and opens the dedicated Workout Detail View (see below).
+- The `WorkoutEffortGraphView` (feature #2) is NOT embedded inline in the card — it lives in the Workout Detail View to keep the card compact.
+- Each card is always tappable regardless of completion state.
+
+### Workout Detail View
+
+A full-screen push (or large sheet) that opens when any session card is tapped. Contains all information about that planned session:
+
+1. **Header** — sport icon, session title, planned date, completion badge.
+
+2. **Workout Effort Graph** — the full `WorkoutEffortGraphView` (feature #2) showing the block structure with sport-appropriate intensity axis. Tapping a block shows a popover with block details (name, duration, target pace/power/HR).
+
+3. **Planned targets summary** — total duration, total distance (if applicable), estimated load/TSS, target intensity distribution (e.g. "15 min threshold, 15 min Z3, 10 min easy").
+
+4. **Actual vs Planned** (shown only when the session is matched to a completed workout):
+   - Side-by-side table: Planned vs Actual for duration, distance, avg pace/power, avg HR, load.
+   - A second effort graph showing the *actual* workout intensity over time (from intervals.icu data) overlaid or alongside the planned graph, so the athlete can see how closely they executed the plan.
+
+5. **Workout notes** — free-text field the athlete or coach attached to the session (read-only for now).
+
+6. **Source** — small badge indicating where the matched workout data came from (intervals.icu / Garmin / Apple Health).
+
+### Workout Matching Logic
+
+Matching a planned session to an actual imported workout:
+- Match on: same calendar day + same sport type.
+- If multiple workouts exist for the same day/sport, pick the one closest in duration to the planned session.
+- Store the match result (`matchedWorkoutId`) on the planned session in the backend so it is stable across syncs.
+- Expose a "Unlink" action if the auto-match is wrong, letting the user manually link or unlink a workout.
+
+### Data Flow
+
+- `AthleteStore` loads the current `WeeklyPlan` from the API.
+- It also fetches the week's imported workouts from intervals.icu (and Apple Health as fallback) for the matching date range.
+- The matching logic runs client-side in a `PlanMatchingEngine` (or server-side and returned as part of the plan response — TBD).
+- The matched state is cached locally and refreshed whenever the store syncs.
+
+### Tasks:
+- Redesign `DashboardView` to be plan-centric: Week at a Glance strip at top, session cards below.
+- Build `WeekGlanceView` — 7-day strip component with day state indicators and sport icons.
+- Add completion state (`planned | done | missed | rest`) to the `PlannedSession` model.
+- Build `PlanMatchingEngine` that pairs `PlannedSession` items against imported workouts by date + sport.
+- Update `AthleteStore` to fetch both the weekly plan and the week's imported workouts, and run matching.
+- Keep `PlannedSessionCard` compact — no inline graph, no CTA buttons. Tapping the card always navigates to `WorkoutDetailView`.
+- Build `WorkoutDetailView`: effort graph, planned targets, actual-vs-planned table, notes, source badge.
+- In `WorkoutDetailView`, when a match exists, render a second effort graph for the actual workout alongside the planned one.
+- Remove the "Start session" / "Log manually" CTA entirely — no in-app session tracking at this stage.
+- Ensure `ActivitySwitcherView` (sport switcher) adapts or is removed in favour of the plan-first layout.
+- Note: the current `ActivitySwitcherView` uses a deterministic rules engine (not AI) for all sports except Strength (which gets a background AI enrichment call). Under this plan-centric redesign, switch suggestions become AI-generated and pre-fetched at day start (see feature #9).
+
+---
+
+## 9. Daily Pre-fetched AI Switch Suggestions
+
+**Goal:** At the start of each day, proactively request AI-generated alternative session suggestions from the backend — one per planned workout that day. This replaces the current on-demand deterministic switcher with context-aware AI recommendations that are ready before the user even opens the app.
+
+### When to fetch
+
+- Also triggered on **first app launch of the day** (checked against a stored `lastSuggestionFetchDate`; if that date ≠ today, fetch immediately on load).
+- If the fetch fails (offline, timeout), the app falls back to the existing deterministic `switchSuggestion(for:)` engine — no empty state. And stating that the generated data were not inteligent.
+
+### What to request
+
+- For each **planned session today**, fire one independent request to the backend.
+  - e.g. if today has a Run + Strength session → 2 requests, one per session.
+- Each request sends the full context payload (see below) so the AI can reason about the athlete's state.
+
+### Context payload per request
+
+Each suggestion request includes:
+- **Planned session being considered** — sport, target duration, intended intensity, workout blocks.
+- **Today's readiness metrics** — HRV, resting HR, sleep score, sleep duration, body weight (all available sources, resolved per `MetricSourcePriority`).
+- **Previous 7 days training load** — per-day ATL contribution, sport breakdown (from intervals.icu / Apple Health / manual entries).
+- **Remaining weekly plan** — the other sessions planned for the rest of the week (sport + intensity), so the AI can factor in what's coming up and avoid overloading a muscle group before a hard session two days later.
+- **Athlete thresholds** — FTP, LTHR, max HR, pace zones — so suggestions are personalised to the athlete's fitness level rather than generic.
+- **Enrolled sports + sport-specific preferences** — cycling target (HR vs power), running unit (km/mile), muscle group split for strength.
+
+### Response
+
+The backend returns a ranked list of 2–4 alternative sessions, each with:
+- Sport, title, duration, intensity label, description.
+- A short AI rationale (1–2 sentences) explaining why this alternative fits today's context.
+- Estimated training load (so the user can see it stays load-equivalent).
+- For Strength: full exercise list with sets/reps.
+- For running/cycling/swimming: workout blocks (compatible with `WorkoutEffortGraphView`).
+
+### iOS tasks
+
+- Add `dailySuggestions: [PlannedSessionID: [SwitchSuggestion]]` to `AthleteStore` — keyed by the planned session so each card shows its own alternatives.
+- Store `lastSuggestionFetchDate` in UserDefaults; compare to today on app foreground.
+- Register a `BGAppRefreshTask` for midnight fetch (best-effort; OS may delay it).
+- In `WorkoutDetailView`, show the pre-fetched alternatives as a "Switch to..." section. If suggestions aren't ready yet, show a loading shimmer; if fetch failed, show the deterministic fallback silently.
+- The AI rationale text is shown per suggestion card (e.g. "Your HRV is 12% below baseline and you have a long ride Thursday — a shorter aerobic run preserves freshness better than tempo today.").
+- Cache suggestions locally so they survive a foreground/background cycle without re-fetching.
+- Invalidate the cache and re-fetch if: the user's readiness metrics update significantly (>10% HRV change), or the weekly plan is regenerated.
+
+---
+
+## 8. Readiness Ring — Compact Main Page + Dedicated Detail Popup
+
+**Goal:** The readiness ring on the main page should be clean and minimal — just the ring and the score. All explanatory content (description, conditions, contributing metrics, graphs) moves into a dedicated popup/sheet that opens when the user taps the ring.
+
+### Main Page (after change)
+
+- The `ReadinessRingView` shows only: the animated ring, the numeric score, and a short one-word label (e.g. "Good", "Optimal", "Low").
+- No description text, no conditions box, no metric breakdown inline.
+- The ring is clearly tappable (subtle chevron or "tap to see why" hint label beneath it).
+
+### Readiness Detail Sheet (new)
+
+Opens as a modal sheet (large detent) when the ring is tapped. Contains:
+
+1. **Score header** — large ring + score + label, same visual as the main page ring but bigger.
+
+2. **Score explanation** — 2–3 sentence plain-English description of what the score means today and what is driving it up or down.
+
+3. **Contributing conditions** — the current conditions box, listing each factor (HRV, Resting HR, Sleep, Training Load, etc.) with its individual status and directional arrow (↑ ↓ →).
+
+4. **Metric graphs** — one chart per contributing metric showing its recent trend (last 7–14 days), so the user can see the trajectory behind today's value:
+   - HRV trend (line chart, 14-day window)
+   - Resting HR trend (line chart, 14-day window)
+   - Sleep duration / quality (bar or line chart, 7-day window)
+   - Training load / ATL/CTL if available (area chart)
+   - Any other metric that feeds the readiness score
+
+5. **Source badges** — small labels on each metric graph indicating where the data came from (Apple Health, Garmin, intervals.icu, Manual).
+
+### Tasks:
+- Strip `ReadinessRingView` (or `DashboardView`) of the description and conditions block; leave only the ring + score + label.
+- Build `ReadinessDetailView` as a SwiftUI sheet containing the sections above.
+- Wire the tap gesture on the ring in `DashboardView` to present `ReadinessDetailView`.
+- Move the conditions/factors rendering logic from the dashboard into `ReadinessDetailView`.
+- Add per-metric `MetricChartView` instances (leveraging the existing `MetricChartView`) for each contributing metric inside the sheet.
+- Ensure the sheet handles the empty-data state gracefully (e.g. "Connect a data source to see your HRV trend").

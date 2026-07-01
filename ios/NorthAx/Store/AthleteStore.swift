@@ -97,6 +97,9 @@ class AthleteStore {
         }
     }
     var weeklyPlans: [WeeklyPlan] = []
+    /// Imported workouts (intervals.icu / Garmin) used to mark planned sessions
+    /// done on the plan-centric dashboard (§7).
+    var weekActivities: [GarminActivity] = []
     var planWasRecentlyUpdated: Bool = false
     /// True while the AI planner runs — drives the full-screen loading overlay.
     var isGeneratingPlan: Bool = false
@@ -190,6 +193,7 @@ class AthleteStore {
         await loadPreferences()
         await loadMetricsAndReadiness()
         await loadPlans()
+        await loadActivities()
         await loadCoachHistory()
         await intervals.refreshStatus()
     }
@@ -292,6 +296,23 @@ class AthleteStore {
         if let plans = try? await api.plans(weeks: 4), !plans.isEmpty {
             weeklyPlans = plans
         }
+    }
+
+    func loadActivities() async {
+        if let acts = try? await api.activities(limit: 50) {
+            weekActivities = acts
+        }
+    }
+
+    /// The plan for the current week (falls back to the first available week).
+    var currentWeek: WeeklyPlan? {
+        weeklyPlans.first(where: { $0.isCurrentWeek }) ?? weeklyPlans.first
+    }
+
+    /// This week's planned sessions paired with their completion state (§7).
+    var currentWeekMatches: [SessionMatch] {
+        guard let week = currentWeek else { return [] }
+        return PlanMatchingEngine.matches(week: week, activities: weekActivities)
     }
 
     func loadCoachHistory() async {
