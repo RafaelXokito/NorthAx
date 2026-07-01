@@ -8,6 +8,10 @@
 # pending sql/migrations/*.sql (each runs once, tracked in schema_migrations),
 # restarts the systemd services, and checks /health. Set SMOKE_EMAIL +
 # SMOKE_PASSWORD to also run a POST /auth/login smoke test.
+#
+# The restart needs sudo. Over a non-interactive SSH session sudo has no tty to
+# prompt on, so export SUDO_PASS=... to feed the password via stdin (`sudo -S`).
+# Left unset, it uses plain `sudo` (works with a tty or a NOPASSWD sudoers rule).
 set -euo pipefail
 
 BACKEND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -65,7 +69,11 @@ asyncio.run(main())
 PY
 
 echo "==> restart services (sudo)"
-sudo systemctl restart northax-api northax-worker
+if [ -n "${SUDO_PASS:-}" ]; then
+  echo "$SUDO_PASS" | sudo -S -p '' systemctl restart northax-api northax-worker
+else
+  sudo systemctl restart northax-api northax-worker
+fi
 sleep 4
 echo "    api=$(systemctl is-active northax-api) worker=$(systemctl is-active northax-worker)"
 
