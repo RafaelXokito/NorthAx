@@ -9,61 +9,46 @@ struct SessionMatchCard: View {
     var body: some View {
         let session = match.session
         let past = match.completion == .missed || match.completion == .done
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
-                Image(systemName: session.domain.icon)
-                    .font(.title3)
-                    .foregroundStyle(past ? .axTertiary : session.domain.color)
-                    .frame(width: 44, height: 44)
-                    .background((past ? Color.white : session.domain.color).opacity(0.10))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+        return AxCard(radius: 16, padding: 16, highlighted: match.day.isToday) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 14) {
+                    IconTile(systemName: session.domain.icon,
+                             color: past ? .axTertiary : session.domain.color,
+                             size: 44)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(session.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text("\(dayLabel) · \(session.duration) min · \(session.intensityLabel)")
-                        .font(.caption)
-                        .foregroundStyle(.axSecondary)
-                }
-                Spacer()
-                completionBadge
-            }
-
-            if let a = match.activity {
-                Rectangle().fill(Color.axBorder).frame(height: 1)
-                HStack(spacing: 16) {
-                    stat("Time", a.formattedDuration)
-                    if let dist = a.formattedDistance { stat("Dist", dist) }
-                    if let hr = a.avgHeartRate { stat("Avg HR", "\(hr)") }
-                    if let load = a.trainingLoad { stat("Load", String(format: "%.0f", load)) }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(session.title)
+                            .font(.axDisplay(15, .bold))
+                            .foregroundStyle(.axPrimary)
+                        Text("\(dayLabel) · \(session.duration) MIN · \(session.intensityLabel)".uppercased())
+                            .font(.axMono(10))
+                            .tracking(0.6)
+                            .foregroundStyle(.axSecondary)
+                    }
                     Spacer()
+                    CompletionPill(completion: match.completion)
+                }
+
+                if let a = match.activity {
+                    Rectangle().fill(Color.axBorder).frame(height: 1)
+                    HStack(spacing: 16) {
+                        stat("Time", a.formattedDuration)
+                        if let dist = a.formattedDistance { stat("Dist", dist) }
+                        if let hr = a.avgHeartRate { stat("Avg HR", "\(hr)") }
+                        if let load = a.trainingLoad { stat("Load", String(format: "%.0f", load)) }
+                        Spacer()
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(16)
-        .background(match.day.isToday ? Color.axAccent.opacity(0.06) : Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(
-            match.day.isToday ? Color.axAccent.opacity(0.3) : Color.axBorder, lineWidth: 1))
-    }
-
-    private var completionBadge: some View {
-        HStack(spacing: 5) {
-            Image(systemName: match.completion.icon).font(.system(size: 10, weight: .semibold))
-            Text(match.completion.label).font(.system(size: 11, weight: .semibold))
-        }
-        .foregroundStyle(match.completion.color)
-        .padding(.horizontal, 9).padding(.vertical, 5)
-        .background(match.completion.color.opacity(0.12))
-        .clipShape(Capsule())
     }
 
     private func stat(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold)).foregroundStyle(.axTertiary).tracking(0.5)
-            Text(value).font(.system(size: 13, weight: .semibold)).foregroundStyle(.axPrimary)
+                .font(.axMono(9, .semibold)).foregroundStyle(.axTertiary).tracking(0.8)
+            Text(value).font(.axDisplay(13, .bold)).foregroundStyle(.axPrimary)
         }
     }
 

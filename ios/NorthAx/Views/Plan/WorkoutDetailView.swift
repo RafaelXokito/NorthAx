@@ -17,6 +17,7 @@ struct WorkoutDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     header
+                    statTiles
                     breakdownSection
                     plannedTargets
                     if let activity = match.activity { actualVsPlanned(activity) }
@@ -107,35 +108,49 @@ struct WorkoutDetailView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            Image(systemName: session.domain.icon)
-                .font(.title2)
-                .foregroundStyle(session.domain.color)
-                .frame(width: 52, height: 52)
-                .background(session.domain.color.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+            IconTile(systemName: session.domain.icon, color: session.domain.color, size: 52)
 
             VStack(alignment: .leading, spacing: 4) {
+                Text(session.domain.rawValue.uppercased())
+                    .font(.axMono(10, .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(session.domain.color)
                 Text(session.title)
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                Text(dateLabel)
-                    .font(.subheadline)
+                    .font(.axDisplay(20, .heavy))
+                    .tracking(-0.4)
+                    .foregroundStyle(.axPrimary)
+                Text(dateLabel.uppercased())
+                    .font(.axMono(10))
+                    .tracking(0.6)
                     .foregroundStyle(.axSecondary)
             }
             Spacer()
-            completionBadge
+            CompletionPill(completion: match.completion)
         }
     }
 
-    private var completionBadge: some View {
-        HStack(spacing: 5) {
-            Image(systemName: match.completion.icon).font(.system(size: 11, weight: .semibold))
-            Text(match.completion.label).font(.system(size: 12, weight: .semibold))
+    // MARK: - Stat tiles (TIME / EFFORT / LOAD)
+
+    private var statTiles: some View {
+        let load = store.sessionLoad(durationMin: session.duration, intensity: session.intensityLabel)
+        return HStack(spacing: 10) {
+            StatTile(label: "Time", value: "\(session.duration) min")
+            StatTile(label: "Effort", value: effortShortLabel, valueColor: effortColor)
+            StatTile(label: "Load", value: "\(Int(load.rounded()))")
         }
-        .foregroundStyle(match.completion.color)
-        .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(match.completion.color.opacity(0.12))
-        .clipShape(Capsule())
+    }
+
+    private var effortShortLabel: String {
+        let l = session.intensityLabel.lowercased()
+        if l.contains("moderate") { return "MOD" }
+        return session.intensityLabel.uppercased()
+    }
+
+    private var effortColor: Color {
+        let l = session.intensityLabel.lowercased()
+        if l.contains("easy") || l.contains("light") || l.contains("recovery") { return .axGreen }
+        if l.contains("hard") || l.contains("max") { return .axRed }
+        return .axAmber
     }
 
     // MARK: - Breakdown (exercise list for strength, effort graph for endurance)
@@ -148,17 +163,17 @@ struct WorkoutDetailView: View {
                     ForEach(exercises) { ex in
                         HStack(alignment: .top, spacing: 10) {
                             Text(ex.muscleGroup.rawValue.uppercased())
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(.axAccent).tracking(0.5)
-                                .frame(width: 64, alignment: .leading).padding(.top, 2)
+                                .font(.axMono(9, .semibold))
+                                .foregroundStyle(ex.muscleGroup.color).tracking(0.5)
+                                .frame(width: 64, alignment: .leading).padding(.top, 3)
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(alignment: .firstTextBaseline) {
-                                    Text(ex.name).font(.caption.weight(.semibold)).foregroundStyle(.axPrimary)
+                                    Text(ex.name).font(.axDisplay(14, .bold)).foregroundStyle(.axPrimary)
                                     Spacer()
-                                    Text(ex.setDisplay).font(.caption2.weight(.semibold)).foregroundStyle(.axSecondary)
+                                    Text(ex.setDisplay).font(.axMono(11, .semibold)).foregroundStyle(.axSecondary)
                                 }
                                 Text("Rest \(ex.rest)" + (ex.notes.map { " · \($0)" } ?? ""))
-                                    .font(.caption2).foregroundStyle(.axTertiary)
+                                    .font(.axMono(10)).foregroundStyle(.axTertiary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -252,46 +267,42 @@ struct WorkoutDetailView: View {
                 Image(systemName: marking ? "checkmark" : "checkmark.circle")
                 Text(marking ? "Marked complete" : "Mark complete")
             }
-            .font(.headline)
-            .foregroundStyle(marking ? Color.black : session.domain.color)
+            .font(.axDisplay(15, .bold))
+            .foregroundStyle(marking ? Color.axBackground : session.domain.color)
             .frame(maxWidth: .infinity).frame(height: 50)
             .background(marking ? Color.axGreen : session.domain.color.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .disabled(marking)
     }
 
     // MARK: - Building blocks
 
-    private func card<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.axTertiary).tracking(2)
-            content()
+    private func card<Content: View>(_ title: String, @ViewBuilder _ content: @escaping () -> Content) -> some View {
+        AxCard(radius: 18, padding: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionLabel(title)
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private func targetRow(_ label: String, _ value: String) -> some View {
         HStack {
-            Text(label).font(.subheadline).foregroundStyle(.axSecondary)
+            Text(label).font(.axDisplay(13.5)).foregroundStyle(.axSecondary)
             Spacer()
-            Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+            Text(value).font(.axDisplay(13.5, .semibold)).foregroundStyle(.axPrimary)
         }
     }
 
     private func comparisonRow(_ label: String, planned: String, actual: String) -> some View {
         HStack {
-            Text(label).font(.subheadline).foregroundStyle(.axSecondary)
+            Text(label).font(.axDisplay(13.5)).foregroundStyle(.axSecondary)
             Spacer()
-            Text(planned).font(.caption.weight(.medium)).foregroundStyle(.axTertiary)
+            Text(planned).font(.axMono(11)).foregroundStyle(.axTertiary)
                 .frame(width: 80, alignment: .trailing)
-            Text(actual).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+            Text(actual).font(.axMono(11, .semibold)).foregroundStyle(.axPrimary)
                 .frame(width: 80, alignment: .trailing)
         }
     }
@@ -325,8 +336,8 @@ private struct SwitchSuggestionRow: View {
                         Image(systemName: applying ? "checkmark" : "arrow.left.arrow.right")
                         Text(applying ? "Switching…" : "Use this session")
                     }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.black)
+                    .font(.axDisplay(14, .bold))
+                    .foregroundStyle(Color.axBackground)
                     .frame(maxWidth: .infinity).frame(height: 44)
                     .background(suggestion.domain.color)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -336,32 +347,28 @@ private struct SwitchSuggestionRow: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.03))
+        .background(Color.axInset)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: suggestion.domain.icon)
-                .font(.subheadline).foregroundStyle(suggestion.domain.color)
-                .frame(width: 34, height: 34)
-                .background(suggestion.domain.color.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            IconTile(systemName: suggestion.domain.icon, color: suggestion.domain.color, size: 34, radius: 8)
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
-                    Text(suggestion.title).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                    Text(suggestion.title).font(.axDisplay(14, .bold)).foregroundStyle(.axPrimary)
                     Spacer()
-                    Text("\(suggestion.duration) min").font(.caption).foregroundStyle(.axSecondary)
+                    Text("\(suggestion.duration) MIN").font(.axMono(10)).foregroundStyle(.axSecondary)
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
                         .font(.caption2).foregroundStyle(.axTertiary)
                 }
-                Text(suggestion.intensityLabel + (suggestion.estimatedLoad.map { " · ~\(Int($0)) load" } ?? ""))
-                    .font(.caption).foregroundStyle(.axSecondary)
+                Text((suggestion.intensityLabel + (suggestion.estimatedLoad.map { " · ~\(Int($0)) load" } ?? "")).uppercased())
+                    .font(.axMono(10)).tracking(0.6).foregroundStyle(.axSecondary)
                 if let r = suggestion.rationale, !r.isEmpty {
-                    Text(r).font(.caption2).foregroundStyle(.axAccent)
+                    Text(r).font(.axDisplay(11.5)).foregroundStyle(.axAccent)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if !suggestion.description.isEmpty {
-                    Text(suggestion.description).font(.caption2).foregroundStyle(.axTertiary)
+                    Text(suggestion.description).font(.axDisplay(11.5)).foregroundStyle(.axTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

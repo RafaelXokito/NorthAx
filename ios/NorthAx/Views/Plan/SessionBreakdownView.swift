@@ -23,17 +23,17 @@ struct SessionBreakdownView: View {
             ForEach(exercises) { ex in
                 HStack(alignment: .top, spacing: 10) {
                     Text(ex.muscleGroup.rawValue.uppercased())
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.axAccent).tracking(0.5)
-                        .frame(width: 64, alignment: .leading).padding(.top, 2)
+                        .font(.axMono(9, .semibold))
+                        .foregroundStyle(ex.muscleGroup.color).tracking(0.5)
+                        .frame(width: 64, alignment: .leading).padding(.top, 3)
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text(ex.name).font(.caption.weight(.semibold)).foregroundStyle(.axPrimary)
+                            Text(ex.name).font(.axDisplay(13, .bold)).foregroundStyle(.axPrimary)
                             Spacer()
-                            Text(ex.setDisplay).font(.caption2.weight(.semibold)).foregroundStyle(.axSecondary)
+                            Text(ex.setDisplay).font(.axMono(11, .semibold)).foregroundStyle(.axSecondary)
                         }
                         Text("Rest \(ex.rest)" + (ex.notes.map { " · \($0)" } ?? ""))
-                            .font(.caption2).foregroundStyle(.axTertiary)
+                            .font(.axMono(10)).foregroundStyle(.axTertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }

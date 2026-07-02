@@ -56,7 +56,7 @@ struct PlanView: View {
             Image(systemName: "arrow.clockwise.circle.fill")
                 .foregroundStyle(.axGreen)
             Text("Plan updated to match your new training frequency")
-                .font(.caption.weight(.medium))
+                .font(.axDisplay(12, .medium))
                 .foregroundStyle(.axPrimary)
             Spacer()
         }
@@ -74,11 +74,11 @@ struct PlanView: View {
     private func weekSessions(_ data: WeekData) -> some View {
         let label = data.isHistorical ? "COMPLETED WORKOUTS"
             : (data.offset == 0 ? "THIS WEEK" : "PLANNED SESSIONS")
-        return VStack(alignment: .leading, spacing: 14) {
-            sectionLabel(label)
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionLabel(label)
             if data.matches.isEmpty {
                 Text(data.isHistorical ? "No workouts imported for this week." : "No training days this week.")
-                    .font(.subheadline)
+                    .font(.axDisplay(13.5))
                     .foregroundStyle(.axTertiary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
@@ -100,41 +100,37 @@ struct PlanView: View {
     private var weeklyLoadCard: some View {
         // Driven by observed wellness load — only meaningful with real data.
         if let weeklyLoadChange = store.metrics?.weeklyLoadChange {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionLabel("WEEKLY LOAD PROGRESSION")
+            VStack(alignment: .leading, spacing: 12) {
+                SectionLabel("WEEKLY LOAD PROGRESSION")
 
-            let pct = Int(weeklyLoadChange * 100)
-            let sign = pct >= 0 ? "+" : ""
-            let isAggressive = pct > 15
+                let pct = Int(weeklyLoadChange * 100)
+                let sign = pct >= 0 ? "+" : ""
+                let isAggressive = pct > 15
 
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: isAggressive ? "exclamationmark.triangle" : "chart.bar.fill")
-                    .font(.title3)
-                    .foregroundStyle(isAggressive ? .axRed : .axGreen)
-                    .frame(width: 42, height: 42)
-                    .background((isAggressive ? Color.axRed : Color.axGreen).opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                AxCard(radius: 20, padding: 20) {
+                    HStack(alignment: .top, spacing: 14) {
+                        IconTile(systemName: isAggressive ? "exclamationmark.triangle" : "chart.bar.fill",
+                                 color: isAggressive ? .axRed : .axGreen,
+                                 size: 42, radius: 10)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Week-on-week change: \(sign)\(pct)%")
-                        .font(.headline)
-                        .foregroundStyle(.white)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Week-on-week change: \(sign)\(pct)%")
+                                .font(.axDisplay(15, .bold))
+                                .foregroundStyle(.axPrimary)
 
-                    Text(isAggressive
-                        ? "This is an aggressive week-on-week progression. Continuing this trend significantly increases injury risk. Consider holding load steady next week."
-                        : "Your load progression is within safe limits. The 10% weekly increase guideline is a conservative but effective injury prevention heuristic."
-                    )
-                    .font(.subheadline)
-                    .foregroundStyle(.axSecondary)
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
+                            Text(isAggressive
+                                ? "This is an aggressive week-on-week progression. Continuing this trend significantly increases injury risk. Consider holding load steady next week."
+                                : "Your load progression is within safe limits. The 10% weekly increase guideline is a conservative but effective injury prevention heuristic."
+                            )
+                            .font(.axDisplay(13))
+                            .foregroundStyle(.axSecondary)
+                            .lineSpacing(4)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-        }
-        .padding(20)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
         }
     }
 
@@ -159,24 +155,15 @@ struct PlanView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.axTertiary)
             Text("No plan generated yet")
-                .font(.headline)
+                .font(.axDisplay(16, .bold))
                 .foregroundStyle(.axSecondary)
             Text("Set your training frequency in Settings to generate your first plan.")
-                .font(.subheadline)
+                .font(.axDisplay(13.5))
                 .foregroundStyle(.axTertiary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(3)
         }
         .padding(40)
-    }
-
-    // MARK: - Helpers
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
     }
 }
 

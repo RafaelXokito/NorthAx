@@ -12,12 +12,13 @@ struct PlanGeneratingView: View {
                     .controlSize(.large)
                     .tint(.axAccent)
 
-                VStack(spacing: 6) {
-                    Text("Building your plan")
-                        .font(.headline)
-                        .foregroundStyle(.white)
+                VStack(spacing: 8) {
+                    Text("BUILDING YOUR PLAN")
+                        .font(.axMono(11, .semibold))
+                        .tracking(1.8)
+                        .foregroundStyle(.axAccent)
                     Text("Your coach is tailoring the next two weeks to your schedule, recent training, and recovery.")
-                        .font(.subheadline)
+                        .font(.axDisplay(13.5))
                         .foregroundStyle(.axSecondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(3)
