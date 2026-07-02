@@ -42,46 +42,30 @@ struct ContentView: View {
         }
     }
 
+    // Plain root switch under a custom tab bar (no TabView): `safeAreaInset`
+    // then propagates into every tab's scroll views, so content stops above the
+    // bar instead of being clipped behind it. Switching tabs resets the tab's
+    // navigation history — per the design ("tabs clear the history").
     private var mainApp: some View {
-        TabView(selection: Binding(get: { store.selectedTab }, set: { store.selectedTab = $0 })) {
-            Tab("Today", systemImage: "house.fill", value: AppTab.dashboard) {
+        Group {
+            switch store.selectedTab {
+            case .dashboard:
                 DashboardView()
-                    .toolbar(.hidden, for: .tabBar)
-            }
-
-            // Coach tab hidden for now — kept for later (CoachView + AppTab.coach remain).
-            // Tab("Coach", systemImage: "bubble.left.and.bubble.right", value: AppTab.coach) {
-            //     NavigationStack {
-            //         CoachView()
-            //     }
-            // }
-
-            Tab("Metrics", systemImage: "chart.xyaxis.line", value: AppTab.metrics) {
-                NavigationStack {
-                    MetricsView()
-                }
-                .toolbar(.hidden, for: .tabBar)
-            }
-
-            Tab("Plan", systemImage: "calendar", value: AppTab.plan) {
-                NavigationStack {
-                    PlanView()
-                }
-                .toolbar(.hidden, for: .tabBar)
-            }
-
-            Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
-                NavigationStack {
-                    SettingsView()
-                }
-                .toolbar(.hidden, for: .tabBar)
+            case .coach:
+                // Coach tab hidden for now — kept for later (CoachView remains).
+                NavigationStack { CoachView() }
+            case .metrics:
+                NavigationStack { MetricsView() }
+            case .plan:
+                NavigationStack { PlanView() }
+            case .settings:
+                NavigationStack { SettingsView() }
             }
         }
-        .tabViewStyle(.tabBarOnly)
-        .tint(.axAccent)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             AxTabBar(selection: Binding(get: { store.selectedTab }, set: { store.selectedTab = $0 }))
         }
+        .tint(.axAccent)
         .environment(store)
         .environment(authService)
         .sheet(isPresented: Binding(
