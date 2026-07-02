@@ -25,13 +25,13 @@ enum TrainingDomain: String, Codable, CaseIterable, Identifiable {
 
     var color: Color {
         switch self {
-        case .cycling:   return .axAccent
+        case .cycling:   return .axCycling
         case .running:   return .axGreen
-        case .strength:  return .axRed
+        case .strength:  return .axStrengthSport
         case .swimming:  return .axBlue
         case .triathlon: return .axPurple
-        case .mobility:  return Color(red: 0.9, green: 0.7, blue: 0.2)
-        case .recovery:  return Color(red: 0.3, green: 0.8, blue: 0.7)
+        case .mobility:  return .axAmber
+        case .recovery:  return .axRecovery
         }
     }
 }

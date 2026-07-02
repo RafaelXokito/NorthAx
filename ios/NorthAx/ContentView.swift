@@ -74,6 +74,7 @@ struct ContentView: View {
             }
         }
         .tabViewStyle(.tabBarOnly)
+        .tint(.axAccent)
         .environment(store)
         .environment(authService)
         .sheet(isPresented: Binding(

@@ -31,7 +31,7 @@ enum MuscleGroup: String, CaseIterable, Identifiable, Codable {
 
     var color: Color {
         switch self {
-        case .chest, .shoulders, .triceps:          return .axRed     // push
+        case .chest, .shoulders, .triceps:          return .axStrengthSport // push
         case .back, .biceps:                         return .axBlue    // pull
         case .quads, .hamstrings, .glutes, .calves: return .axGreen   // legs
         case .core:                                  return .axPurple  // core
