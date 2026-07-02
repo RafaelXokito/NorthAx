@@ -2,27 +2,44 @@ import SwiftUI
 
 // One metric's full data, shared by the Metrics card and its detail modal.
 struct MetricDetail: Identifiable {
+    struct StripItem: Identifiable {
+        let id: String   // label
+        let value: String
+        var color: Color = .axPrimary
+        init(_ label: String, _ value: String, color: Color = .axPrimary) {
+            self.id = label; self.value = value; self.color = color
+        }
+        var label: String { id }
+    }
+
     let id: String          // title — unique per metric
     let title: String
     let icon: String
     let color: Color
-    let value: String       // headline value, e.g. "58 ms"
+    let value: String       // headline numeral, e.g. "116"
+    let unit: String?       // small unit beside the numeral, e.g. "ms"
     let statusLabel: String
     let statusColor: Color
+    let delta: (text: String, color: Color)?   // e.g. "▲ +1% / 7D"
     let description: String
     let rows: [(String, String)]
+    let strip: [StripItem]  // TODAY / BASE / CHANGE / SCORE footer strip
     let series: [Double]    // full history, oldest→newest
     let dates: [Date]       // aligned with `series`
     let format: (Double) -> String   // value formatter for the graph axes/scrub
     let sourceLabel: String?         // which integration provided today's value
 
     init(id: String, title: String, icon: String, color: Color, value: String,
-         statusLabel: String, statusColor: Color, description: String,
-         rows: [(String, String)], series: [Double], dates: [Date],
+         unit: String? = nil, statusLabel: String, statusColor: Color,
+         delta: (text: String, color: Color)? = nil, description: String,
+         rows: [(String, String)], strip: [StripItem] = [],
+         series: [Double], dates: [Date],
          format: @escaping (Double) -> String, sourceLabel: String? = nil) {
         self.id = id; self.title = title; self.icon = icon; self.color = color
-        self.value = value; self.statusLabel = statusLabel; self.statusColor = statusColor
-        self.description = description; self.rows = rows; self.series = series
+        self.value = value; self.unit = unit
+        self.statusLabel = statusLabel; self.statusColor = statusColor
+        self.delta = delta; self.description = description; self.rows = rows
+        self.strip = strip; self.series = series
         self.dates = dates; self.format = format; self.sourceLabel = sourceLabel
     }
 }
@@ -33,22 +50,38 @@ struct MetricHeader: View {
     let detail: MetricDetail
 
     var body: some View {
-        HStack(spacing: 12) {
-            IconTile(systemName: detail.icon, color: detail.color, size: 42, radius: 10)
+        HStack(alignment: .top, spacing: 12) {
+            IconTile(systemName: detail.icon, color: detail.color, size: 46, radius: 12)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(detail.title)
-                    .font(.axDisplay(15, .bold))
+                    .font(.axDisplay(16, .bold))
                     .foregroundStyle(.axPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
                 AxPill(text: detail.statusLabel, color: detail.statusColor)
             }
 
             Spacer()
 
-            Text(detail.value)
-                .font(.axDisplay(22, .heavy))
-                .tracking(-0.44)
-                .foregroundStyle(.axPrimary)
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(detail.value)
+                        .font(.axDisplay(30, .heavy))
+                        .tracking(-0.6)
+                        .foregroundStyle(.axPrimary)
+                    if let unit = detail.unit {
+                        Text(unit)
+                            .font(.axMono(12))
+                            .foregroundStyle(.axTertiary)
+                    }
+                }
+                if let delta = detail.delta {
+                    Text(delta.text)
+                        .font(.axMono(10, .semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(delta.color)
+                }
+            }
         }
     }
 }

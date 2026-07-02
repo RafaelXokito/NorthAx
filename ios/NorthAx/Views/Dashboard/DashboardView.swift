@@ -172,14 +172,16 @@ struct DashboardView: View {
         let s = match.session
         return AxCard(highlighted: true) {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 14) {
-                    IconTile(systemName: s.domain.icon, color: s.domain.color, size: 48)
-                    VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .top, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(s.domain.rawValue.uppercased())
-                            .font(.axMono(10, .semibold)).foregroundStyle(s.domain.color).tracking(1.4)
-                        Text(s.title).font(.axDisplay(17, .bold)).foregroundStyle(.axPrimary)
-                        Text("\(s.duration) MIN · \(s.intensityLabel.uppercased())")
-                            .font(.axMono(10)).tracking(0.6).foregroundStyle(.axSecondary)
+                            .font(.axMono(10, .semibold)).foregroundStyle(s.domain.color).tracking(1.8)
+                        Text(s.title)
+                            .font(.axDisplay(22, .heavy))
+                            .tracking(-0.44)
+                            .foregroundStyle(.axPrimary)
+                        Text(todayMetaLine(s))
+                            .font(.axMono(10)).tracking(1.2).foregroundStyle(.axSecondary)
                     }
                     Spacer()
                     CompletionPill(completion: match.completion)
@@ -188,7 +190,18 @@ struct DashboardView: View {
                     Text(s.subtitle).font(.axDisplay(13.5)).foregroundStyle(.axSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                SessionBreakdownView(domain: s.domain, workout: s.workout, exercises: s.exercises)
+
+                if let exercises = s.exercises, !exercises.isEmpty {
+                    exercisePreview(exercises)
+                } else {
+                    SessionBreakdownView(domain: s.domain, workout: s.workout, exercises: nil)
+                    Rectangle().fill(Color.axBorder).frame(height: 1)
+                    HStack {
+                        Spacer()
+                        viewWorkoutLink
+                    }
+                }
+
                 if let a = match.activity {
                     Rectangle().fill(Color.axBorder).frame(height: 1)
                     HStack(spacing: 16) {
@@ -202,6 +215,61 @@ struct DashboardView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private func todayMetaLine(_ s: PlannedSession) -> String {
+        var line = "\(s.duration) MIN · \(s.intensityLabel.uppercased())"
+        if let n = s.exercises?.count, n > 0 { line += " · \(n) MOVES" }
+        return line
+    }
+
+    // First three moves + a "+N more / view workout" footer, per the design.
+    private func exercisePreview(_ exercises: [ExerciseSuggestion]) -> some View {
+        let preview = Array(exercises.prefix(3))
+        return VStack(alignment: .leading, spacing: 0) {
+            Rectangle().fill(Color.axBorder).frame(height: 1)
+            ForEach(preview) { ex in
+                HStack(spacing: 12) {
+                    Text(ex.muscleGroup.rawValue.uppercased())
+                        .font(.axMono(10, .semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(ex.muscleGroup.color)
+                        .frame(width: 64, alignment: .leading)
+                    Text(ex.name)
+                        .font(.axDisplay(15, .bold))
+                        .foregroundStyle(.axPrimary)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(ex.setDisplay)
+                        .font(.axMono(12))
+                        .foregroundStyle(.axSecondary)
+                }
+                .padding(.vertical, 12)
+                Rectangle().fill(Color.axBorder).frame(height: 1)
+            }
+            HStack {
+                if exercises.count > 3 {
+                    Text("+\(exercises.count - 3) MORE MOVES")
+                        .font(.axMono(10))
+                        .tracking(1.2)
+                        .foregroundStyle(.axTertiary)
+                }
+                Spacer()
+                viewWorkoutLink
+            }
+            .padding(.top, 12)
+        }
+    }
+
+    private var viewWorkoutLink: some View {
+        HStack(spacing: 6) {
+            Text("VIEW WORKOUT")
+                .font(.axMono(10, .semibold))
+                .tracking(1.2)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 9, weight: .bold))
+        }
+        .foregroundStyle(.axAccent)
     }
 
     private func actualStat(_ label: String, _ value: String) -> some View {
