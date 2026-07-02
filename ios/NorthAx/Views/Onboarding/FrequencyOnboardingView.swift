@@ -35,11 +35,13 @@ struct FrequencyOnboardingView: View {
                     .foregroundStyle(.axAccent)
 
                 Text("NorthAx")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .font(.axDisplay(36, .heavy))
+                    .tracking(-1.08)
+                    .foregroundStyle(.axPrimary)
 
-                Text("Your intelligent training\noperating system.")
-                    .font(.title3)
+                Text("YOUR INTELLIGENT TRAINING\nOPERATING SYSTEM")
+                    .font(.axMono(11, .semibold))
+                    .tracking(1.8)
                     .foregroundStyle(.axSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -58,12 +60,12 @@ struct FrequencyOnboardingView: View {
                 withAnimation(.spring(duration: 0.4)) { step = .frequency }
             } label: {
                 Text("Let's build your plan")
-                    .font(.headline)
-                    .foregroundStyle(.black)
+                    .font(.axDisplay(15, .bold))
+                    .foregroundStyle(Color.axBackground)
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
                     .background(Color.axAccent)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
@@ -78,7 +80,7 @@ struct FrequencyOnboardingView: View {
                 .foregroundStyle(.axAccent)
                 .frame(width: 32)
             Text(text)
-                .font(.subheadline)
+                .font(.axDisplay(13.5))
                 .foregroundStyle(.axSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
@@ -93,12 +95,13 @@ struct FrequencyOnboardingView: View {
                 VStack(spacing: 24) {
                     VStack(spacing: 8) {
                         Text("How do you want to train?")
-                            .font(.title2.bold())
-                            .foregroundStyle(.white)
+                            .font(.axDisplay(22, .heavy))
+                            .tracking(-0.44)
+                            .foregroundStyle(.axPrimary)
                             .multilineTextAlignment(.center)
 
                         Text("Set your weekly sessions per sport. You can always change this in Settings.")
-                            .font(.subheadline)
+                            .font(.axDisplay(13.5))
                             .foregroundStyle(.axSecondary)
                             .multilineTextAlignment(.center)
                             .lineSpacing(3)
@@ -122,8 +125,9 @@ struct FrequencyOnboardingView: View {
                     // Summary
                     let n = localFrequency.totalTrainingDays
                     let r = localFrequency.restDaysPerWeek
-                    Text("\(n) training \(n == 1 ? "day" : "days") · \(r) rest \(r == 1 ? "day" : "days") per week")
-                        .font(.subheadline.weight(.semibold))
+                    Text("\(n) TRAINING \(n == 1 ? "DAY" : "DAYS") · \(r) REST \(r == 1 ? "DAY" : "DAYS") PER WEEK")
+                        .font(.axMono(10, .semibold))
+                        .tracking(0.8)
                         .foregroundStyle(.axSecondary)
                         .contentTransition(.numericText())
                         .animation(.spring(duration: 0.25), value: n)
@@ -144,12 +148,12 @@ struct FrequencyOnboardingView: View {
                     }
                 } label: {
                     Text(localFrequency.totalTrainingDays == 0 ? "Skip for now" : "Build My Plan →")
-                        .font(.headline)
-                        .foregroundStyle(.black)
+                        .font(.axDisplay(15, .bold))
+                        .foregroundStyle(Color.axBackground)
                         .frame(maxWidth: .infinity)
                         .frame(height: 54)
                         .background(localFrequency.totalTrainingDays == 0 ? Color.axSecondary : Color.axAccent)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 20)
@@ -175,7 +179,7 @@ struct FrequencyOnboardingView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 Text(domain.rawValue)
-                    .font(.subheadline)
+                    .font(.axDisplay(14, .semibold))
                     .foregroundStyle(days.isEmpty ? .axSecondary : .axPrimary)
 
                 Spacer()
@@ -188,12 +192,12 @@ struct FrequencyOnboardingView: View {
                         localFrequency.toggle(wd, for: domain)
                     } label: {
                         Text(weekdayLabels[wd])
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(on ? .black : .axSecondary)
+                            .font(.axMono(12, .semibold))
+                            .foregroundStyle(on ? Color.axBackground : .axTertiary)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 34)
-                            .background(on ? domain.color : Color.white.opacity(0.05))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .frame(height: 38)
+                            .background(on ? domain.color : Color.axInset)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                 }
             }

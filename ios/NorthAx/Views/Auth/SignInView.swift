@@ -51,13 +51,15 @@ struct SignInView: View {
                     .foregroundStyle(.axAccent)
             }
 
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 Text("NorthAx")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .font(.axDisplay(40, .heavy))
+                    .tracking(-1.2)
+                    .foregroundStyle(.axPrimary)
 
-                Text("Your intelligent training OS")
-                    .font(.title3)
+                Text("YOUR INTELLIGENT TRAINING OS")
+                    .font(.axMono(11, .semibold))
+                    .tracking(1.8)
                     .foregroundStyle(.axSecondary)
             }
         }
@@ -94,19 +96,14 @@ struct SignInView: View {
 
     private func featureRow(icon: String, color: Color, title: String, subtitle: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: icon)
-                .font(.subheadline)
-                .foregroundStyle(color)
-                .frame(width: 36, height: 36)
-                .background(color.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 9))
+            IconTile(systemName: icon, color: color, size: 36, radius: 9)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .font(.axDisplay(14, .semibold))
+                    .foregroundStyle(.axPrimary)
                 Text(subtitle)
-                    .font(.caption)
+                    .font(.axDisplay(12))
                     .foregroundStyle(.axSecondary)
                     .lineSpacing(2)
             }
@@ -213,17 +210,17 @@ struct SignInView: View {
             ZStack {
                 if auth.isAuthenticating {
                     ProgressView()
-                        .tint(.black)
+                        .tint(.axBackground)
                 } else {
                     Text(isRegistering ? "Create Account" : "Sign In")
-                        .font(.headline)
+                        .font(.axDisplay(15, .bold))
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(height: 54)
-            .background(Color.white)
-            .foregroundStyle(.black)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .background(Color.axAccent)
+            .foregroundStyle(Color.axBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .disabled(auth.isAuthenticating)
     }
