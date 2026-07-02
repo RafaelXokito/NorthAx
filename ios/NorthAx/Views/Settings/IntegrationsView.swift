@@ -19,21 +19,21 @@ struct IntegrationsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 14) {
-                    sectionLabel("CONNECTED")
+            VStack(spacing: 22) {
+                VStack(alignment: .leading, spacing: 12) {
+                    SectionLabel("CONNECTED")
                     intervalsRow
                     stravaRow
                     appleHealthRow
                 }
 
-                VStack(alignment: .leading, spacing: 14) {
-                    sectionLabel("DATA PRIORITY")
+                VStack(alignment: .leading, spacing: 12) {
+                    SectionLabel("DATA PRIORITY")
                     dataPriorityRow
                 }
 
-                VStack(alignment: .leading, spacing: 14) {
-                    sectionLabel("COMING SOON")
+                VStack(alignment: .leading, spacing: 12) {
+                    SectionLabel("COMING SOON")
                     VStack(spacing: 10) {
                         ForEach(comingSoon) { comingSoonRow($0) }
                     }
@@ -51,77 +51,29 @@ struct IntegrationsView: View {
         .scrollIndicators(.hidden)
     }
 
-    // MARK: - intervals.icu
+    // MARK: - Rows
 
     private var intervalsRow: some View {
         let state = store.intervals.connectionState
         return NavigationLink(destination: IntervalsConnectView()) {
-            HStack(spacing: 14) {
-                Image(systemName: "applewatch.watchface")
-                    .font(.subheadline)
-                    .foregroundStyle(.axAccent)
-                    .frame(width: 36, height: 36)
-                    .background(Color.axAccent.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("intervals.icu")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text(state.displayLabel)
-                        .font(.caption)
-                        .foregroundStyle(state.isConnected ? .axGreen : .axSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.axTertiary)
-            }
-            .padding(16)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+            NavRow(icon: "applewatch.watchface", iconColor: .axAccent,
+                   title: "intervals.icu",
+                   subtitle: state.displayLabel,
+                   subtitleColor: state.isConnected ? .axGreen : .axSecondary)
         }
+        .buttonStyle(.plain)
     }
-
-    // MARK: - Strava
 
     private var stravaRow: some View {
         let state = store.strava.connectionState
         return NavigationLink(destination: StravaConnectView()) {
-            HStack(spacing: 14) {
-                Image(systemName: "figure.run")
-                    .font(.subheadline)
-                    .foregroundStyle(.axAccent)
-                    .frame(width: 36, height: 36)
-                    .background(Color.axAccent.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Strava")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text(state.displayLabel)
-                        .font(.caption)
-                        .foregroundStyle(state.isConnected ? .axGreen : .axSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.axTertiary)
-            }
-            .padding(16)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+            NavRow(icon: "figure.run", iconColor: .axAccent,
+                   title: "Strava",
+                   subtitle: state.displayLabel,
+                   subtitleColor: state.isConnected ? .axGreen : .axSecondary)
         }
+        .buttonStyle(.plain)
     }
-
-    // MARK: - Apple Health
 
     private var appleHealthRow: some View {
         let h = store.health
@@ -129,105 +81,31 @@ struct IntegrationsView: View {
         let status = !h.isAvailable ? "Not available"
             : (connected ? "Connected" : "Tap to set up")
         return NavigationLink(destination: AppleHealthView()) {
-            HStack(spacing: 14) {
-                Image(systemName: "heart.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.axRed)
-                    .frame(width: 36, height: 36)
-                    .background(Color.axRed.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Apple Health")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text(status)
-                        .font(.caption)
-                        .foregroundStyle(connected ? .axGreen : .axSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.axTertiary)
-            }
-            .padding(16)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+            NavRow(icon: "heart.fill", iconColor: .axRed,
+                   title: "Apple Health",
+                   subtitle: status,
+                   subtitleColor: connected ? .axGreen : .axSecondary)
         }
+        .buttonStyle(.plain)
     }
-
-    // MARK: - Data priority
 
     private var dataPriorityRow: some View {
         NavigationLink(destination: MetricPriorityView()) {
-            HStack(spacing: 14) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.subheadline)
-                    .foregroundStyle(.axGreen)
-                    .frame(width: 36, height: 36)
-                    .background(Color.axGreen.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Source priority")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text("Choose which source wins per metric")
-                        .font(.caption)
-                        .foregroundStyle(.axSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.axTertiary)
-            }
-            .padding(16)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+            NavRow(icon: "slider.horizontal.3", iconColor: .axGreen,
+                   title: "Source priority",
+                   subtitle: "Choose which source wins per metric")
         }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Coming soon
 
     private func comingSoonRow(_ item: ComingSoon) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: item.icon)
-                .font(.subheadline)
-                .foregroundStyle(.axTertiary)
-                .frame(width: 36, height: 36)
-                .background(Color.white.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.name)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.axSecondary)
-                Text("Coming soon")
-                    .font(.caption)
-                    .foregroundStyle(.axTertiary)
-            }
-
-            Spacer()
-        }
-        .padding(16)
-        .background(Color.axSurface.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
-    }
-
-    // MARK: - Helpers
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
+        NavRow(icon: item.icon, iconColor: .axTertiary,
+               title: item.name,
+               subtitle: "Coming soon",
+               showChevron: false)
+            .opacity(0.6)
     }
 }
 

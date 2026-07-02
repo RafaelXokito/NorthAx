@@ -37,35 +37,36 @@ struct AppleHealthView: View {
         let available = store.health.isAvailable
         let connected = available && (store.health.readEnabled || store.health.writeEnabled)
         let color: Color = !available ? .axSecondary : (connected ? .axGreen : .axSecondary)
-        return HStack(spacing: 14) {
-            ZStack {
-                Circle().fill(color.opacity(0.15)).frame(width: 52, height: 52)
-                Image(systemName: "heart.fill")
-                    .font(.title3)
-                    .foregroundStyle(color)
+        return AxCard(radius: 20, padding: 20) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(color.opacity(0.15)).frame(width: 52, height: 52)
+                    Image(systemName: "heart.fill")
+                        .font(.title3)
+                        .foregroundStyle(color)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Apple Health")
+                        .font(.axDisplay(16, .bold))
+                        .foregroundStyle(.axPrimary)
+                    Text((!available ? "Not available on this device"
+                         : (connected ? "Connected" : "Not connected")).uppercased())
+                        .font(.axMono(10, .semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(color)
+                }
+                Spacer()
             }
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Apple Health")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                Text(!available ? "Not available on this device"
-                     : (connected ? "Connected" : "Not connected"))
-                    .font(.subheadline)
-                    .foregroundStyle(color)
-            }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
     }
 
     // MARK: - Toggles
 
     private func togglesCard(_ bindable: AthleteStore) -> some View {
+        AxCard(radius: 20, padding: 20) {
         VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("PERMISSIONS")
+            SectionLabel("PERMISSIONS")
 
             VStack(spacing: 14) {
                 Toggle(isOn: Binding(
@@ -95,19 +96,17 @@ struct AppleHealthView: View {
                 .tint(.axAccent)
             }
         }
-        .padding(20)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private func toggleLabel(_ title: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .font(.axDisplay(14, .semibold))
+                .foregroundStyle(.axPrimary)
             Text(detail)
-                .font(.caption)
+                .font(.axDisplay(12))
                 .foregroundStyle(.axSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -116,33 +115,28 @@ struct AppleHealthView: View {
     // MARK: - About
 
     private var aboutCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("HOW IT WORKS")
-            VStack(spacing: 12) {
-                infoRow(icon: "arrow.down.circle", text: "Supplements your readiness with Apple Health metrics when no Garmin/intervals.icu source is connected")
-                infoRow(icon: "arrow.up.circle", text: "Posts your completed sessions back to Apple Health as workouts")
-                infoRow(icon: "lock.shield", text: "Permissions are managed by iOS — you can change them anytime in the Health app")
+        AxCard(radius: 20, padding: 20) {
+            VStack(alignment: .leading, spacing: 14) {
+                SectionLabel("HOW IT WORKS")
+                VStack(spacing: 12) {
+                    infoRow(icon: "arrow.down.circle", text: "Supplements your readiness with Apple Health metrics when no Garmin/intervals.icu source is connected")
+                    infoRow(icon: "arrow.up.circle", text: "Posts your completed sessions back to Apple Health as workouts")
+                    infoRow(icon: "lock.shield", text: "Permissions are managed by iOS — you can change them anytime in the Health app")
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private var unavailableCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        AxCard(radius: 20, padding: 20) {
             Text("Apple Health isn't available on this device. This usually means it's an iPad without a paired iPhone or Apple Watch.")
-                .font(.subheadline)
+                .font(.axDisplay(13.5))
                 .foregroundStyle(.axSecondary)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
     }
 
     // MARK: - Actions
@@ -162,17 +156,10 @@ struct AppleHealthView: View {
                 .foregroundStyle(.axAccent)
                 .frame(width: 24)
             Text(text)
-                .font(.subheadline)
+                .font(.axDisplay(13))
                 .foregroundStyle(.axSecondary)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
     }
 }

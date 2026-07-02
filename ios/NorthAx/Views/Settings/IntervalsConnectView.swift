@@ -31,91 +31,91 @@ struct IntervalsConnectView: View {
     // MARK: - Status card
 
     private var statusCard: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(statusColor.opacity(0.15))
-                        .frame(width: 52, height: 52)
-                    Image(systemName: statusIcon)
-                        .font(.title3)
-                        .foregroundStyle(statusColor)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.intervals.connectionState.connectedName ?? "intervals.icu")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                    Text(store.intervals.connectionState.displayLabel)
-                        .font(.subheadline)
-                        .foregroundStyle(statusColor)
-                }
-
-                Spacer()
-
-                if store.intervals.isSyncing {
-                    ProgressView()
-                        .tint(.axAccent)
-                }
-            }
-
-            if store.intervals.connectionState.isConnected {
-                HStack(spacing: 10) {
-                    Button {
-                        Task { await store.intervals.syncActivities(); await store.loadActivities() }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Sync Now")
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.axAccent)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(Color.axAccent.opacity(0.10))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axAccent.opacity(0.25), lineWidth: 1))
+        AxCard(radius: 20, padding: 20) {
+            VStack(spacing: 16) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(statusColor.opacity(0.15))
+                            .frame(width: 52, height: 52)
+                        Image(systemName: statusIcon)
+                            .font(.title3)
+                            .foregroundStyle(statusColor)
                     }
 
-                    Button {
-                        store.intervals.disconnect()
-                    } label: {
-                        Text("Disconnect")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.axRed)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(store.intervals.connectionState.connectedName ?? "intervals.icu")
+                            .font(.axDisplay(16, .bold))
+                            .foregroundStyle(.axPrimary)
+                        Text(store.intervals.connectionState.displayLabel.uppercased())
+                            .font(.axMono(10, .semibold))
+                            .tracking(0.8)
+                            .foregroundStyle(statusColor)
+                    }
+
+                    Spacer()
+
+                    if store.intervals.isSyncing {
+                        ProgressView()
+                            .tint(.axAccent)
+                    }
+                }
+
+                if store.intervals.connectionState.isConnected {
+                    HStack(spacing: 10) {
+                        Button {
+                            Task { await store.intervals.syncActivities(); await store.loadActivities() }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Sync Now")
+                            }
+                            .font(.axDisplay(14, .semibold))
+                            .foregroundStyle(.axAccent)
                             .frame(maxWidth: .infinity)
                             .frame(height: 44)
-                            .background(Color.axRed.opacity(0.08))
+                            .background(Color.axAccent.opacity(0.10))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axRed.opacity(0.2), lineWidth: 1))
-                    }
-                }
-            } else {
-                Button {
-                    Task { await store.intervals.connect(); await store.loadActivities() }
-                } label: {
-                    HStack(spacing: 8) {
-                        if case .connecting = store.intervals.connectionState {
-                            ProgressView().tint(.black)
-                        } else {
-                            Image(systemName: "link")
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axAccent.opacity(0.25), lineWidth: 1))
                         }
-                        Text(store.intervals.connectionState == .connecting ? "Connecting…" : "Connect intervals.icu")
+
+                        Button {
+                            store.intervals.disconnect()
+                        } label: {
+                            Text("Disconnect")
+                                .font(.axDisplay(14, .semibold))
+                                .foregroundStyle(.axRed)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(Color.axRed.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axRed.opacity(0.2), lineWidth: 1))
+                        }
                     }
-                    .font(.headline)
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Color.axAccent)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                } else {
+                    Button {
+                        Task { await store.intervals.connect(); await store.loadActivities() }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if case .connecting = store.intervals.connectionState {
+                                ProgressView().tint(.axBackground)
+                            } else {
+                                Image(systemName: "link")
+                            }
+                            Text(store.intervals.connectionState == .connecting ? "Connecting…" : "Connect intervals.icu")
+                        }
+                        .font(.axDisplay(15, .bold))
+                        .foregroundStyle(Color.axBackground)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color.axAccent)
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                    }
+                    .disabled(store.intervals.connectionState == .connecting)
                 }
-                .disabled(store.intervals.connectionState == .connecting)
             }
+            .frame(maxWidth: .infinity)
         }
-        .padding(20)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private var statusColor: Color {
@@ -139,114 +139,72 @@ struct IntervalsConnectView: View {
     // MARK: - Activity list
 
     private var activityList: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("SYNCED ACTIVITIES")
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("SYNCED ACTIVITIES")
 
             VStack(spacing: 10) {
                 ForEach(store.intervals.syncedActivities) { activity in
-                    activityRow(activity)
+                    SyncedActivityRow(activity: activity)
                 }
             }
         }
-    }
-
-    private func activityRow(_ activity: GarminActivity) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: activity.type.domain.icon)
-                .font(.subheadline)
-                .foregroundStyle(activity.type.domain.color)
-                .frame(width: 36, height: 36)
-                .background(activity.type.domain.color.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(activity.name)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                HStack(spacing: 6) {
-                    Text(activity.formattedDuration)
-                    if let dist = activity.formattedDistance {
-                        Text("·")
-                        Text(dist)
-                    }
-                    if let hr = activity.avgHeartRate {
-                        Text("·")
-                        Text("\(hr) bpm avg")
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.axTertiary)
-            }
-
-            Spacer()
-
-            Text(relativeDate(activity.startTime))
-                .font(.caption)
-                .foregroundStyle(.axTertiary)
-        }
-        .padding(14)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axBorder, lineWidth: 1))
     }
 
     // MARK: - About card
 
     private var aboutCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("HOW IT WORKS")
+        AxCard(radius: 20, padding: 20) {
+            VStack(alignment: .leading, spacing: 14) {
+                SectionLabel("HOW IT WORKS")
 
-            VStack(spacing: 12) {
-                infoRow(icon: "arrow.down.circle", text: "Imports your rides, runs, and gym sessions via intervals.icu, which syncs with Garmin")
-                infoRow(icon: "chart.line.uptrend.xyaxis", text: "Uses your wellness (HRV, sleep, resting HR) and training load to drive readiness")
-                infoRow(icon: "calendar.badge.plus", text: "Pushes planned sessions to your Garmin device through the intervals.icu calendar")
-                infoRow(icon: "lock.shield", text: "Connects through intervals.icu's secure OAuth flow — credentials are never stored in the app")
+                VStack(spacing: 12) {
+                    infoRow(icon: "arrow.down.circle", text: "Imports your rides, runs, and gym sessions via intervals.icu, which syncs with Garmin")
+                    infoRow(icon: "chart.line.uptrend.xyaxis", text: "Uses your wellness (HRV, sleep, resting HR) and training load to drive readiness")
+                    infoRow(icon: "calendar.badge.plus", text: "Pushes planned sessions to your Garmin device through the intervals.icu calendar")
+                    infoRow(icon: "lock.shield", text: "Connects through intervals.icu's secure OAuth flow — credentials are never stored in the app")
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
     }
 
     // MARK: - API-key entry
 
     private var apiKeyCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("OR CONNECT WITH AN API KEY")
-            Text("Paste your intervals.icu athlete id and API key (Settings → Developer).")
-                .font(.caption)
-                .foregroundStyle(.axSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+        AxCard(radius: 20, padding: 20) {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionLabel("OR CONNECT WITH AN API KEY")
+                Text("Paste your intervals.icu athlete id and API key (Settings → Developer).")
+                    .font(.axDisplay(12))
+                    .foregroundStyle(.axSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            TextField("Athlete id (e.g. i557412)", text: $athleteId)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            SecureField("API key", text: $apiKey)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
+                TextField("Athlete id (e.g. i557412)", text: $athleteId)
+                    .textFieldStyle(.roundedBorder)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                SecureField("API key", text: $apiKey)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
 
-            Button {
-                let id = athleteId.trimmingCharacters(in: .whitespaces)
-                let key = apiKey.trimmingCharacters(in: .whitespaces)
-                Task { await store.intervals.connectWithAPIKey(athleteId: id, apiKey: key) }
-            } label: {
-                Text("Connect with API key")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.axAccent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(Color.axAccent.opacity(0.10))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axAccent.opacity(0.25), lineWidth: 1))
+                Button {
+                    let id = athleteId.trimmingCharacters(in: .whitespaces)
+                    let key = apiKey.trimmingCharacters(in: .whitespaces)
+                    Task { await store.intervals.connectWithAPIKey(athleteId: id, apiKey: key) }
+                } label: {
+                    Text("Connect with API key")
+                        .font(.axDisplay(14, .semibold))
+                        .foregroundStyle(.axAccent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Color.axAccent.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axAccent.opacity(0.25), lineWidth: 1))
+                }
+                .disabled(athleteId.isEmpty || apiKey.isEmpty)
             }
-            .disabled(athleteId.isEmpty || apiKey.isEmpty)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private func infoRow(icon: String, text: String) -> some View {
@@ -256,26 +214,10 @@ struct IntervalsConnectView: View {
                 .foregroundStyle(.axAccent)
                 .frame(width: 24)
             Text(text)
-                .font(.subheadline)
+                .font(.axDisplay(13))
                 .foregroundStyle(.axSecondary)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    // MARK: - Helpers
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
-    }
-
-    private func relativeDate(_ date: Date) -> String {
-        let days = Int(Date().timeIntervalSince(date) / 86400)
-        if days == 0 { return "Today" }
-        if days == 1 { return "Yesterday" }
-        return "\(days)d ago"
     }
 }

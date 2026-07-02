@@ -69,20 +69,20 @@ struct TrainingPlanView: View {
                 Image(systemName: "sparkles")
                     .foregroundStyle(.axAccent)
                 Text("You have unsaved plan changes")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.axDisplay(14, .bold))
                     .foregroundStyle(.axPrimary)
                 Spacer()
             }
             Text("Generate a new two-week plan with your AI coach, tailored to your schedule, recent training, and recovery.")
-                .font(.caption)
+                .font(.axDisplay(12))
                 .foregroundStyle(.axSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Button {
                 Task { await store.applyPlanChanges() }
             } label: {
                 Text("Update plan")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.black)
+                    .font(.axDisplay(14, .bold))
+                    .foregroundStyle(Color.axBackground)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(Color.axAccent)
@@ -90,20 +90,20 @@ struct TrainingPlanView: View {
             }
         }
         .padding(16)
-        .background(Color.axAccent.opacity(0.08))
+        .background(Color.axAccentWash)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axAccent.opacity(0.25), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axAccentBorder, lineWidth: 1))
     }
 
     // MARK: - Enrolled sports
 
     private var enrolledSportsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("ENROLLED SPORTS")
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("ENROLLED SPORTS")
 
             if store.enabledDomains.isEmpty {
                 Text("No sports yet. Tap + to add one.")
-                    .font(.subheadline)
+                    .font(.axDisplay(13.5))
                     .foregroundStyle(.axSecondary)
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -126,24 +126,22 @@ struct TrainingPlanView: View {
         let freq = store.trainingFrequency
         let sessions = freq.totalSessions
         let sports = freq.schedules.count
-        return VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("TRAINING FREQUENCY")
-            VStack(alignment: .leading, spacing: 8) {
-                Text("\(sessions) \(sessions == 1 ? "session" : "sessions")/week across \(sports) \(sports == 1 ? "sport" : "sports")")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.axPrimary)
-                if freq.isOverloaded {
-                    Label("Training 7 days a week leaves no rest — consider a recovery day.", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.axRed)
-                        .fixedSize(horizontal: false, vertical: true)
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("TRAINING FREQUENCY")
+            AxCard(radius: 16, padding: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("\(sessions) \(sessions == 1 ? "session" : "sessions")/week across \(sports) \(sports == 1 ? "sport" : "sports")")
+                        .font(.axDisplay(14, .semibold))
+                        .foregroundStyle(.axPrimary)
+                    if freq.isOverloaded {
+                        Label("Training 7 days a week leaves no rest — consider a recovery day.", systemImage: "exclamationmark.triangle.fill")
+                            .font(.axDisplay(12))
+                            .foregroundStyle(.axRed)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
         }
     }
 
@@ -153,13 +151,6 @@ struct TrainingPlanView: View {
         store.enabledDomains.removeAll { $0 == domain }
         store.trainingFrequency.setDays([], for: domain)   // drops its schedule + regen via didSet
         sportToRemove = nil
-    }
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
     }
 }
 
@@ -212,27 +203,24 @@ private struct SportConfigBlock: View {
             expanded.toggle()
         } label: {
             HStack(spacing: 14) {
-                Image(systemName: domain.icon)
-                    .font(.subheadline)
-                    .foregroundStyle(domain.color)
-                    .frame(width: 36, height: 36)
-                    .background(domain.color.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                IconTile(systemName: domain.icon, color: domain.color, size: 38)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(domain.rawValue)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text(daysSummary)
-                        .font(.caption)
+                        .font(.axDisplay(15, .semibold))
+                        .foregroundStyle(.axPrimary)
+                    Text(daysSummary.uppercased())
+                        .font(.axMono(10))
+                        .tracking(0.6)
                         .foregroundStyle(.axSecondary)
                 }
 
                 Spacer()
 
-                Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                    .font(.caption.bold())
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.axTertiary)
+                    .rotationEffect(.degrees(expanded ? 180 : 0))
             }
             .padding(16)
         }
@@ -248,16 +236,20 @@ private struct SportConfigBlock: View {
             HStack {
                 configLabel("TRAINING DAYS")
                 Spacer()
-                Button("Remove", role: .destructive, action: onRemove)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.axRed)
+                Button(role: .destructive, action: onRemove) {
+                    Text("REMOVE")
+                        .font(.axMono(10, .semibold))
+                        .tracking(1)
+                        .foregroundStyle(.axRed)
+                }
             }
             WeekdayGridView(domain: domain)
             Button {
                 showScheduleRegen = true
             } label: {
-                Text("Rebuild plan after changing days")
-                    .font(.caption)
+                Text("↻ REBUILD PLAN AFTER CHANGING DAYS")
+                    .font(.axMono(9, .semibold))
+                    .tracking(1)
                     .foregroundStyle(.axAccent)
             }
         }
@@ -292,11 +284,10 @@ private struct CyclingConfig: View {
         @Bindable var bindable = store
         return VStack(alignment: .leading, spacing: 12) {
             configLabel("WORKOUT TARGET")
-            Picker("Cycling target", selection: $bindable.cyclingTarget) {
-                Text("Heart rate").tag("hr")
-                Text("Power").tag("power")
-            }
-            .pickerStyle(.segmented)
+            AxSegmented(
+                options: [("hr", "Heart rate"), ("power", "Power")],
+                selection: $bindable.cyclingTarget
+            )
 
             if store.cyclingTarget == "power" {
                 IntThresholdField(label: "FTP (watts)", placeholder: "e.g. 250",
@@ -323,11 +314,10 @@ private struct RunningConfig: View {
         @Bindable var bindable = store
         return VStack(alignment: .leading, spacing: 12) {
             configLabel("PACE")
-            Picker("Pace unit", selection: $bindable.thresholds.paceUnit) {
-                Text("min/km").tag(PaceUnit.km)
-                Text("min/mile").tag(PaceUnit.mile)
-            }
-            .pickerStyle(.segmented)
+            AxSegmented(
+                options: [(PaceUnit.km, "min/km"), (PaceUnit.mile, "min/mile")],
+                selection: $bindable.thresholds.paceUnit
+            )
 
             PaceThresholdField(
                 label: "Threshold pace (mm:ss / \(store.thresholds.paceUnit == .km ? "km" : "mile"))",
@@ -346,12 +336,10 @@ private struct SwimmingConfig: View {
         @Bindable var bindable = store
         return VStack(alignment: .leading, spacing: 12) {
             configLabel("POOL")
-            Picker("Pool", selection: $bindable.thresholds.poolUnit) {
-                Text("25 m").tag(PoolUnit.pool25m)
-                Text("50 m").tag(PoolUnit.pool50m)
-                Text("Open water").tag(PoolUnit.openWater)
-            }
-            .pickerStyle(.segmented)
+            AxSegmented(
+                options: [(PoolUnit.pool25m, "25 m"), (PoolUnit.pool50m, "50 m"), (PoolUnit.openWater, "Open water")],
+                selection: $bindable.thresholds.poolUnit
+            )
 
             PaceThresholdField(
                 label: "Threshold pace (mm:ss / 100m)",
@@ -377,12 +365,12 @@ private struct IntThresholdField: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.subheadline)
+                .font(.axDisplay(13.5))
                 .foregroundStyle(.axSecondary)
             Spacer()
             TextField(placeholder, text: $text)
                 .multilineTextAlignment(.trailing)
-                .font(.subheadline)
+                .font(.axMono(13, .semibold))
                 .foregroundStyle(.axPrimary)
                 .focused($focused)
 #if os(iOS)
@@ -414,12 +402,12 @@ private struct PaceThresholdField: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.subheadline)
+                .font(.axDisplay(13.5))
                 .foregroundStyle(.axSecondary)
             Spacer()
             TextField("mm:ss", text: $text)
                 .multilineTextAlignment(.trailing)
-                .font(.subheadline)
+                .font(.axMono(13, .semibold))
                 .foregroundStyle(.axPrimary)
                 .focused($focused)
                 .frame(maxWidth: 90)
@@ -454,10 +442,7 @@ private struct PaceThresholdField: View {
 // MARK: - Shared small label
 
 private func configLabel(_ text: String) -> some View {
-    Text(text)
-        .font(.system(size: 10, weight: .semibold))
-        .foregroundStyle(.axTertiary)
-        .tracking(2)
+    Text(text).axSectionLabel()
 }
 
 #Preview {

@@ -41,13 +41,13 @@ struct MuscleSplitEditor: View {
             editingDayIndex = nil
         } label: {
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.axDisplay(12, .semibold))
                 .foregroundStyle(.axPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity)
-                .background(Color.axSurface)
+                .background(Color.axInset)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.axBorder, lineWidth: 1))
         }
@@ -75,25 +75,27 @@ struct MuscleSplitEditor: View {
             editingDayIndex = isEditing ? nil : idx
         } label: {
             HStack(spacing: 12) {
-                Text(dayNames[idx])
-                    .font(.system(size: 13, weight: .semibold))
+                Text(dayNames[idx].uppercased())
+                    .font(.axMono(10, .semibold))
+                    .tracking(0.8)
                     .foregroundStyle(.axSecondary)
-                    .frame(width: 34, alignment: .leading)
+                    .frame(width: 38, alignment: .leading)
 
                 if split.isRestDay || split.muscleGroups.isEmpty {
                     Text("Rest")
-                        .font(.subheadline)
+                        .font(.axDisplay(13))
                         .foregroundStyle(.axTertiary)
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(split.muscleGroups) { group in
-                                Text(group.rawValue)
-                                    .font(.system(size: 12, weight: .medium))
+                                Text(group.rawValue.uppercased())
+                                    .font(.axMono(10, .semibold))
+                                    .tracking(0.6)
                                     .foregroundStyle(group.color)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(group.color.opacity(0.10))
+                                    .background(group.color.opacity(0.14))
                                     .clipShape(Capsule())
                             }
                         }
@@ -108,7 +110,7 @@ struct MuscleSplitEditor: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(isEditing ? Color.axSurface.opacity(1.5) : Color.axSurface)
+            .background(Color.axSurface)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -131,7 +133,7 @@ struct MuscleSplitEditor: View {
                     if $0 { store.muscleGroupSplit.days[idx].muscleGroups = [] }
                 }
             ))
-            .font(.subheadline)
+            .font(.axDisplay(13.5, .medium))
             .foregroundStyle(.axPrimary)
             .tint(.axAccent)
             .padding(.horizontal, 16)
@@ -173,7 +175,7 @@ struct MuscleSplitEditor: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 Text(group.rawValue)
-                    .font(.subheadline)
+                    .font(.axDisplay(13.5, .medium))
                     .foregroundStyle(isSelected ? .axPrimary : .axSecondary)
 
                 Spacer()
@@ -191,10 +193,7 @@ struct MuscleSplitEditor: View {
     // MARK: - Helpers
 
     private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
+        Text(text).axSectionLabel()
     }
 }
 

@@ -50,27 +50,21 @@ struct EnrollSportSheet: View {
             onEnroll(domain)
             dismiss()
         } label: {
-            HStack(spacing: 14) {
-                Image(systemName: domain.icon)
-                    .font(.subheadline)
-                    .foregroundStyle(domain.color)
-                    .frame(width: 36, height: 36)
-                    .background(domain.color.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            AxCard(radius: 16, padding: 16) {
+                HStack(spacing: 14) {
+                    IconTile(systemName: domain.icon, color: domain.color, size: 38)
 
-                Text(domain.rawValue)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.axPrimary)
+                    Text(domain.rawValue)
+                        .font(.axDisplay(15, .semibold))
+                        .foregroundStyle(.axPrimary)
 
-                Spacer()
+                    Spacer()
 
-                Image(systemName: "plus.circle.fill")
-                    .foregroundStyle(domain.color)
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(domain.color)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(16)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
         }
     }
 }

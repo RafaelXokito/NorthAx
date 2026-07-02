@@ -11,7 +11,7 @@ struct MetricPriorityView: View {
         ScrollView {
             VStack(spacing: 20) {
                 Text("When more than one integration reports the same metric, NorthAx uses the value from your preferred source. Sources that can't provide a metric are skipped automatically.")
-                    .font(.subheadline)
+                    .font(.axDisplay(13.5))
                     .foregroundStyle(.axSecondary)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
@@ -27,7 +27,7 @@ struct MetricPriorityView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     sectionLabel("ACTIVITY DATA")
                     Text("When the same workout is imported from more than one source, NorthAx keeps the one from your preferred source.")
-                        .font(.caption)
+                        .font(.axDisplay(12))
                         .foregroundStyle(.axTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     activityRow
@@ -50,10 +50,10 @@ struct MetricPriorityView: View {
         return HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Preferred activity source")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .font(.axDisplay(14, .semibold))
+                    .foregroundStyle(.axPrimary)
                 Text("Primary: \(current.displayName)")
-                    .font(.caption)
+                    .font(.axDisplay(12))
                     .foregroundStyle(.axSecondary)
             }
 
@@ -73,8 +73,9 @@ struct MetricPriorityView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Text(current.displayName)
-                        .font(.caption.weight(.semibold))
+                    Text(current.displayName.uppercased())
+                        .font(.axMono(10, .semibold))
+                        .tracking(0.6)
                         .foregroundStyle(.axAccent)
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption2.bold())
@@ -89,9 +90,7 @@ struct MetricPriorityView: View {
     }
 
     private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary).tracking(2)
+        Text(text).axSectionLabel()
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -100,10 +99,10 @@ struct MetricPriorityView: View {
         return HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(metric.displayName)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .font(.axDisplay(14, .semibold))
+                    .foregroundStyle(.axPrimary)
                 Text("Primary: \(current.displayName)")
-                    .font(.caption)
+                    .font(.axDisplay(12))
                     .foregroundStyle(.axSecondary)
             }
 
@@ -123,8 +122,9 @@ struct MetricPriorityView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Text(current.displayName)
-                        .font(.caption.weight(.semibold))
+                    Text(current.displayName.uppercased())
+                        .font(.axMono(10, .semibold))
+                        .tracking(0.6)
                         .foregroundStyle(.axAccent)
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption2.bold())

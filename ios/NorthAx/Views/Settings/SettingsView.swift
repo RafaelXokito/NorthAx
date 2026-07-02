@@ -29,34 +29,31 @@ struct SettingsView: View {
 
     private var profileSection: some View {
         @Bindable var bindable = store
-        return VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("PROFILE")
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("PROFILE")
 
-            VStack(spacing: 12) {
+            AxCard(radius: 16, padding: 16) {
                 settingsRow(icon: "person.circle", label: "Name") {
                     TextField("Your name", text: $bindable.athleteName)
                         .multilineTextAlignment(.trailing)
-                        .font(.subheadline)
+                        .font(.axDisplay(14, .semibold))
                         .foregroundStyle(.axPrimary)
                 }
             }
-            .padding(16)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
         }
     }
 
     // MARK: - Plan
 
     private var planSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("TRAINING")
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("TRAINING")
 
             NavigationLink(destination: TrainingPlanView()) {
-                navRow(icon: "calendar", iconColor: .axAccent, title: "Plan",
+                NavRow(icon: "calendar", iconColor: .axAccent, title: "Plan",
                        subtitle: planSummary)
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -70,75 +67,31 @@ struct SettingsView: View {
     // MARK: - Integrations
 
     private var integrationsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("INTEGRATIONS")
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("INTEGRATIONS")
 
             NavigationLink(destination: IntegrationsView()) {
-                navRow(icon: "antenna.radiowaves.left.and.right", iconColor: .axAccent,
+                NavRow(icon: "antenna.radiowaves.left.and.right", iconColor: .axAccent,
                        title: "Integrations",
                        subtitle: store.intervals.connectionState.isConnected ? "intervals.icu connected" : "Not connected")
             }
+            .buttonStyle(.plain)
         }
-    }
-
-    private func navRow(icon: String, iconColor: Color, title: String, subtitle: String) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.subheadline)
-                .foregroundStyle(iconColor)
-                .frame(width: 36, height: 36)
-                .background(iconColor.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.axSecondary)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.caption.bold())
-                .foregroundStyle(.axTertiary)
-        }
-        .padding(16)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
     }
 
     // MARK: - Sign Out
 
     private var signOutSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("ACCOUNT")
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("ACCOUNT")
 
             Button {
                 showSignOutConfirm = true
             } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.subheadline)
-                        .foregroundStyle(.axRed)
-                        .frame(width: 36, height: 36)
-                        .background(Color.axRed.opacity(0.10))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                    Text("Sign Out")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.axRed)
-
-                    Spacer()
-                }
-                .padding(16)
-                .background(Color.axSurface)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.axBorder, lineWidth: 1))
+                NavRow(icon: "rectangle.portrait.and.arrow.right", iconColor: .axRed,
+                       title: "Sign Out", showChevron: false, isDestructive: true)
             }
+            .buttonStyle(.plain)
         }
         .confirmationDialog("Sign Out", isPresented: $showSignOutConfirm, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) {
@@ -161,20 +114,13 @@ struct SettingsView: View {
                 .frame(width: 24)
 
             Text(label)
-                .font(.subheadline)
+                .font(.axDisplay(13.5))
                 .foregroundStyle(.axSecondary)
 
             Spacer()
 
             content()
         }
-    }
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
     }
 }
 

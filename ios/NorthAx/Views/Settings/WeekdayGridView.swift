@@ -19,12 +19,12 @@ struct WeekdayGridView: View {
                     store.trainingFrequency.toggle(wd, for: domain)
                 } label: {
                     Text(labels[wd])
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(on ? .black : .axSecondary)
+                        .font(.axMono(12, .semibold))
+                        .foregroundStyle(on ? Color.axBackground : .axTertiary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                        .background(on ? domain.color : Color.white.opacity(0.05))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .frame(height: 44)
+                        .background(on ? domain.color : Color.axInset)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
             }
         }
