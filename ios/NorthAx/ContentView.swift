@@ -42,29 +42,33 @@ struct ContentView: View {
         }
     }
 
-    // Plain root switch under a custom tab bar (no TabView): `safeAreaInset`
-    // then propagates into every tab's scroll views, so content stops above the
-    // bar instead of being clipped behind it. Switching tabs resets the tab's
+    // Plain root switch above a custom tab bar (no TabView). The bar is a real
+    // VStack sibling — not a safeAreaInset — because NavigationStack does not
+    // forward an outer safeAreaInset to the scroll views inside it, which left
+    // the last card clipped behind the bar. Switching tabs resets the tab's
     // navigation history — per the design ("tabs clear the history").
     private var mainApp: some View {
-        Group {
-            switch store.selectedTab {
-            case .dashboard:
-                DashboardView()
-            case .coach:
-                // Coach tab hidden for now — kept for later (CoachView remains).
-                NavigationStack { CoachView() }
-            case .metrics:
-                NavigationStack { MetricsView() }
-            case .plan:
-                NavigationStack { PlanView() }
-            case .settings:
-                NavigationStack { SettingsView() }
+        VStack(spacing: 0) {
+            Group {
+                switch store.selectedTab {
+                case .dashboard:
+                    DashboardView()
+                case .coach:
+                    // Coach tab hidden for now — kept for later (CoachView remains).
+                    NavigationStack { CoachView() }
+                case .metrics:
+                    NavigationStack { MetricsView() }
+                case .plan:
+                    NavigationStack { PlanView() }
+                case .settings:
+                    NavigationStack { SettingsView() }
+                }
             }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            .frame(maxHeight: .infinity)
+
             AxTabBar(selection: Binding(get: { store.selectedTab }, set: { store.selectedTab = $0 }))
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)   // keep the bar put under the keyboard
         .tint(.axAccent)
         .environment(store)
         .environment(authService)
