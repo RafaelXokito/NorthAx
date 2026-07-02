@@ -31,10 +31,10 @@ struct ActivityStreamChart: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(title.uppercased())
-                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary).tracking(1)
+                    .font(.axMono(10, .semibold)).foregroundStyle(.axTertiary).tracking(1.5)
                 Spacer()
                 Text("\(Int(minV.rounded()))–\(Int(maxV.rounded())) \(unit)")
-                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary)
+                    .font(.axMono(10)).foregroundStyle(.axTertiary)
             }
 
             GeometryReader { geo in
@@ -72,7 +72,13 @@ struct ActivityStreamChart: View {
                         p.move(to: first)
                         pts.dropFirst().forEach { p.addLine(to: $0) }
                     }
-                    .stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                    .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+
+                    if let last = pts.last {
+                        Circle().fill(color).frame(width: 6, height: 6)
+                            .shadow(color: color.opacity(0.5), radius: 6)
+                            .position(last)
+                    }
                 }
             }
             .frame(height: 110)
@@ -86,7 +92,7 @@ struct ActivityStreamChart: View {
                 }
                 Text(Self.durationLabel(durationSeconds))
             }
-            .font(.system(size: 9)).foregroundStyle(.axTertiary)
+            .font(.axMono(9)).foregroundStyle(.axTertiary)
         }
     }
 

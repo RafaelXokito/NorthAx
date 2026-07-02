@@ -47,7 +47,7 @@ struct MetricChartView: View {
             Spacer()
             Text(format(minVal))
         }
-        .font(.caption2)
+        .font(.axMono(9))
         .foregroundStyle(.axTertiary)
         .frame(width: yAxisWidth, alignment: .trailing)
         .padding(.vertical, vPad - 4)
@@ -56,11 +56,12 @@ struct MetricChartView: View {
     private var xAxisLabels: some View {
         HStack {
             Color.clear.frame(width: yAxisWidth)
-            Text(Self.dayLabel.string(from: dates.first ?? Date()))
+            Text(Self.dayLabel.string(from: dates.first ?? Date()).uppercased())
             Spacer()
-            Text(Self.dayLabel.string(from: dates.last ?? Date()))
+            Text(Self.dayLabel.string(from: dates.last ?? Date()).uppercased())
         }
-        .font(.caption2)
+        .font(.axMono(9))
+        .tracking(0.6)
         .foregroundStyle(.axTertiary)
     }
 
@@ -106,6 +107,7 @@ struct MetricChartView: View {
                 } else {
                     // Resting dot on the latest reading
                     Circle().fill(color).frame(width: 7, height: 7)
+                        .shadow(color: color.opacity(0.5), radius: 6)
                         .position(pts.last!)
                 }
             }
@@ -119,8 +121,8 @@ struct MetricChartView: View {
         let w: CGFloat = 96
         let clampedX = Swift.min(Swift.max(x - w / 2, 0), Swift.max(width - w, 0))
         return VStack(spacing: 1) {
-            Text(text).font(.caption.weight(.bold)).foregroundStyle(.white)
-            Text(sub).font(.caption2).foregroundStyle(.axSecondary)
+            Text(text).font(.axDisplay(12, .bold)).foregroundStyle(.axPrimary)
+            Text(sub).font(.axMono(9)).foregroundStyle(.axSecondary)
         }
         .frame(width: w)
         .padding(.vertical, 5)

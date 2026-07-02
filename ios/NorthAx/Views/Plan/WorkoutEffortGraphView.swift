@@ -61,12 +61,13 @@ struct WorkoutEffortGraphView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(metricAxisLabel)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.axMono(10, .semibold))
                     .foregroundStyle(.axTertiary)
                     .tracking(1.5)
                 Spacer()
-                Text("\(totalMinutes) min")
-                    .font(.system(size: 10, weight: .semibold))
+                Text("\(totalMinutes) MIN")
+                    .font(.axMono(10, .semibold))
+                    .tracking(0.6)
                     .foregroundStyle(.axTertiary)
             }
 
@@ -125,10 +126,14 @@ struct WorkoutEffortGraphView: View {
         let topLeft = edges.0
         let topRight = edges.1
         return TrapezoidBar(leftFrac: topLeft, rightFrac: topRight)
-            .fill(seg.zone.color.opacity(isSel ? 1.0 : 0.85))
+            .fill(seg.zone.color.opacity(isSel ? 0.55 : 0.30))
+            .overlay(
+                TrapezoidTopEdge(leftFrac: topLeft, rightFrac: topRight)
+                    .stroke(seg.zone.color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            )
             .overlay(
                 TrapezoidBar(leftFrac: topLeft, rightFrac: topRight)
-                    .stroke(.white.opacity(isSel ? 0.6 : 0), lineWidth: 1)
+                    .stroke(.white.opacity(isSel ? 0.5 : 0), lineWidth: 1)
             )
             .frame(width: width, height: height)
     }
@@ -146,7 +151,7 @@ struct WorkoutEffortGraphView: View {
         VStack(alignment: .trailing, spacing: 0) {
             if let labels = axisTickLabels {
                 ForEach(labels, id: \.self) { t in
-                    Text(t).font(.system(size: 9))
+                    Text(t).font(.axMono(8))
                         .foregroundStyle(.axTertiary)
                         .frame(maxHeight: .infinity, alignment: .top)
                 }
@@ -190,7 +195,7 @@ struct WorkoutEffortGraphView: View {
                 HStack(spacing: 4) {
                     Circle().fill(item.zone.color).frame(width: 6, height: 6)
                     Text("\(item.zone.shortLabel) \(item.minutes * 100 / total)%")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.axMono(9))
                         .foregroundStyle(.axTertiary)
                 }
             }
@@ -212,15 +217,15 @@ struct WorkoutEffortGraphView: View {
             HStack(spacing: 6) {
                 Circle().fill(seg.zone.color).frame(width: 8, height: 8)
                 Text(seg.step.cue)
-                    .font(.caption.weight(.semibold))
+                    .font(.axDisplay(12, .semibold))
                     .foregroundStyle(.axPrimary)
                 Spacer()
-                Text("\(seg.step.minutes) min")
-                    .font(.caption2)
+                Text("\(seg.step.minutes) MIN")
+                    .font(.axMono(10))
                     .foregroundStyle(.axSecondary)
             }
             Text(blockLabel(seg))
-                .font(.caption2)
+                .font(.axMono(10))
                 .foregroundStyle(.axSecondary)
         }
         .padding(10)
@@ -281,6 +286,19 @@ private struct TrapezoidBar: Shape {
     }
 }
 
+// Just the top edge, stroked solid over the tinted body.
+private struct TrapezoidTopEdge: Shape {
+    let leftFrac: CGFloat
+    let rightFrac: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.maxY - rect.height * leftFrac))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - rect.height * rightFrac))
+        return p
+    }
+}
+
 // MARK: - Segment + zone model
 
 private enum Ramp { case none, up, down }
@@ -326,16 +344,7 @@ private enum EffortZone: Int {
         }
     }
 
-    var color: Color {
-        switch self {
-        case .neutral: return .axTertiary
-        case .z1:      return .axBlue
-        case .z2:      return .axGreen
-        case .z3:      return .axAccent
-        case .z4:      return Color(red: 1.0, green: 0.45, blue: 0.2)
-        case .z5:      return .axRed
-        }
-    }
+    var color: Color { Color.zone(rawValue) }
 }
 
 #Preview {

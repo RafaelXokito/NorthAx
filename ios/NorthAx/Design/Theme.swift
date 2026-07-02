@@ -33,6 +33,19 @@ extension ShapeStyle where Self == Color {
 }
 
 extension Color {
+    /// Shared training-zone ramp (Z1–Z5), used by the workout effort graph and
+    /// the activity stream zone bands.
+    static func zone(_ z: Int) -> Color {
+        switch z {
+        case 1:  return .axBlue
+        case 2:  return .axGreen
+        case 3:  return .axAmber
+        case 4:  return .axCycling
+        case 5:  return .axRed
+        default: return .axTertiary
+        }
+    }
+
     init(hex: UInt32, opacity: Double = 1) {
         self.init(
             red:     Double((hex >> 16) & 0xFF) / 255,

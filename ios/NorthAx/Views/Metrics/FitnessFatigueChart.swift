@@ -22,27 +22,43 @@ struct FitnessFatigueChart: View {
                     let ctlPts = points(ctl, in: geo.size)
                     let atlPts = points(atl, in: geo.size)
                     ZStack {
-                        // Form band (area between fitness and fatigue).
+                        // Gradient fill under the fatigue line.
                         Path { p in
-                            guard let f = ctlPts.first else { return }
-                            p.move(to: f)
-                            ctlPts.dropFirst().forEach { p.addLine(to: $0) }
-                            atlPts.reversed().forEach { p.addLine(to: $0) }
+                            guard let f = atlPts.first, let l = atlPts.last else { return }
+                            p.move(to: CGPoint(x: f.x, y: geo.size.height))
+                            atlPts.forEach { p.addLine(to: $0) }
+                            p.addLine(to: CGPoint(x: l.x, y: geo.size.height))
                             p.closeSubpath()
                         }
-                        .fill(Color.axAccent.opacity(0.10))
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.axAccent.opacity(0.22), Color.axAccent.opacity(0.02)],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
 
                         line(ctlPts, color: .axGreen)
-                        line(atlPts, color: Color(red: 1.0, green: 0.55, blue: 0.2))
+                        line(atlPts, color: .axAccent)
+
+                        if let last = ctlPts.last {
+                            Circle().fill(Color.axGreen).frame(width: 6, height: 6)
+                                .shadow(color: Color.axGreen.opacity(0.5), radius: 6)
+                                .position(last)
+                        }
+                        if let last = atlPts.last {
+                            Circle().fill(Color.axAccent).frame(width: 6, height: 6)
+                                .shadow(color: Color.axAccent.opacity(0.5), radius: 6)
+                                .position(last)
+                        }
                     }
                 }
                 .frame(height: 140)
                 HStack {
-                    Text(Self.day.string(from: dates.first ?? Date()))
+                    Text(Self.day.string(from: dates.first ?? Date()).uppercased())
                     Spacer()
-                    Text(Self.day.string(from: dates.last ?? Date()))
+                    Text(Self.day.string(from: dates.last ?? Date()).uppercased())
                 }
-                .font(.caption2).foregroundStyle(.axTertiary)
+                .font(.axMono(9)).tracking(0.6).foregroundStyle(.axTertiary)
             }
         }
     }
@@ -51,12 +67,12 @@ struct FitnessFatigueChart: View {
         let form = (ctl.last ?? 0) - (atl.last ?? 0)
         return HStack(spacing: 14) {
             legendItem(.axGreen, "Fitness", ctl.last ?? 0)
-            legendItem(Color(red: 1.0, green: 0.55, blue: 0.2), "Fatigue", atl.last ?? 0)
+            legendItem(.axAccent, "Fatigue", atl.last ?? 0)
             HStack(spacing: 5) {
-                Circle().fill(Color.axAccent).frame(width: 7, height: 7)
-                Text("Form").font(.caption2).foregroundStyle(.axTertiary)
+                Circle().fill(Color.axAmber).frame(width: 7, height: 7)
+                Text("FORM").font(.axMono(9, .semibold)).tracking(0.8).foregroundStyle(.axTertiary)
                 Text("\(form >= 0 ? "+" : "")\(Int(form.rounded()))")
-                    .font(.caption.weight(.semibold)).foregroundStyle(.axPrimary)
+                    .font(.axDisplay(12, .bold)).foregroundStyle(.axPrimary)
             }
             Spacer()
         }
@@ -65,8 +81,8 @@ struct FitnessFatigueChart: View {
     private func legendItem(_ color: Color, _ label: String, _ value: Double) -> some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 7, height: 7)
-            Text(label).font(.caption2).foregroundStyle(.axTertiary)
-            Text("\(Int(value.rounded()))").font(.caption.weight(.semibold)).foregroundStyle(.axPrimary)
+            Text(label.uppercased()).font(.axMono(9, .semibold)).tracking(0.8).foregroundStyle(.axTertiary)
+            Text("\(Int(value.rounded()))").font(.axDisplay(12, .bold)).foregroundStyle(.axPrimary)
         }
     }
 

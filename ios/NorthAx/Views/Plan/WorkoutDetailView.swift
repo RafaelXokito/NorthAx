@@ -93,14 +93,14 @@ struct WorkoutDetailView: View {
     private func hrZoneBands() -> [ActivityStreamChart.ZoneBand] {
         guard let maxHr = store.thresholds.maxHr, maxHr > 0 else { return [] }
         let m = Double(maxHr)
-        let zones: [(Double, Double, Color)] = [
-            (0.50, 0.60, .axBlue),
-            (0.60, 0.70, .axGreen),
-            (0.70, 0.80, .axAccent),
-            (0.80, 0.90, Color(red: 1.0, green: 0.45, blue: 0.2)),
-            (0.90, 1.05, .axRed),
+        let zones: [(Double, Double, Int)] = [
+            (0.50, 0.60, 1),
+            (0.60, 0.70, 2),
+            (0.70, 0.80, 3),
+            (0.80, 0.90, 4),
+            (0.90, 1.05, 5),
         ]
-        return zones.map { .init(lower: $0.0 * m, upper: $0.1 * m, color: $0.2) }
+        return zones.map { .init(lower: $0.0 * m, upper: $0.1 * m, color: .zone($0.2)) }
     }
 
     // MARK: - Header

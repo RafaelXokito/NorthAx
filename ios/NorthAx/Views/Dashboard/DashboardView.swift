@@ -75,25 +75,42 @@ struct DashboardView: View {
 
     private func compactReadiness(_ r: DailyReadiness) -> some View {
         Button { showReadinessDetail = true } label: {
-            VStack(spacing: 10) {
-                ReadinessRingView(score: r.score, status: r.status)
-                    .frame(width: 150, height: 150)
-                Text(r.status.rawValue)
-                    .font(.headline)
-                    .foregroundStyle(r.status.ringColor)
-                HStack(spacing: 4) {
-                    Text("Tap to see why").font(.caption)
-                    Image(systemName: "chevron.right").font(.caption2)
+            AxCard(radius: 24, padding: 20) {
+                VStack(spacing: 16) {
+                    ReadinessRingView(score: r.score, status: r.status)
+                        .frame(width: 220, height: 220)
+
+                    AxPill(text: r.status.rawValue, color: r.status.color)
+
+                    VStack(spacing: 10) {
+                        ContributorMeter(label: "HRV", value: hrvMeterValue(r), score: r.hrvScore, color: .axGreen)
+                        ContributorMeter(label: "Sleep", value: sleepMeterValue(r), score: r.sleepScore, color: .axPurple)
+                        ContributorMeter(label: "Load", value: "\(r.loadScore)", score: r.loadScore, color: .axAccent)
+                    }
+
+                    HStack(spacing: 6) {
+                        Text("SEE FULL BREAKDOWN")
+                            .font(.axMono(10, .semibold))
+                            .tracking(1.2)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .foregroundStyle(.axAccent)
                 }
-                .foregroundStyle(.axTertiary)
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 22)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 24))
-            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.axBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+
+    private func hrvMeterValue(_ r: DailyReadiness) -> String {
+        if let m = store.metrics { return "\(Int(m.hrv)) MS" }
+        return "\(r.hrvScore)"
+    }
+
+    private func sleepMeterValue(_ r: DailyReadiness) -> String {
+        if let m = store.metrics { return String(format: "%.1f H", m.sleepDuration) }
+        return "\(r.sleepScore)"
     }
 
     // MARK: - Back-to-this-week pill (§11)
