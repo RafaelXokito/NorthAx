@@ -64,6 +64,29 @@ struct AxPill: View {
     }
 }
 
+/// Session completion badge: outline for planned (○ PLANNED), tint otherwise (✓ DONE …).
+struct CompletionPill: View {
+    let completion: SessionCompletion
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: completion.icon).font(.system(size: 9, weight: .semibold))
+            Text(completion.label)
+                .font(.axMono(10, .semibold))
+                .tracking(0.8)
+                .textCase(.uppercase)
+        }
+        .foregroundStyle(completion.color)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(completion == .planned ? .clear : completion.color.opacity(0.14))
+        .clipShape(Capsule())
+        .overlay(
+            Capsule().stroke(completion == .planned ? completion.color.opacity(0.45) : .clear, lineWidth: 1)
+        )
+    }
+}
+
 // MARK: - Icon tile
 
 /// SF Symbol on a 14%-opacity tint of its color.

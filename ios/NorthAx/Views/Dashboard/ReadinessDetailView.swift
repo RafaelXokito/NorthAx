@@ -33,12 +33,10 @@ struct ReadinessDetailView: View {
     // MARK: - Score header
 
     private var scoreHeader: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             ReadinessRingView(score: readiness.score, status: readiness.status)
-                .frame(width: 170, height: 170)
-            Text(readiness.status.rawValue)
-                .font(.title2.bold())
-                .foregroundStyle(readiness.status.ringColor)
+                .frame(width: 190, height: 190)
+            AxPill(text: readiness.status.rawValue, color: readiness.status.color)
         }
         .frame(maxWidth: .infinity)
     }
@@ -48,10 +46,11 @@ struct ReadinessDetailView: View {
     private var explanationSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(readiness.displayVerdict)
-                .font(.title3.bold())
-                .foregroundStyle(.white)
+                .font(.axDisplay(19, .heavy))
+                .tracking(-0.3)
+                .foregroundStyle(.axPrimary)
             Text(readiness.aiNarrative ?? readiness.explanation)
-                .font(.subheadline)
+                .font(.axDisplay(13.5))
                 .foregroundStyle(.axSecondary)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
@@ -60,7 +59,7 @@ struct ReadinessDetailView: View {
                 Image(systemName: "brain.head.profile")
                     .font(.subheadline).foregroundStyle(.axAccent).padding(.top, 1)
                 Text(readiness.coachingNote)
-                    .font(.subheadline.italic())
+                    .font(.axDisplay(13.5, .medium))
                     .foregroundStyle(.axAccent)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -76,7 +75,7 @@ struct ReadinessDetailView: View {
 
     private var conditionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("CONTRIBUTING CONDITIONS")
+            SectionLabel("CONTRIBUTING CONDITIONS")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(readiness.keyInsights) { MetricInsightCard(insight: $0) }
@@ -90,7 +89,7 @@ struct ReadinessDetailView: View {
 
     private var graphsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("METRIC TRENDS")
+            SectionLabel("METRIC TRENDS")
             let graphs = metricGraphs
             if graphs.isEmpty && !hasFitnessData {
                 Text("Connect a data source to see your HRV, resting HR, sleep, and load trends here.")
@@ -114,45 +113,41 @@ struct ReadinessDetailView: View {
     private var fitnessFatigueCard: some View {
         let m = store.metrics
         let n = Swift.min(m?.ctlSeries.count ?? 0, m?.atlSeries.count ?? 0, m?.trendDates.count ?? 0)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Fitness & Fatigue").font(.subheadline.weight(.semibold)).foregroundStyle(.white)
-                Spacer()
-                Label("intervals.icu", systemImage: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 10)).foregroundStyle(.axTertiary)
+        return AxCard(radius: 18, padding: 16) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Fitness & Fatigue").font(.axDisplay(14, .bold)).foregroundStyle(.axPrimary)
+                    Spacer()
+                    Label("intervals.icu", systemImage: "antenna.radiowaves.left.and.right")
+                        .font(.axMono(9)).foregroundStyle(.axTertiary)
+                }
+                FitnessFatigueChart(
+                    ctl: Array((m?.ctlSeries ?? []).suffix(n)),
+                    atl: Array((m?.atlSeries ?? []).suffix(n)),
+                    dates: Array((m?.trendDates ?? []).suffix(n))
+                )
             }
-            FitnessFatigueChart(
-                ctl: Array((m?.ctlSeries ?? []).suffix(n)),
-                atl: Array((m?.atlSeries ?? []).suffix(n)),
-                dates: Array((m?.trendDates ?? []).suffix(n))
-            )
         }
-        .padding(16)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private func graphCard(_ g: GraphSpec) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(g.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                Spacer()
-                if let source = g.source {
-                    Label(source, systemImage: "antenna.radiowaves.left.and.right")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.axTertiary)
+        AxCard(radius: 18, padding: 16) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(g.title)
+                        .font(.axDisplay(14, .bold))
+                        .foregroundStyle(.axPrimary)
+                    Spacer()
+                    if let source = g.source {
+                        Label(source, systemImage: "antenna.radiowaves.left.and.right")
+                            .font(.axMono(9))
+                            .foregroundStyle(.axTertiary)
+                    }
                 }
+                MetricChartView(values: g.values, dates: g.dates, color: g.color, format: g.format)
+                    .frame(height: 150)
             }
-            MetricChartView(values: g.values, dates: g.dates, color: g.color, format: g.format)
-                .frame(height: 150)
         }
-        .padding(16)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.axBorder, lineWidth: 1))
     }
 
     // MARK: - Graph specs from the store's metrics
@@ -207,23 +202,4 @@ struct ReadinessDetailView: View {
         return out
     }
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary)
-            .tracking(2)
-    }
-}
-
-extension DailyReadiness.Status {
-    /// Ring / accent colour for this readiness status (shared by the ring + labels).
-    var ringColor: Color {
-        switch self {
-        case .peak:     return .axAccent
-        case .high:     return .axGreen
-        case .moderate: return .axBlue
-        case .low:      return Color(red: 1.0, green: 0.7, blue: 0.2)
-        case .rest:     return .axRed
-        }
-    }
 }

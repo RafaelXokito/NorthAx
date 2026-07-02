@@ -41,9 +41,9 @@ struct WeekGlanceView: View {
 
             VStack(spacing: 2) {
                 Text(relativeLabel)
-                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.axPrimary).tracking(1)
-                Text(dateRange)
-                    .font(.system(size: 10)).foregroundStyle(.axTertiary)
+                    .font(.axMono(11, .semibold)).foregroundStyle(.axPrimary).tracking(1.2)
+                Text(dateRange.uppercased())
+                    .font(.axMono(9)).tracking(0.6).foregroundStyle(.axTertiary)
             }
 
             Spacer()
@@ -81,19 +81,19 @@ struct WeekGlanceView: View {
 
     private func dayColumn(_ day: PlannedDay) -> some View {
         let state = PlanMatchingEngine.dayState(day: day, matches: matches)
-        return VStack(spacing: 6) {
-            Text(day.weekdayShort)
-                .font(.system(size: 10, weight: .semibold))
+        return VStack(spacing: 7) {
+            Text(day.weekdayShort.uppercased())
+                .font(.axMono(9, .semibold))
                 .foregroundStyle(day.isToday ? .axAccent : .axTertiary)
-                .tracking(0.5)
+                .tracking(0.8)
 
             ZStack {
-                Circle().fill(dotFill(day, state)).frame(width: 36, height: 36)
+                RoundedRectangle(cornerRadius: 12).fill(dotFill(day, state)).frame(width: 38, height: 38)
                 if day.isToday {
-                    Circle().stroke(Color.axAccent, lineWidth: 1.5).frame(width: 36, height: 36)
+                    RoundedRectangle(cornerRadius: 12).stroke(Color.axAccent, lineWidth: 1.5).frame(width: 38, height: 38)
                 }
                 Image(systemName: dotIcon(day, state))
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundStyle(dotIconColor(day, state))
             }
 
@@ -105,11 +105,11 @@ struct WeekGlanceView: View {
     }
 
     private func dotFill(_ day: PlannedDay, _ state: SessionCompletion) -> Color {
-        if state == .rest { return Color.white.opacity(0.04) }
+        if state == .rest { return .axInset }
         if let domain = day.sessions.first?.domain {
             return domain.color.opacity(day.isToday ? 0.22 : 0.14)
         }
-        return Color.white.opacity(0.04)
+        return .axInset
     }
 
     private func dotIcon(_ day: PlannedDay, _ state: SessionCompletion) -> String {

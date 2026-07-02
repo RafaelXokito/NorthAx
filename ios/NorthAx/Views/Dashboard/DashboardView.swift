@@ -56,17 +56,17 @@ struct DashboardView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(greeting).font(.subheadline).foregroundStyle(.axSecondary)
-                Text(store.athleteName).font(.largeTitle.bold()).foregroundStyle(.white)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(weekdayString)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.axTertiary).tracking(1.5)
-                Text(dateString).font(.subheadline.weight(.semibold)).foregroundStyle(.axSecondary)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(weekdayString) · \(dateString.uppercased())")
+                .font(.axMono(10, .semibold))
+                .tracking(1.8)
+                .foregroundStyle(.axTertiary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(greeting).font(.axDisplay(15)).foregroundStyle(.axSecondary)
+                Text(store.athleteName)
+                    .font(.axDisplay(30, .heavy))
+                    .tracking(-0.9)
+                    .foregroundStyle(.axPrimary)
             }
         }
     }
@@ -119,13 +119,13 @@ struct DashboardView: View {
         Button {
             withAnimation(.spring(duration: 0.3)) { weekOffset = 0 }
         } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "arrow.left").font(.caption2.bold())
-                Text("Back to this week").font(.caption.weight(.semibold))
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.left").font(.system(size: 9, weight: .bold))
+                Text("BACK TO THIS WEEK").font(.axMono(10, .semibold)).tracking(1)
             }
             .foregroundStyle(.axAccent)
             .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(Color.axAccent.opacity(0.12))
+            .background(Color.axAccent.opacity(0.14))
             .clipShape(Capsule())
         }
         .frame(maxWidth: .infinity)
@@ -134,8 +134,8 @@ struct DashboardView: View {
     // MARK: - Today (detailed card below the readiness ring)
 
     private func todaySection(_ matches: [SessionMatch]) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader("TODAY")
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("TODAY'S SESSION")
             if matches.isEmpty {
                 todayRestCard
             } else {
@@ -152,87 +152,63 @@ struct DashboardView: View {
 
     // Shown when today has no planned session — a rest day still gets a card.
     private var todayRestCard: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "moon.stars.fill")
-                .font(.title2).foregroundStyle(.axTertiary)
-                .frame(width: 48, height: 48)
-                .background(Color.white.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 11))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("REST DAY")
-                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary).tracking(1.2)
-                Text("No session planned").font(.headline).foregroundStyle(.white)
-                Text("Recovery is training too — rest up for tomorrow.")
-                    .font(.caption).foregroundStyle(.axSecondary)
+        AxCard {
+            HStack(spacing: 14) {
+                IconTile(systemName: "moon.stars.fill", color: .axTertiary, size: 48)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("REST DAY")
+                        .font(.axMono(10, .semibold)).foregroundStyle(.axTertiary).tracking(1.4)
+                    Text("No session planned").font(.axDisplay(16, .bold)).foregroundStyle(.axPrimary)
+                    Text("Recovery is training too — rest up for tomorrow.")
+                        .font(.axDisplay(12.5)).foregroundStyle(.axSecondary)
+                }
+                Spacer()
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private func todayCard(_ match: SessionMatch) -> some View {
         let s = match.session
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                Image(systemName: s.domain.icon)
-                    .font(.title2)
-                    .foregroundStyle(s.domain.color)
-                    .frame(width: 48, height: 48)
-                    .background(s.domain.color.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 11))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(s.domain.rawValue.uppercased())
-                        .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary).tracking(1.2)
-                    Text(s.title).font(.headline).foregroundStyle(.white)
-                    Text("\(s.duration) min · \(s.intensityLabel)")
-                        .font(.caption).foregroundStyle(.axSecondary)
-                }
-                Spacer()
-                completionBadge(match.completion)
-            }
-            if !s.subtitle.isEmpty {
-                Text(s.subtitle).font(.subheadline).foregroundStyle(.axSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            SessionBreakdownView(domain: s.domain, workout: s.workout, exercises: s.exercises)
-            if let a = match.activity {
-                Rectangle().fill(Color.axBorder).frame(height: 1)
-                HStack(spacing: 16) {
-                    actualStat("Time", a.formattedDuration)
-                    if let dist = a.formattedDistance { actualStat("Dist", dist) }
-                    if let hr = a.avgHeartRate { actualStat("Avg HR", "\(hr)") }
-                    if let load = a.trainingLoad { actualStat("Load", String(format: "%.0f", load)) }
+        return AxCard(highlighted: true) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 14) {
+                    IconTile(systemName: s.domain.icon, color: s.domain.color, size: 48)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(s.domain.rawValue.uppercased())
+                            .font(.axMono(10, .semibold)).foregroundStyle(s.domain.color).tracking(1.4)
+                        Text(s.title).font(.axDisplay(17, .bold)).foregroundStyle(.axPrimary)
+                        Text("\(s.duration) MIN · \(s.intensityLabel.uppercased())")
+                            .font(.axMono(10)).tracking(0.6).foregroundStyle(.axSecondary)
+                    }
                     Spacer()
+                    CompletionPill(completion: match.completion)
+                }
+                if !s.subtitle.isEmpty {
+                    Text(s.subtitle).font(.axDisplay(13.5)).foregroundStyle(.axSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                SessionBreakdownView(domain: s.domain, workout: s.workout, exercises: s.exercises)
+                if let a = match.activity {
+                    Rectangle().fill(Color.axBorder).frame(height: 1)
+                    HStack(spacing: 16) {
+                        actualStat("Time", a.formattedDuration)
+                        if let dist = a.formattedDistance { actualStat("Dist", dist) }
+                        if let hr = a.avgHeartRate { actualStat("Avg HR", "\(hr)") }
+                        if let load = a.trainingLoad { actualStat("Load", String(format: "%.0f", load)) }
+                        Spacer()
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.axAccent.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axAccent.opacity(0.3), lineWidth: 1))
-    }
-
-    private func completionBadge(_ c: SessionCompletion) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: c.icon).font(.system(size: 10, weight: .semibold))
-            Text(c.label).font(.system(size: 11, weight: .semibold))
-        }
-        .foregroundStyle(c.color)
-        .padding(.horizontal, 9).padding(.vertical, 5)
-        .background(c.color.opacity(0.12))
-        .clipShape(Capsule())
     }
 
     private func actualStat(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold)).foregroundStyle(.axTertiary).tracking(0.5)
-            Text(value).font(.system(size: 13, weight: .semibold)).foregroundStyle(.axPrimary)
+                .font(.axMono(9, .semibold)).foregroundStyle(.axTertiary).tracking(0.8)
+            Text(value).font(.axDisplay(13, .bold)).foregroundStyle(.axPrimary)
         }
     }
 
@@ -259,12 +235,6 @@ struct DashboardView: View {
 #endif
 
     // MARK: - Helpers
-
-    private func sectionHeader(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.axTertiary).tracking(2)
-    }
 
     private var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
@@ -296,45 +266,43 @@ struct NoDataView: View {
     var action: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
-            ZStack {
-                Circle().fill(Color.axAccent.opacity(0.12)).frame(width: 76, height: 76)
-                Image(systemName: icon)
-                    .font(.system(size: 30))
-                    .foregroundStyle(.axAccent)
-            }
-
-            VStack(spacing: 8) {
-                Text(title)
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.axSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Button(action: action) {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus.circle.fill")
-                    Text(actionTitle)
+        AxCard(radius: 24, padding: 28) {
+            VStack(spacing: 18) {
+                ZStack {
+                    Circle().fill(Color.axAccent.opacity(0.14)).frame(width: 76, height: 76)
+                    Image(systemName: icon)
+                        .font(.system(size: 30))
+                        .foregroundStyle(.axAccent)
                 }
-                .font(.headline)
-                .foregroundStyle(.black)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(Color.axAccent)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                VStack(spacing: 8) {
+                    Text(title)
+                        .font(.axDisplay(18, .bold))
+                        .foregroundStyle(.axPrimary)
+                        .multilineTextAlignment(.center)
+                    Text(message)
+                        .font(.axDisplay(13.5))
+                        .foregroundStyle(.axSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button(action: action) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus.circle.fill")
+                        Text(actionTitle)
+                    }
+                    .font(.axDisplay(15, .bold))
+                    .foregroundStyle(Color.axBackground)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(Color.axAccent)
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                }
             }
+            .frame(maxWidth: .infinity)
         }
-        .padding(28)
-        .frame(maxWidth: .infinity)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.axBorder, lineWidth: 1))
     }
 }
 
