@@ -19,10 +19,12 @@ struct WorkoutDetailView: View {
                     header
                     statTiles
                     breakdownSection
-                    plannedTargets
-                    if let activity = match.activity { actualVsPlanned(activity) }
+                    // Extras have no real plan — the planned card and the
+                    // planned-vs-actual comparison are meaningless for them.
+                    if match.completion != .extra { plannedTargets }
+                    if match.completion != .extra, let activity = match.activity { actualVsPlanned(activity) }
                     if let streams, hasVisibleStreams(streams) { activityDataSection(streams) }
-                    if match.completion != .done { switchSection }
+                    if !match.completion.isCompleted { switchSection }
                     if match.completion == .planned || match.completion == .missed { markCompleteButton }
                 }
                 .padding(20)
@@ -36,7 +38,7 @@ struct WorkoutDetailView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .task {
-                if match.completion == .done, let id = match.activity?.id {
+                if match.completion.isCompleted, let id = match.activity?.id {
                     streams = await store.activityStreams(for: id)
                 }
             }
@@ -54,24 +56,24 @@ struct WorkoutDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 if !s.heartRate.isEmpty {
                     ActivityStreamChart(title: "Heart rate", values: s.heartRate, color: .axRed,
-                                        unit: "bpm", zoneBands: hrZoneBands(), durationSeconds: s.durationSeconds)
+                                        unit: "bpm", zoneBands: hrZoneBands(), durationSeconds: s.durationSeconds, time: s.time)
                 }
                 if showsMotionStreams, !s.power.isEmpty {
                     ActivityStreamChart(title: "Power", values: s.power, color: .axAccent, unit: "w",
                                         referenceLine: store.thresholds.ftpWatts.map(Double.init),
-                                        referenceLabel: "FTP", durationSeconds: s.durationSeconds)
+                                        referenceLabel: "FTP", durationSeconds: s.durationSeconds, time: s.time)
                 }
                 if showsMotionStreams, !s.velocity.isEmpty {
                     ActivityStreamChart(title: "Speed", values: s.speedKmh, color: .axGreen,
-                                        unit: "km/h", durationSeconds: s.durationSeconds)
+                                        unit: "km/h", durationSeconds: s.durationSeconds, time: s.time)
                 }
                 if showsMotionStreams, !s.altitude.isEmpty {
                     ActivityStreamChart(title: "Elevation", values: s.altitude, color: .axBlue,
-                                        unit: "m", durationSeconds: s.durationSeconds)
+                                        unit: "m", durationSeconds: s.durationSeconds, time: s.time)
                 }
                 if showsMotionStreams, !s.cadence.isEmpty {
                     ActivityStreamChart(title: "Cadence", values: s.cadence, color: .axPurple,
-                                        unit: "rpm", durationSeconds: s.durationSeconds)
+                                        unit: "rpm", durationSeconds: s.durationSeconds, time: s.time)
                 }
                 Label("From \(s.source)", systemImage: "antenna.radiowaves.left.and.right")
                     .font(.caption2).foregroundStyle(.axTertiary)
@@ -132,11 +134,20 @@ struct WorkoutDetailView: View {
     // MARK: - Stat tiles (TIME / EFFORT / LOAD)
 
     private var statTiles: some View {
-        let load = store.sessionLoad(durationMin: session.duration, intensity: session.intensityLabel)
-        return HStack(spacing: 10) {
-            StatTile(label: "Time", value: "\(session.duration) min")
-            StatTile(label: "Effort", value: effortShortLabel, valueColor: effortColor)
-            StatTile(label: "Load", value: "\(Int(load.rounded()))")
+        HStack(spacing: 10) {
+            if match.completion == .extra, let a = match.activity {
+                // Unplanned workout: real activity stats only — no planned
+                // effort/load to compare against.
+                StatTile(label: "Time", value: a.formattedDuration)
+                if let load = a.trainingLoad {
+                    StatTile(label: "Load", value: "\(Int(load.rounded()))")
+                }
+            } else {
+                let load = store.sessionLoad(durationMin: session.duration, intensity: session.intensityLabel)
+                StatTile(label: "Time", value: "\(session.duration) min")
+                StatTile(label: "Effort", value: effortShortLabel, valueColor: effortColor)
+                StatTile(label: "Load", value: "\(Int(load.rounded()))")
+            }
         }
     }
 
@@ -205,8 +216,15 @@ struct WorkoutDetailView: View {
     // MARK: - Actual vs planned
 
     private func actualVsPlanned(_ a: GarminActivity) -> some View {
-        card("ACTUAL vs PLANNED") {
+        card("PLANNED vs ACTUAL") {
             VStack(spacing: 10) {
+                HStack {
+                    Spacer()
+                    Text("PLANNED").font(.axMono(9, .semibold)).foregroundStyle(.axTertiary)
+                        .frame(width: 80, alignment: .trailing)
+                    Text("ACTUAL").font(.axMono(9, .semibold)).foregroundStyle(.axTertiary)
+                        .frame(width: 80, alignment: .trailing)
+                }
                 comparisonRow("Duration", planned: "\(session.duration) min", actual: a.formattedDuration)
                 comparisonRow("Distance", planned: "—", actual: a.formattedDistance ?? "—")
                 comparisonRow("Avg HR", planned: "—", actual: a.avgHeartRate.map { "\($0) bpm" } ?? "—")

@@ -5,6 +5,7 @@ import SwiftUI
 enum SessionCompletion {
     case planned   // scheduled today or in the future, not yet done
     case done      // a matching imported workout was found
+    case extra     // an imported workout with no planned session (off-plan)
     case missed    // the planned day has passed with no matching workout
     case rest      // no session scheduled
 
@@ -12,6 +13,7 @@ enum SessionCompletion {
         switch self {
         case .planned: return "Planned"
         case .done:    return "Done"
+        case .extra:   return "Extra"
         case .missed:  return "Missed"
         case .rest:    return "Rest"
         }
@@ -21,6 +23,7 @@ enum SessionCompletion {
         switch self {
         case .planned: return .axAccent
         case .done:    return .axGreen
+        case .extra:   return .axPurple
         case .missed:  return .axRed
         case .rest:    return .axTertiary
         }
@@ -30,10 +33,14 @@ enum SessionCompletion {
         switch self {
         case .planned: return "circle"
         case .done:    return "checkmark.circle.fill"
+        case .extra:   return "plus.circle.fill"
         case .missed:  return "xmark.circle"
         case .rest:    return "moon"
         }
     }
+
+    /// A workout actually happened — planned (.done) or off-plan (.extra).
+    var isCompleted: Bool { self == .done || self == .extra }
 }
 
 /// A planned session paired with its completion state and (when done) the
@@ -101,8 +108,8 @@ enum PlanMatchingEngine {
         }
 
         // Surface imported workouts that don't correspond to any planned session
-        // (unplanned / extra sessions) as done entries, so a workout the athlete
-        // did off-plan still shows up on the week instead of vanishing (§7).
+        // as extra entries, so a workout the athlete did off-plan still shows up
+        // on the week instead of vanishing (§7).
         for day in week.days {
             let extras = activities.filter {
                 cal.isDate($0.startTime, inSameDayAs: day.date) && !matchedActivityIDs.contains($0.id)
@@ -114,7 +121,7 @@ enum PlanMatchingEngine {
                     duration: Int(a.duration / 60), intensityLabel: "Completed"
                 )
                 out.append(SessionMatch(id: session.id, day: day, session: session,
-                                        completion: .done, activity: a))
+                                        completion: .extra, activity: a))
             }
         }
 
@@ -131,11 +138,11 @@ enum PlanMatchingEngine {
         let dayMatches = matches.filter { $0.day.date == day.date }
         if day.isRest || day.sessions.isEmpty {
             // A rest day still marks done if an unplanned workout was imported for it.
-            return dayMatches.contains { $0.completion == .done } ? .done : .rest
+            return dayMatches.contains { $0.completion.isCompleted } ? .done : .rest
         }
         if dayMatches.isEmpty { return .planned }
         if dayMatches.contains(where: { $0.completion == .missed }) { return .missed }
-        if dayMatches.allSatisfy({ $0.completion == .done }) { return .done }
+        if dayMatches.allSatisfy({ $0.completion.isCompleted }) { return .done }
         return .planned
     }
 }

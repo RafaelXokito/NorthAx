@@ -8,7 +8,7 @@ struct SessionMatchCard: View {
 
     var body: some View {
         let session = match.session
-        let past = match.completion == .missed || match.completion == .done
+        let past = match.completion == .missed || match.completion.isCompleted
         return AxCard(radius: 16, padding: 16, highlighted: match.day.isToday) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 14) {
