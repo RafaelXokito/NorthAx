@@ -75,15 +75,18 @@ enum PlanMatchingEngine {
         let cal = Calendar.current
         let startToday = cal.startOfDay(for: today)
         var out: [SessionMatch] = []
+        var matchedActivityIDs: Set<GarminActivity.ID> = []
         for day in week.days where !day.isRest && !day.sessions.isEmpty {
             for session in day.sessions {
                 let sameDaySameSport = activities.filter {
                     cal.isDate($0.startTime, inSameDayAs: day.date) && $0.type.domain == session.domain
+                        && !matchedActivityIDs.contains($0.id)
                 }
                 let matched = sameDaySameSport.min {
                     abs($0.duration / 60 - Double(session.duration))
                         < abs($1.duration / 60 - Double(session.duration))
                 }
+                if let matched { matchedActivityIDs.insert(matched.id) }
                 let completion: SessionCompletion
                 if matched != nil {
                     completion = .done
@@ -96,14 +99,35 @@ enum PlanMatchingEngine {
                                         completion: completion, activity: matched))
             }
         }
+
+        // Surface imported workouts that don't correspond to any planned session
+        // (unplanned / extra sessions) as done entries, so a workout the athlete
+        // did off-plan still shows up on the week instead of vanishing (§7).
+        for day in week.days {
+            let extras = activities.filter {
+                cal.isDate($0.startTime, inSameDayAs: day.date) && !matchedActivityIDs.contains($0.id)
+            }
+            for a in extras {
+                matchedActivityIDs.insert(a.id)
+                let session = PlannedSession(
+                    domain: a.type.domain, title: a.name, subtitle: "",
+                    duration: Int(a.duration / 60), intensityLabel: "Completed"
+                )
+                out.append(SessionMatch(id: session.id, day: day, session: session,
+                                        completion: .done, activity: a))
+            }
+        }
         return out
     }
 
     /// Roll a day's session matches up to a single state for the week strip:
     /// rest → any missed → all done → otherwise planned.
     static func dayState(day: PlannedDay, matches: [SessionMatch]) -> SessionCompletion {
-        if day.isRest || day.sessions.isEmpty { return .rest }
         let dayMatches = matches.filter { $0.day.date == day.date }
+        if day.isRest || day.sessions.isEmpty {
+            // A rest day still marks done if an unplanned workout was imported for it.
+            return dayMatches.contains { $0.completion == .done } ? .done : .rest
+        }
         if dayMatches.isEmpty { return .planned }
         if dayMatches.contains(where: { $0.completion == .missed }) { return .missed }
         if dayMatches.allSatisfy({ $0.completion == .done }) { return .done }

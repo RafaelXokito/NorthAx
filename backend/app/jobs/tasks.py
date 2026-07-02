@@ -97,7 +97,10 @@ async def intervals_sync(user_id: str) -> dict:
         is_key = conn.auth_mode == "apikey"
         athlete = conn.athlete_id or "0"
         until = dt.date.today()
-        since = (conn.last_sync_at.date() if conn.last_sync_at else until - dt.timedelta(days=30))
+        # Overlap a few days back so activities that land in intervals.icu after a
+        # sync (but dated on/before it) still get picked up. Upsert makes re-fetching
+        # the window idempotent.
+        since = (conn.last_sync_at.date() - dt.timedelta(days=3) if conn.last_sync_at else until - dt.timedelta(days=30))
 
         # 1. Activities → activities table (before metrics so any fallback load is current).
         raw_activities = await client.fetch_activities(access, since, until, api_key=is_key, athlete_id=athlete)
@@ -166,7 +169,9 @@ async def strava_sync(user_id: str) -> dict:
             return {"activities": 0}
         client = StravaClient()
         access = await _valid_strava_token(session, conn)
-        after = conn.last_sync_at or (dt.datetime.now(dt.timezone.utc) - dt.timedelta(weeks=8))
+        # Overlap a few days so late-arriving/backfilled activities aren't skipped
+        # (upsert makes the re-fetch idempotent).
+        after = (conn.last_sync_at - dt.timedelta(days=3)) if conn.last_sync_at else (dt.datetime.now(dt.timezone.utc) - dt.timedelta(weeks=8))
         raw_activities = await client.fetch_activities(access, after)
         activities = 0
         for raw in raw_activities:
