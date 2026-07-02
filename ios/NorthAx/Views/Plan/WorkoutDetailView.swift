@@ -9,6 +9,9 @@ struct WorkoutDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var marking = false
     @State private var streams: ActivityStreams?
+    @State private var pushState: PushState = .idle
+
+    private enum PushState { case idle, pushing, pushed, failed }
 
     private var session: PlannedSession { match.session }
 
@@ -25,6 +28,9 @@ struct WorkoutDetailView: View {
                     if match.completion != .extra, let activity = match.activity { actualVsPlanned(activity) }
                     if let streams, hasVisibleStreams(streams) { activityDataSection(streams) }
                     if !match.completion.isCompleted { switchSection }
+                    if match.completion == .planned, store.intervals.connectionState.isConnected {
+                        pushToGarminButton
+                    }
                     if match.completion == .planned || match.completion == .missed { markCompleteButton }
                 }
                 .padding(20)
@@ -268,6 +274,38 @@ struct WorkoutDetailView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Push to Garmin (§9.4): schedule the session via intervals.icu
+
+    private var pushToGarminButton: some View {
+        Button {
+            pushState = .pushing
+            Task {
+                let ok = await store.intervals.pushPlannedSession(session, on: match.day.date)
+                pushState = ok ? .pushed : .failed
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: pushState == .pushed ? "checkmark" : "paperplane")
+                Text(pushLabel)
+            }
+            .font(.axDisplay(15, .bold))
+            .foregroundStyle(pushState == .pushed ? Color.axBackground : .axAccent)
+            .frame(maxWidth: .infinity).frame(height: 50)
+            .background(pushState == .pushed ? Color.axGreen : Color.axAccent.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+        }
+        .disabled(pushState == .pushing || pushState == .pushed)
+    }
+
+    private var pushLabel: String {
+        switch pushState {
+        case .idle:    return "Push to Garmin"
+        case .pushing: return "Pushing…"
+        case .pushed:  return "On your Garmin calendar"
+        case .failed:  return "Push failed — try again"
         }
     }
 

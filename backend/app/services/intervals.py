@@ -143,6 +143,27 @@ class IntervalsClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def list_events(
+        self, token: str, oldest: str, newest: str, *, api_key: bool = False, athlete_id: str = "0"
+    ) -> list[dict]:
+        """List calendar events in [oldest, newest] (ISO dates, inclusive)."""
+        url = f"{self.api_base}/athlete/{athlete_id}/events"
+        async with httpx.AsyncClient(timeout=20) as http:
+            resp = await http.get(
+                url, params={"oldest": oldest, "newest": newest}, **self._auth_kwargs(token, api_key)
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def delete_event(
+        self, token: str, event_id: str, *, api_key: bool = False, athlete_id: str = "0"
+    ) -> None:
+        """Delete one calendar event."""
+        url = f"{self.api_base}/athlete/{athlete_id}/events/{event_id}"
+        async with httpx.AsyncClient(timeout=20) as http:
+            resp = await http.delete(url, **self._auth_kwargs(token, api_key))
+            resp.raise_for_status()
+
 
 # ── Pure mappers (unit-tested) ───────────────────────────────────────────────
 def _hours(seconds) -> float | None:
@@ -223,13 +244,14 @@ _DOMAIN_TO_ICU_TYPE = {
 }
 
 
-def planned_session_to_intervals_event(session: dict, date: str) -> dict:
+def planned_session_to_intervals_event(session: dict, date: str, external_id: str | None = None) -> dict:
     """Map a PlannedSession (§6.7) to an intervals.icu calendar WORKOUT event,
-    which intervals.icu schedules to Garmin."""
+    which intervals.icu schedules to Garmin. `external_id` marks the event as
+    NorthAx-owned so a plan regeneration can replace it."""
     icu_type = _DOMAIN_TO_ICU_TYPE.get(session.get("domain", ""), "Workout")
     minutes = int(session.get("duration", 0))
     description = session.get("subtitle") or session.get("intensityLabel") or ""
-    return {
+    event = {
         "category": "WORKOUT",
         "start_date_local": f"{date}T00:00:00",
         "type": icu_type,
@@ -237,3 +259,6 @@ def planned_session_to_intervals_event(session: dict, date: str) -> dict:
         "description": description,
         "moving_time": minutes * 60,
     }
+    if external_id:
+        event["external_id"] = external_id
+    return event

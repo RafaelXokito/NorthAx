@@ -92,9 +92,11 @@ class IntervalsService {
     // MARK: - Plan push (§9.4)
 
     /// Push a planned session to intervals.icu (→ Garmin) as a scheduled workout.
-    func pushPlannedSession(_ session: PlannedSession, on date: Date) async {
-        guard connectionState.isConnected else { return }
-        _ = try? await api.pushWorkout(date: date, session: session)
+    /// Returns whether the push succeeded.
+    @discardableResult
+    func pushPlannedSession(_ session: PlannedSession, on date: Date) async -> Bool {
+        guard connectionState.isConnected else { return false }
+        return (try? await api.pushWorkout(date: date, session: session)) != nil
     }
 
     // MARK: - ASWebAuthenticationSession

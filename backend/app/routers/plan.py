@@ -16,7 +16,7 @@ from ..engines.plan import monday_of
 from ..errors import AppError, plan_week_not_found
 from ..models import WeeklyPlanRow
 from ..rate_limit import limit
-from ..services import ai, mappers, plan_ai, plan_service
+from ..services import ai, mappers, plan_ai, plan_push, plan_service
 
 router = APIRouter(prefix="/plan", tags=["plan"], dependencies=[Depends(limit("default", 300, 60))])
 
@@ -98,7 +98,11 @@ async def generate_ai(
     # Phase 3 — write: upsert + trim, then build the DTOs while still attached.
     async with session_scope(user_id) as session:
         rows = await plan_ai.persist(session, user_id, today, weeks, plans, cycling_target)
-        return [_dto(r, today) for r in rows]
+        dtos = [_dto(r, today) for r in rows]
+
+    # Mirror the new plan to the intervals.icu calendar (best-effort, non-blocking).
+    plan_push.schedule_push(user_id)
+    return dtos
 
 
 @router.patch("/week/{week_start}/day/{date}", response_model=schemas.WeeklyPlanDTO)

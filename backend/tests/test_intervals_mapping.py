@@ -76,6 +76,21 @@ def test_planned_session_to_event():
     assert e["name"] == "Zone 3 Intervals"
     assert e["start_date_local"] == "2026-06-30T00:00:00"
     assert e["moving_time"] == 75 * 60
+    assert "external_id" not in e
+
+    tagged = planned_session_to_intervals_event(session, "2026-06-30", external_id="northax-2026-06-30-cycling")
+    assert tagged["external_id"] == "northax-2026-06-30-cycling"
+
+
+def test_plan_push_external_id_and_description():
+    from app.services.plan_push import event_external_id, workout_description
+
+    assert event_external_id("2026-07-06", "Cycling") == "northax-2026-07-06-cycling"
+    assert event_external_id("2026-07-06", "Cycling", 1) == "northax-2026-07-06-cycling-1"
+
+    # No structured workout (or targetMode none) → no description override.
+    assert workout_description({}) is None
+    assert workout_description({"workout": {"targetMode": "none"}}) is None
 
 
 def test_authorization_url_contains_params(monkeypatch):

@@ -190,27 +190,32 @@ async def push_workout(
     conn = await session.get(IntervalsConnection, uuid.UUID(user_id))
     if conn is None:
         raise intervals_not_connected()
-    event = planned_session_to_intervals_event(
-        body.session.model_dump(by_alias=True), body.date.isoformat()
-    )
-    from ..engines.workouts import to_intervals_text
+    from ..services import plan_push
+
+    session_json = body.session.model_dump(by_alias=True)
+    date = body.date.isoformat()
+    slot_id = plan_push.event_external_id(date, session_json.get("domain", ""))
+    event = planned_session_to_intervals_event(session_json, date, external_id=slot_id)
 
     # If the session carries structured steps, push them as an executable
     # intervals.icu workout (their workout-builder syntax in `description`).
-    workout = body.session.model_dump(by_alias=True).get("workout")
-    if workout and workout.get("targetMode") not in (None, "none"):
-        text = to_intervals_text(workout)
-        if text:
-            event["description"] = text
+    if text := plan_push.workout_description(session_json):
+        event["description"] = text
 
     from ..jobs.tasks import _valid_access_token
 
     client = IntervalsClient()
+    api_key = conn.auth_mode == "apikey"
+    athlete = conn.athlete_id or "0"
     try:
         token = await _valid_access_token(session, conn)
-        created = await client.create_event(
-            token, event, api_key=(conn.auth_mode == "apikey"), athlete_id=conn.athlete_id or "0"
-        )
+        # Replace any previous NorthAx event for this slot — re-pushing must not
+        # pile up duplicates on the calendar.
+        for ev in await client.list_events(token, date, date, api_key=api_key, athlete_id=athlete):
+            ext = str(ev.get("external_id") or "")
+            if ext.startswith(slot_id) and ev.get("id") is not None:
+                await client.delete_event(token, str(ev["id"]), api_key=api_key, athlete_id=athlete)
+        created = await client.create_event(token, event, api_key=api_key, athlete_id=athlete)
     except IntervalsNotConfigured as exc:
         raise _not_configured() from exc
     return schemas.IntervalsWorkoutPushResponse(
