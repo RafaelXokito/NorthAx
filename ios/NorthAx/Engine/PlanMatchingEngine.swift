@@ -117,7 +117,12 @@ enum PlanMatchingEngine {
                                         completion: .done, activity: a))
             }
         }
-        return out
+
+        // Chronological order regardless of planned/unplanned. Stable within a day
+        // (original index tiebreak) so planned sessions stay ahead of extras.
+        return out.enumerated()
+            .sorted { ($0.element.day.date, $0.offset) < ($1.element.day.date, $1.offset) }
+            .map(\.element)
     }
 
     /// Roll a day's session matches up to a single state for the week strip:

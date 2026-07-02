@@ -20,7 +20,7 @@ struct WorkoutDetailView: View {
                     breakdownSection
                     plannedTargets
                     if let activity = match.activity { actualVsPlanned(activity) }
-                    if let streams, streams.hasData { activityDataSection(streams) }
+                    if let streams, hasVisibleStreams(streams) { activityDataSection(streams) }
                     if match.completion != .done { switchSection }
                     if match.completion == .planned || match.completion == .missed { markCompleteButton }
                 }
@@ -45,26 +45,30 @@ struct WorkoutDetailView: View {
     // MARK: - Activity data (§10): time-series charts for a completed workout
 
     private func activityDataSection(_ s: ActivityStreams) -> some View {
-        card("ACTIVITY DATA") {
+        // Speed / power / elevation / cadence are only meaningful for motion-based
+        // sports. For strength (and other stationary work) they're noise, so show
+        // heart rate only.
+        let showsMotionStreams = motionStreamDomains.contains(session.domain)
+        return card("ACTIVITY DATA") {
             VStack(alignment: .leading, spacing: 18) {
                 if !s.heartRate.isEmpty {
                     ActivityStreamChart(title: "Heart rate", values: s.heartRate, color: .axRed,
                                         unit: "bpm", zoneBands: hrZoneBands(), durationSeconds: s.durationSeconds)
                 }
-                if !s.power.isEmpty {
+                if showsMotionStreams, !s.power.isEmpty {
                     ActivityStreamChart(title: "Power", values: s.power, color: .axAccent, unit: "w",
                                         referenceLine: store.thresholds.ftpWatts.map(Double.init),
                                         referenceLabel: "FTP", durationSeconds: s.durationSeconds)
                 }
-                if !s.velocity.isEmpty {
+                if showsMotionStreams, !s.velocity.isEmpty {
                     ActivityStreamChart(title: "Speed", values: s.speedKmh, color: .axGreen,
                                         unit: "km/h", durationSeconds: s.durationSeconds)
                 }
-                if !s.altitude.isEmpty {
+                if showsMotionStreams, !s.altitude.isEmpty {
                     ActivityStreamChart(title: "Elevation", values: s.altitude, color: .axBlue,
                                         unit: "m", durationSeconds: s.durationSeconds)
                 }
-                if !s.cadence.isEmpty {
+                if showsMotionStreams, !s.cadence.isEmpty {
                     ActivityStreamChart(title: "Cadence", values: s.cadence, color: .axPurple,
                                         unit: "rpm", durationSeconds: s.durationSeconds)
                 }
@@ -72,6 +76,17 @@ struct WorkoutDetailView: View {
                     .font(.caption2).foregroundStyle(.axTertiary)
             }
         }
+    }
+
+    /// Sports where speed/power/elevation/cadence streams are meaningful.
+    private var motionStreamDomains: Set<TrainingDomain> {
+        [.cycling, .running, .swimming, .triathlon]
+    }
+
+    /// Whether there's anything worth charting for this session's sport — for
+    /// non-motion sports (e.g. strength) only heart rate counts.
+    private func hasVisibleStreams(_ s: ActivityStreams) -> Bool {
+        motionStreamDomains.contains(session.domain) ? s.hasData : !s.heartRate.isEmpty
     }
 
     /// HR zone bands as a fraction of the athlete's max HR (no bands if unset).
