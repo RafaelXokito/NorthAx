@@ -288,7 +288,7 @@ struct WorkoutDetailView: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: pushState == .pushed ? "checkmark" : "paperplane")
+                Image(systemName: pushState == .pushed ? "checkmark" : "arrow.triangle.2.circlepath")
                 Text(pushLabel)
             }
             .font(.axDisplay(15, .bold))
@@ -302,10 +302,10 @@ struct WorkoutDetailView: View {
 
     private var pushLabel: String {
         switch pushState {
-        case .idle:    return "Push to Garmin"
-        case .pushing: return "Pushing…"
-        case .pushed:  return "On your Garmin calendar"
-        case .failed:  return "Push failed — try again"
+        case .idle:    return "Sync your workout"
+        case .pushing: return "Syncing…"
+        case .pushed:  return "Workout synced"
+        case .failed:  return "Sync failed — try again"
         }
     }
 
