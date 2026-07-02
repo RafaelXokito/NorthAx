@@ -41,6 +41,10 @@ def _to_dto(prefs: UserPreferences) -> schemas.UserPreferencesDTO:
         cycling_target=getattr(prefs, "cycling_target", "hr"),
         metric_priority=dict(getattr(prefs, "metric_priority", {}) or {}),
         activity_priority=list(getattr(prefs, "activity_priority", []) or []),
+        sport_targets={
+            d: schemas.SportTargetDTO.model_validate(t)
+            for d, t in (getattr(prefs, "sport_targets", {}) or {}).items()
+        },
     )
 
 
@@ -57,6 +61,40 @@ def _validate_schedules(scheds: list[schemas.DomainScheduleDTO]) -> None:
 def _validate_split(split: list[schemas.DaySplitDTO]) -> None:
     if len(split) != 7:
         raise preferences_invalid_split()
+
+
+# Allowed goal types per sport (§ sport targets).
+_TARGET_DOMAINS = {"Running": {"raceTime"}, "Cycling": {"powerHold", "distanceAvgSpeed"}}
+
+
+def _validate_targets(targets: dict[str, schemas.SportTargetDTO]) -> None:
+    from ..errors import AppError
+
+    for domain, t in targets.items():
+        allowed = _TARGET_DOMAINS.get(domain)
+        if allowed is None or t.goal_type not in allowed:
+            raise AppError(
+                "PREFERENCES_INVALID_TARGET", f"Unsupported goal type for {domain}.", 422
+            )
+        ok = (
+            (t.goal_type == "raceTime"
+             and t.distance_km and t.distance_km > 0
+             and t.finish_time_sec and t.finish_time_sec > 0)
+            or (t.goal_type == "powerHold"
+                and t.zone in (1, 2, 3, 4, 5)
+                and t.hold_minutes and t.hold_minutes > 0)
+            or (t.goal_type == "distanceAvgSpeed"
+                and t.distance_km and t.distance_km > 0
+                and t.avg_speed_kmh and t.avg_speed_kmh > 0)
+        )
+        if not ok:
+            raise AppError(
+                "PREFERENCES_INVALID_TARGET", f"Missing or invalid fields for {t.goal_type}.", 422
+            )
+
+
+def _targets_json(targets: dict[str, schemas.SportTargetDTO]) -> dict:
+    return {d: t.model_dump(by_alias=True, mode="json", exclude_none=True) for d, t in targets.items()}
 
 
 def _schedules_json(scheds: list[schemas.DomainScheduleDTO]) -> list[dict]:
@@ -87,6 +125,7 @@ async def replace_preferences(
     _validate_schedules(body.domain_schedules)
     if body.muscle_group_split:
         _validate_split(body.muscle_group_split)
+    _validate_targets(body.sport_targets)
     prefs = await _get_or_create(session, user_id)
     prefs.enabled_domains = body.enabled_domains
     prefs.domain_schedules = _schedules_json(body.domain_schedules)
@@ -96,6 +135,7 @@ async def replace_preferences(
         prefs.cycling_target = body.cycling_target
     prefs.metric_priority = dict(body.metric_priority)
     prefs.activity_priority = list(body.activity_priority)
+    prefs.sport_targets = _targets_json(body.sport_targets)
     await session.flush()
     await regenerate_plans(session, user_id, dt.date.today(), weeks=4)
     return _to_dto(prefs)
@@ -178,6 +218,19 @@ async def patch_thresholds(
     merged.update(body.model_dump(by_alias=True, exclude_none=True))
     prefs.thresholds = merged
     await session.flush()  # no plan regeneration — thresholds don't affect placement
+    return _to_dto(prefs)
+
+
+@router.patch("/sport-targets", response_model=schemas.UserPreferencesDTO)
+async def patch_sport_targets(
+    body: schemas.SportTargetsPatch,
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> schemas.UserPreferencesDTO:
+    _validate_targets(body.sport_targets)
+    prefs = await _get_or_create(session, user_id)
+    prefs.sport_targets = _targets_json(body.sport_targets)
+    await session.flush()  # no regeneration — iOS stages targets via plan/generate-ai
     return _to_dto(prefs)
 
 

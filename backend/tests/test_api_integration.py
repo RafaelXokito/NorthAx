@@ -131,6 +131,51 @@ async def test_thresholds_merge_no_regen(api):
     assert t["ftpWatts"] == 250 and t["thresholdHr"] == 165
 
 
+async def test_sport_targets_roundtrip(api):
+    client, headers, _ = api
+    targets = {
+        "sportTargets": {
+            "Running": {"goalType": "raceTime", "targetDate": "2027-10-04", "distanceKm": 10, "finishTimeSec": 2400},
+            "Cycling": {"goalType": "powerHold", "targetDate": "2027-09-01", "zone": 4, "holdMinutes": 20},
+        }
+    }
+    r = await client.patch("/v1/preferences/sport-targets", headers=headers, json=targets)
+    assert r.status_code == 200, r.text
+    assert r.json()["sportTargets"]["Running"]["finishTimeSec"] == 2400
+
+    # Echoed back on GET.
+    r = await client.get("/v1/preferences", headers=headers)
+    assert r.status_code == 200
+    assert r.json()["sportTargets"]["Cycling"]["zone"] == 4
+
+    # Full-replace semantics: an empty map clears all targets.
+    r = await client.patch("/v1/preferences/sport-targets", headers=headers, json={"sportTargets": {}})
+    assert r.status_code == 200
+    assert r.json()["sportTargets"] == {}
+
+
+async def test_sport_targets_invalid_is_422(api):
+    client, headers, _ = api
+    # Unsupported domain.
+    bad = {"sportTargets": {"Strength": {"goalType": "raceTime", "targetDate": "2027-10-04", "distanceKm": 10, "finishTimeSec": 2400}}}
+    r = await client.patch("/v1/preferences/sport-targets", headers=headers, json=bad)
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "PREFERENCES_INVALID_TARGET"
+
+    # Missing required field for the goal type.
+    bad = {"sportTargets": {"Running": {"goalType": "raceTime", "targetDate": "2027-10-04", "distanceKm": 10}}}
+    r = await client.patch("/v1/preferences/sport-targets", headers=headers, json=bad)
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "PREFERENCES_INVALID_TARGET"
+
+
+async def test_goal_progress_empty(api):
+    client, headers, _ = api
+    r = await client.get("/v1/goals/progress", headers=headers)
+    assert r.status_code == 200
+    assert r.json() == []
+
+
 async def test_intervals_status_and_activities_empty(api):
     client, headers, _ = api
     r = await client.get("/v1/intervals/status", headers=headers)

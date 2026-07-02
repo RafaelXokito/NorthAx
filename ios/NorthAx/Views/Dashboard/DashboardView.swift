@@ -32,6 +32,10 @@ struct DashboardView: View {
                         if weekOffset != 0 { backToThisWeekPill }
                     }
 
+                    if !store.goalChecks.isEmpty {
+                        goalCheckSection
+                    }
+
                     if store.readiness == nil && store.currentWeek == nil {
                         noDataSection
                     }
@@ -111,6 +115,19 @@ struct DashboardView: View {
     private func sleepMeterValue(_ r: DailyReadiness) -> String {
         if let m = store.metrics { return String(format: "%.1f H", m.sleepDuration) }
         return "\(r.sleepScore)"
+    }
+
+    // MARK: - Goal check (post-sync AI target progress)
+
+    private var goalCheckSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("GOAL CHECK")
+            ForEach(store.goalChecks) { check in
+                GoalCheckCard(check: check) {
+                    Task { await store.applyPlanChanges() }
+                }
+            }
+        }
     }
 
     // MARK: - Back-to-this-week pill (§11)

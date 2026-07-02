@@ -301,7 +301,59 @@ private struct CyclingConfig: View {
                                   value: { store.thresholds.maxHr },
                                   set: { store.thresholds.maxHr = $0 })
             }
+
+            configLabel("GOAL")
+            AxSegmented(
+                options: [("none", "None"),
+                          (GoalType.powerHold.rawValue, "Power hold"),
+                          (GoalType.distanceAvgSpeed.rawValue, "Dist @ speed")],
+                selection: goalKindBinding
+            )
+            if let target = store.sportTargets[.cycling] {
+                if target.goalType == .powerHold {
+                    AxSegmented(
+                        options: [(1, "Z1"), (2, "Z2"), (3, "Z3"), (4, "Z4"), (5, "Z5")],
+                        selection: Binding(
+                            get: { store.sportTargets[.cycling]?.zone ?? 4 },
+                            set: { store.sportTargets[.cycling]?.zone = $0 }
+                        )
+                    )
+                    IntThresholdField(label: "Hold duration (min)", placeholder: "e.g. 20",
+                                      value: { store.sportTargets[.cycling]?.holdMinutes },
+                                      set: { store.sportTargets[.cycling]?.holdMinutes = $0 })
+                } else {
+                    DecimalThresholdField(label: "Distance (km)", placeholder: "e.g. 100",
+                                          value: { store.sportTargets[.cycling]?.distanceKm },
+                                          set: { store.sportTargets[.cycling]?.distanceKm = $0 })
+                    DecimalThresholdField(label: "Avg speed (km/h)", placeholder: "e.g. 30",
+                                          value: { store.sportTargets[.cycling]?.avgSpeedKmh },
+                                          set: { store.sportTargets[.cycling]?.avgSpeedKmh = $0 })
+                }
+                TargetDateRow(date: Binding(
+                    get: { store.sportTargets[.cycling]?.targetDate ?? defaultTargetDate() },
+                    set: { store.sportTargets[.cycling]?.targetDate = $0 }
+                ))
+            }
         }
+    }
+
+    /// "None" clears the goal; picking a kind creates a fresh target (keeping the
+    /// date when switching kinds). Zone defaults to Z4 for power holds.
+    private var goalKindBinding: Binding<String> {
+        Binding(
+            get: { store.sportTargets[.cycling]?.goalType.rawValue ?? "none" },
+            set: { kind in
+                guard let goal = GoalType(rawValue: kind) else {
+                    store.sportTargets[.cycling] = nil
+                    return
+                }
+                guard store.sportTargets[.cycling]?.goalType != goal else { return }
+                let date = store.sportTargets[.cycling]?.targetDate ?? defaultTargetDate()
+                var target = SportTarget(goalType: goal, targetDate: date)
+                if goal == .powerHold { target.zone = 4 }
+                store.sportTargets[.cycling] = target
+            }
+        )
     }
 }
 
@@ -323,7 +375,40 @@ private struct RunningConfig: View {
                 label: "Threshold pace (mm:ss / \(store.thresholds.paceUnit == .km ? "km" : "mile"))",
                 value: { store.thresholds.runThresholdPaceSecPerKm },
                 set: { store.thresholds.runThresholdPaceSecPerKm = $0 })
+
+            configLabel("GOAL")
+            AxSegmented(
+                options: [("none", "None"), (GoalType.raceTime.rawValue, "Race time")],
+                selection: goalKindBinding
+            )
+            if store.sportTargets[.running] != nil {
+                DecimalThresholdField(label: "Race distance (km)", placeholder: "e.g. 10",
+                                      value: { store.sportTargets[.running]?.distanceKm },
+                                      set: { store.sportTargets[.running]?.distanceKm = $0 })
+                DurationField(label: "Finish time (h:mm:ss)",
+                              value: { store.sportTargets[.running]?.finishTimeSec },
+                              set: { store.sportTargets[.running]?.finishTimeSec = $0 })
+                TargetDateRow(date: Binding(
+                    get: { store.sportTargets[.running]?.targetDate ?? defaultTargetDate() },
+                    set: { store.sportTargets[.running]?.targetDate = $0 }
+                ))
+            }
         }
+    }
+
+    /// "None" clears the goal; "Race time" creates a fresh target.
+    private var goalKindBinding: Binding<String> {
+        Binding(
+            get: { store.sportTargets[.running]?.goalType.rawValue ?? "none" },
+            set: { kind in
+                guard GoalType(rawValue: kind) == .raceTime else {
+                    store.sportTargets[.running] = nil
+                    return
+                }
+                guard store.sportTargets[.running] == nil else { return }
+                store.sportTargets[.running] = SportTarget(goalType: .raceTime, targetDate: defaultTargetDate())
+            }
+        )
     }
 }
 
@@ -437,6 +522,124 @@ private struct PaceThresholdField: View {
         guard let secs else { return "" }
         return String(format: "%d:%02d", secs / 60, secs % 60)
     }
+}
+
+/// Decimal threshold field (same commit-on-blur behaviour as IntThresholdField).
+private struct DecimalThresholdField: View {
+    let label: String
+    let placeholder: String
+    let value: () -> Double?
+    let set: (Double?) -> Void
+
+    @State private var text: String = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.axDisplay(13.5))
+                .foregroundStyle(.axSecondary)
+            Spacer()
+            TextField(placeholder, text: $text)
+                .multilineTextAlignment(.trailing)
+                .font(.axMono(13, .semibold))
+                .foregroundStyle(.axPrimary)
+                .focused($focused)
+#if os(iOS)
+                .keyboardType(.decimalPad)
+#endif
+                .frame(maxWidth: 120)
+                .onSubmit(commit)
+        }
+        .padding(.vertical, 4)
+        .onAppear { text = value().map { String(format: "%g", $0) } ?? "" }
+        .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
+    }
+
+    private func commit() {
+        let trimmed = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+        set(trimmed.isEmpty ? nil : Double(trimmed))
+    }
+}
+
+/// Duration field: user enters h:mm:ss or mm:ss, stored as Int seconds. Race
+/// finish times can exceed an hour, which the mm:ss PaceThresholdField can't hold.
+private struct DurationField: View {
+    let label: String
+    let value: () -> Int?
+    let set: (Int?) -> Void
+
+    @State private var text: String = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.axDisplay(13.5))
+                .foregroundStyle(.axSecondary)
+            Spacer()
+            TextField("h:mm:ss", text: $text)
+                .multilineTextAlignment(.trailing)
+                .font(.axMono(13, .semibold))
+                .foregroundStyle(.axPrimary)
+                .focused($focused)
+                .frame(maxWidth: 100)
+                .onSubmit(commit)
+        }
+        .padding(.vertical, 4)
+        .onAppear { text = Self.format(value()) }
+        .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
+    }
+
+    private func commit() {
+        let secs = Self.parse(text)
+        set(secs)
+        text = Self.format(secs)   // normalise display
+    }
+
+    static func parse(_ s: String) -> Int? {
+        let parts = s.split(separator: ":").map { Int($0.trimmingCharacters(in: .whitespaces)) }
+        guard parts.allSatisfy({ $0 != nil }) else { return nil }
+        let nums = parts.compactMap { $0 }
+        switch nums.count {
+        case 2 where (0..<60).contains(nums[1]):
+            return nums[0] * 60 + nums[1]
+        case 3 where (0..<60).contains(nums[1]) && (0..<60).contains(nums[2]):
+            return nums[0] * 3600 + nums[1] * 60 + nums[2]
+        default:
+            return nil
+        }
+    }
+
+    static func format(_ secs: Int?) -> String {
+        guard let secs else { return "" }
+        if secs >= 3600 {
+            return String(format: "%d:%02d:%02d", secs / 3600, (secs % 3600) / 60, secs % 60)
+        }
+        return String(format: "%d:%02d", secs / 60, secs % 60)
+    }
+}
+
+/// Compact goal target-date row, styled like the threshold rows.
+private struct TargetDateRow: View {
+    let date: Binding<Date>
+
+    var body: some View {
+        HStack {
+            Text("Target date")
+                .font(.axDisplay(13.5))
+                .foregroundStyle(.axSecondary)
+            Spacer()
+            DatePicker("", selection: date, in: Date()..., displayedComponents: .date)
+                .labelsHidden()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+/// Fresh goals default to ~12 weeks out — a sane training-block horizon.
+private func defaultTargetDate() -> Date {
+    Calendar.current.date(byAdding: .weekOfYear, value: 12, to: Date()) ?? Date()
 }
 
 // MARK: - Shared small label

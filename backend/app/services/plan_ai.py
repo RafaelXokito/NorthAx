@@ -19,7 +19,7 @@ from ..engines import readiness as r_engine
 from ..engines import workouts
 from ..engines.plan import generate_plans, monday_of
 from ..models import Activity, DailyMetrics, UserPreferences, WeeklyPlanRow
-from . import ai, mappers
+from . import ai, goal_progress, mappers
 
 _ALLOWED_INTENSITIES = set(ai.PLAN_INTENSITIES)
 _WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -29,7 +29,9 @@ async def _load_prefs(session: AsyncSession, user_id: str) -> UserPreferences | 
     return await session.get(UserPreferences, uuid.UUID(str(user_id)))
 
 
-async def _athlete_context(session: AsyncSession, user_id: str) -> str:
+async def _athlete_context(
+    session: AsyncSession, user_id: str, prefs: UserPreferences | None
+) -> str:
     """Human-readable athlete profile: current recovery state + training history,
     with explicit average-person fallbacks when either is missing."""
     lines: list[str] = []
@@ -79,6 +81,12 @@ async def _athlete_context(session: AsyncSession, user_id: str) -> str:
             "No training history on file — assume an average recreationally active "
             "person as the baseline and progress load conservatively."
         )
+
+    targets = (getattr(prefs, "sport_targets", {}) if prefs else {}) or {}
+    for domain, t in targets.items():
+        desc = goal_progress.describe_target(domain, t) if isinstance(t, dict) else None
+        if desc:
+            lines.append(f"Athlete goal ({domain}): {desc}.")
     return "\n".join(lines)
 
 
@@ -150,7 +158,7 @@ async def prepare(
 
     plans = generate_plans(from_date, weeks, frequency, split, priority)
     id_map, block = _enumerate_sessions(plans)
-    context = await _athlete_context(session, user_id) if id_map else ""
+    context = await _athlete_context(session, user_id, prefs) if id_map else ""
     return plans, id_map, block, context, cycling_target
 
 

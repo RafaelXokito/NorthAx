@@ -9,14 +9,14 @@ import datetime as dt
 import logging
 import uuid
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, literal_column, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..db import session_scope
 from ..engines import readiness as r_engine
 from ..models import Activity, CoachMessage, DailyMetrics, IntervalsConnection, StravaConnection, User
 from ..security import decrypt_token, encrypt_token
-from ..services import ai, mappers
+from ..services import ai, goal_progress, mappers
 from ..services.intervals import (
     IntervalsClient,
     IntervalsNotConfigured,
@@ -69,6 +69,22 @@ async def compute_readiness_all() -> int:
     return count
 
 
+async def _upsert_activity(session, values: dict, merge_fields: tuple[str, ...]) -> bool:
+    """Blind activity upsert; returns True when the row was newly INSERTed
+    (Postgres leaves xmax = 0 on inserts, non-zero on conflict updates)."""
+    stmt = (
+        pg_insert(Activity)
+        .values(**values)
+        .on_conflict_do_update(
+            index_elements=[Activity.user_id, Activity.source, Activity.external_id],
+            index_where=Activity.external_id.isnot(None),  # matches the partial unique index
+            set_={k: values[k] for k in merge_fields},
+        )
+        .returning(literal_column("(xmax = 0)"))
+    )
+    return bool((await session.execute(stmt)).scalar_one())
+
+
 # ── intervals-sync ───────────────────────────────────────────────────────────
 async def _valid_access_token(session, conn: IntervalsConnection) -> str:
     """Return a usable token. Personal API keys never expire; OAuth tokens are
@@ -105,20 +121,13 @@ async def intervals_sync(user_id: str) -> dict:
         # 1. Activities → activities table (before metrics so any fallback load is current).
         raw_activities = await client.fetch_activities(access, since, until, api_key=is_key, athlete_id=athlete)
         activities = 0
+        new_domains: set[str] = set()
         for raw in raw_activities:
             values = normalize_intervals_activity(raw) | {"user_id": uuid.UUID(user_id)}
             if not values.get("start_time"):
                 continue
-            stmt = (
-                pg_insert(Activity)
-                .values(**values)
-                .on_conflict_do_update(
-                    index_elements=[Activity.user_id, Activity.source, Activity.external_id],
-                    index_where=Activity.external_id.isnot(None),  # matches the partial unique index
-                    set_={k: values[k] for k in ("name", "start_time", "duration_seconds", "training_load")},
-                )
-            )
-            await session.execute(stmt)
+            if await _upsert_activity(session, values, ("name", "start_time", "duration_seconds", "training_load")):
+                new_domains.add(values["domain"])
             activities += 1
 
         # 2. Wellness → daily_metrics (§9.3); ctl/atl come straight from intervals.icu.
@@ -135,6 +144,8 @@ async def intervals_sync(user_id: str) -> dict:
                 metrics_days += 1
 
         conn.last_sync_at = dt.datetime.now(dt.timezone.utc)
+    if new_domains:
+        goal_progress.schedule_analysis(user_id, new_domains)  # best-effort, non-blocking
     return {"activities": activities, "metrics_days": metrics_days}
 
 
@@ -174,22 +185,17 @@ async def strava_sync(user_id: str) -> dict:
         after = (conn.last_sync_at - dt.timedelta(days=3)) if conn.last_sync_at else (dt.datetime.now(dt.timezone.utc) - dt.timedelta(weeks=8))
         raw_activities = await client.fetch_activities(access, after)
         activities = 0
+        new_domains: set[str] = set()
         for raw in raw_activities:
             values = normalize_strava_activity(raw) | {"user_id": uuid.UUID(user_id)}
             if not values.get("start_time"):
                 continue
-            stmt = (
-                pg_insert(Activity)
-                .values(**values)
-                .on_conflict_do_update(
-                    index_elements=[Activity.user_id, Activity.source, Activity.external_id],
-                    index_where=Activity.external_id.isnot(None),
-                    set_={k: values[k] for k in _ACTIVITY_MERGE_FIELDS},
-                )
-            )
-            await session.execute(stmt)
+            if await _upsert_activity(session, values, _ACTIVITY_MERGE_FIELDS):
+                new_domains.add(values["domain"])
             activities += 1
         conn.last_sync_at = dt.datetime.now(dt.timezone.utc)
+    if new_domains:
+        goal_progress.schedule_analysis(user_id, new_domains)  # best-effort, non-blocking
     return {"activities": activities}
 
 

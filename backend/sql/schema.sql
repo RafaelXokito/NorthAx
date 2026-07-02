@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   cycling_target       TEXT NOT NULL DEFAULT 'hr',   -- 'hr' (default) | 'power'
   metric_priority      JSONB NOT NULL DEFAULT '{}',  -- { metric -> [source,...] } conflict resolution
   activity_priority    JSONB NOT NULL DEFAULT '[]',  -- [source,...] activity-source preference (§13)
+  sport_targets        JSONB NOT NULL DEFAULT '{}',  -- { domain -> {goalType, targetDate, ...} }
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Migration for existing DBs (idempotent):
@@ -106,6 +107,7 @@ ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS domain_schedules JSONB NOT
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS thresholds JSONB NOT NULL DEFAULT '{}';
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS metric_priority JSONB NOT NULL DEFAULT '{}';
 ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS activity_priority JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS sport_targets JSONB NOT NULL DEFAULT '{}';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- activities
@@ -151,6 +153,20 @@ CREATE TABLE IF NOT EXISTS weekly_plans (
   UNIQUE (user_id, week_start)
 );
 CREATE INDEX IF NOT EXISTS weekly_plans_user_week_idx ON weekly_plans(user_id, week_start);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- goal_progress  (latest AI goal-progress verdict per targeted sport)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS goal_progress (
+  user_id            UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  domain             TEXT NOT NULL,
+  verdict            TEXT NOT NULL,              -- 'on_track' | 'behind' | 'ahead'
+  summary            TEXT NOT NULL,
+  recommend_replan   BOOLEAN NOT NULL DEFAULT false,
+  latest_activity_at TIMESTAMPTZ,                -- newest activity considered (dedupe)
+  analyzed_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, domain)
+);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- coach_messages
@@ -207,7 +223,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'refresh_tokens', 'daily_metrics', 'user_preferences',
     'activities', 'weekly_plans', 'coach_messages', 'intervals_connections',
-    'metric_readings', 'strava_connections'
+    'metric_readings', 'strava_connections', 'goal_progress'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS user_isolation ON %I', t);

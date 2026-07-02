@@ -153,6 +153,18 @@ struct DaySplitDTO: Codable {
     var isRestDay: Bool
 }
 
+// `targetDate` is a "yyyy-MM-dd" string (not a full datetime), like
+// ManualMetricsRequest.date — the encoder would emit an ISO datetime otherwise.
+struct SportTargetDTO: Codable {
+    var goalType: String       // "raceTime" | "powerHold" | "distanceAvgSpeed"
+    var targetDate: String
+    var distanceKm: Double?
+    var finishTimeSec: Int?
+    var zone: Int?
+    var holdMinutes: Int?
+    var avgSpeedKmh: Double?
+}
+
 struct UserPreferencesDTO: Codable {
     var enabledDomains: [String]
     var domainSchedules: [DomainScheduleDTO]
@@ -161,6 +173,7 @@ struct UserPreferencesDTO: Codable {
     var thresholds: AthleteThresholdsDTO = AthleteThresholdsDTO()
     var metricPriority: [String: [String]] = [:]   // metric -> [source, ...]
     var activityPriority: [String] = []            // §13 — ordered activity sources
+    var sportTargets: [String: SportTargetDTO]?    // optional: older backends omit it
 }
 
 struct ActivityPriorityPatch: Encodable {
@@ -200,6 +213,18 @@ struct ThresholdsPatch: Encodable {
 
 struct MuscleSplitPatch: Encodable {
     var muscleGroupSplit: [DaySplitDTO]
+}
+
+struct SportTargetsPatch: Encodable {
+    var sportTargets: [String: SportTargetDTO]   // full replace; omit a domain to clear it
+}
+
+struct GoalProgressDTO: Decodable {
+    var domain: String
+    var verdict: String          // "on_track" | "behind" | "ahead"
+    var summary: String
+    var recommendReplan: Bool
+    var analyzedAt: Date
 }
 
 // MARK: - Coach (§6.8, §6.9)

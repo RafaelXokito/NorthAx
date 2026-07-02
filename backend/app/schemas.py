@@ -232,6 +232,18 @@ class DaySplitDTO(_Base):
     is_rest_day: bool = False
 
 
+class SportTargetDTO(_Base):
+    """One structured goal for a sport (flat + goalType discriminator)."""
+
+    goal_type: str  # "raceTime" | "powerHold" | "distanceAvgSpeed"
+    target_date: dt.date
+    distance_km: float | None = None    # raceTime, distanceAvgSpeed
+    finish_time_sec: int | None = None  # raceTime
+    zone: int | None = None             # powerHold (1-5)
+    hold_minutes: int | None = None     # powerHold
+    avg_speed_kmh: float | None = None  # distanceAvgSpeed
+
+
 class UserPreferencesDTO(_Base):
     enabled_domains: list[str] = Field(default_factory=lambda: ["Cycling", "Strength"])
     domain_schedules: list[DomainScheduleDTO] = Field(default_factory=list)
@@ -242,6 +254,8 @@ class UserPreferencesDTO(_Base):
     metric_priority: dict[str, list[str]] = Field(default_factory=dict)
     # Ordered activity-data source preference (§13): [source, ...] (highest first).
     activity_priority: list[str] = Field(default_factory=list)
+    # Per-sport goal target: { domain -> target } (one per sport).
+    sport_targets: dict[str, SportTargetDTO] = Field(default_factory=dict)
 
 
 class CyclingTargetPatch(_Base):
@@ -280,6 +294,21 @@ class ThresholdsPatch(_Base):
 
 class MuscleSplitPatch(_Base):
     muscle_group_split: list[DaySplitDTO]
+
+
+class SportTargetsPatch(_Base):
+    """Full replacement of the per-sport targets map (omit a domain to clear it)."""
+
+    sport_targets: dict[str, SportTargetDTO]
+
+
+# ── Goal progress (post-sync AI analysis) ────────────────────────────────────
+class GoalProgressDTO(_Base):
+    domain: str
+    verdict: str  # "on_track" | "behind" | "ahead"
+    summary: str
+    recommend_replan: bool = False
+    analyzed_at: dt.datetime
 
 
 # ── Activities (§6.6, §6.12) ─────────────────────────────────────────────────

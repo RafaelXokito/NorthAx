@@ -115,6 +115,7 @@ struct ParsedPreferences {
     var thresholds: AthleteThresholds
     var metricPriority: MetricSourcePriority
     var activityPriority: ActivitySourcePriority
+    var sportTargets: [TrainingDomain: SportTarget]
 }
 
 extension UserPreferencesDTO {
@@ -135,6 +136,11 @@ extension UserPreferencesDTO {
         } else {
             split = .pushPullLegs
         }
+        var targets: [TrainingDomain: SportTarget] = [:]
+        for (key, dto) in sportTargets ?? [:] {
+            guard let d = TrainingDomain(rawValue: key), let t = dto.toDomain() else { continue }
+            targets[d] = t
+        }
         return ParsedPreferences(
             enabledDomains: domains,
             frequency: TrainingFrequency(schedules: scheds),
@@ -142,8 +148,41 @@ extension UserPreferencesDTO {
             cyclingTarget: cyclingTarget,
             thresholds: thresholds.toDomain(),
             metricPriority: MetricSourcePriority(wire: metricPriority),
-            activityPriority: ActivitySourcePriority(wire: activityPriority)
+            activityPriority: ActivitySourcePriority(wire: activityPriority),
+            sportTargets: targets
         )
+    }
+}
+
+extension SportTargetDTO {
+    func toDomain() -> SportTarget? {
+        guard let kind = GoalType(rawValue: goalType),
+              let date = JSONCoders.calendarDate.date(from: targetDate) else { return nil }
+        return SportTarget(
+            goalType: kind, targetDate: date, distanceKm: distanceKm,
+            finishTimeSec: finishTimeSec, zone: zone,
+            holdMinutes: holdMinutes, avgSpeedKmh: avgSpeedKmh
+        )
+    }
+}
+
+extension SportTarget {
+    func toDTO() -> SportTargetDTO {
+        SportTargetDTO(
+            goalType: goalType.rawValue,
+            targetDate: JSONCoders.calendarDate.string(from: targetDate),
+            distanceKm: distanceKm, finishTimeSec: finishTimeSec, zone: zone,
+            holdMinutes: holdMinutes, avgSpeedKmh: avgSpeedKmh
+        )
+    }
+}
+
+extension GoalProgressDTO {
+    func toDomain() -> GoalCheck? {
+        guard let d = TrainingDomain(rawValue: domain),
+              let v = GoalCheck.Verdict(rawValue: verdict) else { return nil }
+        return GoalCheck(domain: d, verdict: v, summary: summary,
+                         recommendReplan: recommendReplan, analyzedAt: analyzedAt)
     }
 }
 

@@ -142,6 +142,8 @@ class UserPreferences(Base):
     metric_priority: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     # Ordered activity-data source preference (§13): [source, ...], highest first.
     activity_priority: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    # Per-sport goal target: { domain -> {goalType, targetDate, ...} }.
+    sport_targets: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -191,6 +193,22 @@ class WeeklyPlanRow(Base):
     week_start: Mapped[dt.date] = mapped_column(Date, nullable=False)
     days: Mapped[list] = mapped_column(JSONB, nullable=False)
     generated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GoalProgress(Base):
+    """Latest AI goal-progress verdict per targeted sport (upserted post-sync)."""
+
+    __tablename__ = "goal_progress"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    domain: Mapped[str] = mapped_column(Text, primary_key=True)
+    verdict: Mapped[str] = mapped_column(Text, nullable=False)  # on_track | behind | ahead
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    recommend_replan: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    latest_activity_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    analyzed_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class CoachMessage(Base):

@@ -77,6 +77,10 @@ PLAN_SYSTEM = (
     "the session duration. Do NOT return `blocks` for Strength, Mobility, or Recovery sessions. "
     f"intensityLabel MUST be exactly one of: {', '.join(PLAN_INTENSITIES)}. "
     "duration is an integer number of minutes between 15 and 240. "
+    "When the athlete profile lists a goal with a target date, periodise that sport's "
+    "sessions toward it: bias the work toward the goal's specific demand (race pace, "
+    "zone-power holds, or sustained speed over distance) and progress it appropriately "
+    "for the time remaining. "
     "Reply with ONLY a JSON object, no prose, no markdown fences, shaped exactly as: "
     '{"sessions": [{"id": <int>, "title": "<string>", "subtitle": "<string>", '
     '"duration": <int>, "intensityLabel": "<one of the allowed values>", '
@@ -297,6 +301,45 @@ async def plan_generate(athlete_context: str, sessions_block: str) -> dict | Non
     parsed = _extract_json(raw or "")
     if not parsed or not isinstance(parsed.get("sessions"), list):
         return None
+    return parsed
+
+
+# ── Goal-progress analysis (default model; JSON) ─────────────────────────────
+GOAL_PROGRESS_SYSTEM = (
+    "You are an elite endurance coach judging whether an athlete is on pace to reach a "
+    "stated goal by its target date, given only their recent training in that sport. "
+    "Never invent data — reason strictly from the sessions and thresholds provided, and "
+    "weigh how much time remains. verdict is 'on_track', 'behind' (the current trajectory "
+    "will miss the goal), or 'ahead' (clearly exceeding the required trajectory). "
+    "recommendReplan is true when the training plan should be regenerated — i.e. the "
+    "athlete is behind, or so far ahead the plan under-challenges them. "
+    "Reply with ONLY a JSON object, no prose, no markdown fences, shaped exactly as: "
+    '{"verdict": "on_track" | "behind" | "ahead", "summary": "<2-3 plain sentences>", '
+    '"recommendReplan": true | false}'
+)
+
+GOAL_VERDICTS = ("on_track", "behind", "ahead")
+
+
+async def goal_progress_analysis(
+    target_desc: str, days_left: int, activities_block: str, thresholds_line: str
+) -> dict | None:
+    """Assess progress toward one sport target. Returns the parsed verdict dict,
+    or None on any failure (best-effort — callers must tolerate None)."""
+    prompt = (
+        f"Goal: {target_desc}\n"
+        f"Days until target date: {days_left}\n"
+        + (f"Athlete thresholds: {thresholds_line}\n" if thresholds_line else "")
+        + f"\nRecent sessions in this sport (most recent first):\n{activities_block}\n\n"
+        "Is the athlete on pace to reach the goal by the target date?"
+    )
+    raw = await _run(
+        settings.ai_model_default, GOAL_PROGRESS_SYSTEM, prompt, settings.ai_cli_default_timeout
+    )
+    parsed = _extract_json(raw or "")
+    if not parsed or parsed.get("verdict") not in GOAL_VERDICTS or not isinstance(parsed.get("summary"), str):
+        return None
+    parsed["recommendReplan"] = bool(parsed.get("recommendReplan"))
     return parsed
 
 

@@ -61,6 +61,16 @@ class AthleteStore {
             }
         }
     }
+    /// Per-sport goal targets. They only influence the AI planner, so changes are
+    /// staged plan changes (no offline branch — the local engine ignores them).
+    var sportTargets: [TrainingDomain: SportTarget] = [:] {
+        didSet {
+            guard sportTargets != oldValue, !suppressServerSync, TokenStore.shared.hasSession else { return }
+            pendingPlanChanges = true   // staged — applied via applyPlanChanges()
+        }
+    }
+    /// Latest AI goal-progress verdicts (dashboard "Goal check" card).
+    var goalChecks: [GoalCheck] = []
     /// Athlete physiological thresholds. PATCHes a partial merge; does NOT
     /// regenerate plans (zones are render-time only).
     var thresholds: AthleteThresholds = AthleteThresholds() {
@@ -195,6 +205,8 @@ class AthleteStore {
         metrics = nil
         readiness = nil
         weeklyPlans = []
+        sportTargets = [:]
+        goalChecks = []
     }
 
     // MARK: - Backend loading
@@ -206,6 +218,7 @@ class AthleteStore {
         await loadMetricsAndReadiness()
         await loadPlans()
         await loadActivities()
+        await loadGoalProgress()
         prefetchDailySuggestionsIfNeeded()
         await loadCoachHistory()
         await intervals.refreshStatus()
@@ -221,6 +234,7 @@ class AthleteStore {
         trainingFrequency = prefs.frequency
         if prefs.frequency.totalTrainingDays > 0 { hasSetFrequency = true }
         cyclingTarget = prefs.cyclingTarget
+        sportTargets = prefs.sportTargets
         thresholds = prefs.thresholds
         metricPriority = prefs.metricPriority
         activityPriority = prefs.activityPriority
@@ -321,6 +335,15 @@ class AthleteStore {
         }
     }
 
+    /// Latest AI goal-progress verdicts (empty on failure or when no sport has a
+    /// target). Refreshed on load and after a source sync.
+    func loadGoalProgress() async {
+        guard TokenStore.shared.hasSession else { return }
+        if let checks = try? await api.goalProgress() {
+            goalChecks = checks
+        }
+    }
+
     /// When the app opens (or foregrounds), pull the latest from connected sources
     /// so the plan/dashboard reflect reality without a manual sync. Throttled and
     /// non-blocking; a no-op when nothing is connected.
@@ -341,6 +364,7 @@ class AthleteStore {
         if didSync {
             await loadActivities()
             await loadMetricsAndReadiness()
+            await loadGoalProgress()
         }
     }
 
@@ -584,6 +608,7 @@ class AthleteStore {
         _ = try? await api.updateSchedule(trainingFrequency.schedules)
         _ = try? await api.updateMuscleSplit(muscleGroupSplit)
         _ = try? await api.updateCyclingTarget(cyclingTarget)
+        _ = try? await api.updateSportTargets(sportTargets)
 
         if let plans = try? await api.generatePlanAI(), !plans.isEmpty {
             weeklyPlans = plans

@@ -116,6 +116,22 @@ struct NorthAxAPI {
         return dto.toDomain()
     }
 
+    /// Replace the per-sport goal targets (staged plan change; no server-side regen —
+    /// the caller follows up with `generatePlanAI()`).
+    func updateSportTargets(_ targets: [TrainingDomain: SportTarget]) async throws -> ParsedPreferences {
+        let wire = Dictionary(uniqueKeysWithValues: targets.map { ($0.key.rawValue, $0.value.toDTO()) })
+        let dto: UserPreferencesDTO = try await client.patch(
+            "preferences/sport-targets", body: SportTargetsPatch(sportTargets: wire)
+        )
+        return dto.toDomain()
+    }
+
+    /// Latest AI goal-progress verdict per targeted sport (empty when none).
+    func goalProgress() async throws -> [GoalCheck] {
+        let dtos: [GoalProgressDTO] = try await client.get("goals/progress")
+        return dtos.compactMap { $0.toDomain() }
+    }
+
     /// Sync the per-metric source ranking used for multi-integration conflict
     /// resolution; does not regenerate plans.
     func updateMetricPriority(_ priority: MetricSourcePriority) async throws -> ParsedPreferences {

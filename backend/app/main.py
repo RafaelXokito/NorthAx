@@ -25,7 +25,7 @@ from .errors import (
     http_exception_handler,
     validation_error_handler,
 )
-from .routers import activities, ai, auth, intervals, metrics, plan, preferences, readiness, strava, user
+from .routers import activities, ai, auth, goals, intervals, metrics, plan, preferences, readiness, strava, user
 
 logging.basicConfig(level=settings.log_level.upper())
 
@@ -59,6 +59,7 @@ TAGS_METADATA = [
     {"name": "activities", "description": "Manual + Garmin-synced activities (§7.7)."},
     {"name": "intervals", "description": "intervals.icu OAuth connection + sync + workout push (§7.8 / §9)."},
     {"name": "ai", "description": "Coach chat (SSE), session suggestion, strength generation (§7.9–7.10)."},
+    {"name": "goals", "description": "Latest AI goal-progress verdict per targeted sport."},
     {"name": "meta", "description": "Health and service metadata."},
 ]
 
@@ -93,7 +94,7 @@ app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 V1 = "/v1"
-for module in (auth, user, metrics, readiness, preferences, plan, activities, intervals, strava, ai):
+for module in (auth, user, metrics, readiness, preferences, plan, activities, intervals, strava, ai, goals):
     app.include_router(module.router, prefix=V1)
 
 
