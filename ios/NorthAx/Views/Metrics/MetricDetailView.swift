@@ -34,28 +34,21 @@ struct MetricHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: detail.icon)
-                .font(.title3)
-                .foregroundStyle(detail.color)
-                .frame(width: 42, height: 42)
-                .background(detail.color.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            IconTile(systemName: detail.icon, color: detail.color, size: 42, radius: 10)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(detail.title)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                Text(detail.statusLabel)
-                    .font(.caption)
-                    .foregroundStyle(detail.statusColor)
-                    .fontWeight(.semibold)
+                    .font(.axDisplay(15, .bold))
+                    .foregroundStyle(.axPrimary)
+                AxPill(text: detail.statusLabel, color: detail.statusColor)
             }
 
             Spacer()
 
             Text(detail.value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+                .font(.axDisplay(22, .heavy))
+                .tracking(-0.44)
+                .foregroundStyle(.axPrimary)
         }
     }
 }
@@ -83,15 +76,15 @@ struct MetricDetailView: View {
 
                     if let source = detail.sourceLabel {
                         Label("Source: \(source)", systemImage: "antenna.radiowaves.left.and.right")
-                            .font(.caption)
+                            .font(.axMono(10))
                             .foregroundStyle(.axTertiary)
                     }
 
                     if detail.series.count > 1 {
-                        Picker("Range", selection: $range) {
-                            ForEach(ChartRange.allCases) { Text($0.label).tag($0) }
-                        }
-                        .pickerStyle(.segmented)
+                        AxSegmented(
+                            options: ChartRange.allCases.map { ($0, $0.label) },
+                            selection: $range
+                        )
 
                         MetricChartView(
                             values: sliced(detail.series),
@@ -103,13 +96,13 @@ struct MetricDetailView: View {
                         .frame(height: 240)
 
                         Text("Touch and drag the graph to read any day.")
-                            .font(.caption)
+                            .font(.axDisplay(11.5))
                             .foregroundStyle(.axTertiary)
                     }
 
                     divider
                     Text(detail.description)
-                        .font(.subheadline)
+                        .font(.axDisplay(13.5))
                         .foregroundStyle(.axSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -119,12 +112,12 @@ struct MetricDetailView: View {
                         ForEach(detail.rows, id: \.0) { row in
                             HStack {
                                 Text(row.0)
-                                    .font(.subheadline)
+                                    .font(.axDisplay(13.5))
                                     .foregroundStyle(.axSecondary)
                                 Spacer()
                                 Text(row.1)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white)
+                                    .font(.axMono(12, .semibold))
+                                    .foregroundStyle(.axPrimary)
                             }
                         }
                     }

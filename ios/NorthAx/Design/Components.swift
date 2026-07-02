@@ -259,6 +259,37 @@ struct SyncedActivityRow: View {
     }
 }
 
+// MARK: - Segmented control
+
+/// Inset-track segmented control: mono uppercase labels, lighter fill on the
+/// active segment. Used for ranges (7D/30D/90D) and config choices (HR/Power…).
+struct AxSegmented<T: Hashable>: View {
+    let options: [(value: T, label: String)]
+    @Binding var selection: T
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(options, id: \.value) { option in
+                Button { selection = option.value } label: {
+                    Text(option.label)
+                        .font(.axMono(10, .semibold))
+                        .tracking(0.8)
+                        .textCase(.uppercase)
+                        .foregroundStyle(selection == option.value ? .axPrimary : .axTertiary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 30)
+                        .background(selection == option.value ? Color.white.opacity(0.10) : .clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(Color.axInset)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
 // MARK: - Formatters
 
 enum AxFormat {

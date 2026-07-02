@@ -54,20 +54,18 @@ struct MetricsView: View {
 
     private func card(_ detail: MetricDetail) -> some View {
         Button { selected = detail } label: {
-            VStack(alignment: .leading, spacing: 14) {
-                MetricHeader(detail: detail)
-                MetricChartView(
-                    values: Array(detail.series.suffix(30)),
-                    dates: Array(detail.dates.suffix(30)),
-                    color: detail.color,
-                    format: detail.format
-                )
-                .frame(height: 150)
+            AxCard(radius: 20, padding: 20) {
+                VStack(alignment: .leading, spacing: 14) {
+                    MetricHeader(detail: detail)
+                    MetricChartView(
+                        values: Array(detail.series.suffix(30)),
+                        dates: Array(detail.dates.suffix(30)),
+                        color: detail.color,
+                        format: detail.format
+                    )
+                    .frame(height: 150)
+                }
             }
-            .padding(20)
-            .background(Color.axSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -76,20 +74,17 @@ struct MetricsView: View {
 
     private func fitnessFatigueCard(_ metrics: TrainingMetrics) -> some View {
         let n = min(metrics.ctlSeries.count, metrics.atlSeries.count, metrics.trendDates.count)
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("FITNESS & FATIGUE")
-                .font(.system(size: 10, weight: .semibold)).foregroundStyle(.axTertiary).tracking(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            FitnessFatigueChart(
-                ctl: Array(metrics.ctlSeries.suffix(n)),
-                atl: Array(metrics.atlSeries.suffix(n)),
-                dates: Array(metrics.trendDates.suffix(n))
-            )
+        return AxCard(radius: 20, padding: 20) {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionLabel("FITNESS & FATIGUE")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                FitnessFatigueChart(
+                    ctl: Array(metrics.ctlSeries.suffix(n)),
+                    atl: Array(metrics.atlSeries.suffix(n)),
+                    dates: Array(metrics.trendDates.suffix(n))
+                )
+            }
         }
-        .padding(20)
-        .background(Color.axSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.axBorder, lineWidth: 1))
     }
 
     private func vo2maxDetails(_ metrics: TrainingMetrics) -> [MetricDetail] {
@@ -164,7 +159,7 @@ struct MetricsView: View {
                 color: .axAccent,
                 value: "TSB \(metrics.trainingBalance >= 0 ? "+" : "")\(Int(metrics.trainingBalance))",
                 statusLabel: abs(metrics.trainingBalance) < 10 ? "Balanced" : (metrics.trainingBalance < 0 ? "Fatigued" : "Fresh"),
-                statusColor: abs(metrics.trainingBalance) < 10 ? .axGreen : (metrics.trainingBalance < -15 ? .axRed : Color(red: 1.0, green: 0.7, blue: 0.2)),
+                statusColor: abs(metrics.trainingBalance) < 10 ? .axGreen : (metrics.trainingBalance < -15 ? .axRed : .axAmber),
                 description: "Training Stress Balance (TSB) = Fitness (CTL) minus Fatigue (ATL). Peak performance happens in a narrow window around zero — enough fitness without excess fatigue.",
                 rows: [
                     ("Fitness (CTL)", String(format: "%.0f", metrics.chronicLoad)),
@@ -184,7 +179,7 @@ struct MetricsView: View {
                 color: .axRed,
                 value: "\(metrics.restingHR) bpm",
                 statusLabel: metrics.restingHRChange <= 0 ? "Efficient" : (metrics.restingHRChange > 5 ? "Elevated" : "Slightly elevated"),
-                statusColor: metrics.restingHRChange <= 0 ? .axGreen : (metrics.restingHRChange > 5 ? .axRed : Color(red: 1.0, green: 0.7, blue: 0.2)),
+                statusColor: metrics.restingHRChange <= 0 ? .axGreen : (metrics.restingHRChange > 5 ? .axRed : .axAmber),
                 description: "Resting heart rate is a reliable secondary indicator of recovery. When your body is stressed, your heart works harder at rest. A reading at or below your personal baseline confirms the HRV signal.",
                 rows: [
                     ("Resting HR", "\(metrics.restingHR) bpm"),
@@ -204,7 +199,7 @@ struct MetricsView: View {
     private func scoreColor(_ score: Int) -> Color {
         switch score {
         case 80...100: return .axGreen
-        case 60..<80:  return Color(red: 1.0, green: 0.7, blue: 0.2)
+        case 60..<80:  return .axAmber
         default:       return .axRed
         }
     }

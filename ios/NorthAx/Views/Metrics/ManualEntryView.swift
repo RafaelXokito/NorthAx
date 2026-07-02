@@ -23,7 +23,7 @@ struct ManualEntryView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     Text("Enter today's readings by hand. Blank fields are left to your other sources, following your Data Priority settings.")
-                        .font(.subheadline)
+                        .font(.axDisplay(13.5))
                         .foregroundStyle(.axSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -57,18 +57,19 @@ struct ManualEntryView: View {
     private func field(_ label: String, unit: String, text: Binding<String>) -> some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .font(.axDisplay(14, .semibold))
+                .foregroundStyle(.axPrimary)
             Spacer()
             TextField("—", text: text)
 #if os(iOS)
                 .keyboardType(.decimalPad)
 #endif
                 .multilineTextAlignment(.trailing)
-                .foregroundStyle(.white)
+                .font(.axMono(13, .semibold))
+                .foregroundStyle(.axPrimary)
                 .frame(width: 70)
-            Text(unit)
-                .font(.caption)
+            Text(unit.uppercased())
+                .font(.axMono(10))
                 .foregroundStyle(.axSecondary)
                 .frame(width: 34, alignment: .leading)
         }
