@@ -219,6 +219,7 @@ class AthleteStore {
         if !prefs.enabledDomains.isEmpty { enabledDomains = prefs.enabledDomains }
         muscleGroupSplit = prefs.split
         trainingFrequency = prefs.frequency
+        if prefs.frequency.totalTrainingDays > 0 { hasSetFrequency = true }
         cyclingTarget = prefs.cyclingTarget
         thresholds = prefs.thresholds
         metricPriority = prefs.metricPriority
