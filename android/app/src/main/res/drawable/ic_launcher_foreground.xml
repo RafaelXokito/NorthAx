@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder launcher icon: "N" compass needle on the Instrument accent.
+     The iOS project has no exported icon assets; replace with real artwork. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF6A1A"
+        android:pathData="M54,26 L66,54 L54,82 L42,54 Z" />
+    <path
+        android:fillColor="#F5F5F3"
+        android:pathData="M54,26 L66,54 L54,54 L42,54 Z" />
+</vector>

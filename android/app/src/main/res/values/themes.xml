@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Near-black window background so the app never flashes white; the real
+         theming happens in Compose (Theme.kt). -->
+    <style name="Theme.NorthAx" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ax_background</item>
+        <item name="android:statusBarColor">@color/ax_background</item>
+        <item name="android:navigationBarColor">@color/ax_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
