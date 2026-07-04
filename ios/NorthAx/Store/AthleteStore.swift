@@ -326,6 +326,49 @@ class AthleteStore {
         await health.saveWorkout(domain: domain, title: title, start: start, end: end)
     }
 
+    /// Persist a live-logged strength workout as a `manual` activity so the plan
+    /// matcher marks the session done, then mirror it to HealthKit (§4). In a
+    /// debug session it's appended locally so the flow stays explorable offline.
+    /// Returns false when the backend rejects the save (caller shows an error).
+    func logStrengthWorkout(title: String, startedAt: Date, durationSeconds: Int,
+                            exercises: [LoggedExercise]) async -> Bool {
+        let name = title.isEmpty ? "Strength Workout" : title
+        if TokenStore.shared.hasSession {
+            let request = ActivityCreateRequest(
+                name: name, domain: TrainingDomain.strength.rawValue,
+                startTime: startedAt, durationSeconds: durationSeconds,
+                strengthExercises: exercises.map { $0.toDTO() }
+            )
+            guard (try? await api.createActivity(request)) != nil else { return false }
+            await loadActivities()
+        } else {
+            weekActivities.append(GarminActivity(
+                id: UUID().uuidString, name: name, type: .strengthTraining,
+                startTime: startedAt, duration: TimeInterval(durationSeconds),
+                distanceMeters: nil, elevationGain: nil, avgHeartRate: nil,
+                maxHeartRate: nil, calories: nil, trainingLoad: nil,
+                strengthExercises: exercises
+            ))
+        }
+        await health.saveWorkout(domain: .strength, title: name, start: startedAt,
+                                 end: startedAt.addingTimeInterval(TimeInterval(durationSeconds)))
+        return true
+    }
+
+    /// Rewrite the exercise log of a completed strength workout. Debug sessions
+    /// edit the local copy so the flow stays explorable offline. Returns false
+    /// when the backend rejects the update (caller shows an error).
+    func updateStrengthWorkout(activityId: String, exercises: [LoggedExercise]) async -> Bool {
+        if TokenStore.shared.hasSession {
+            guard (try? await api.updateActivityExercises(
+                id: activityId, exercises: exercises.map { $0.toDTO() })) != nil else { return false }
+            await loadActivities()
+        } else if let idx = weekActivities.firstIndex(where: { $0.id == activityId }) {
+            weekActivities[idx].strengthExercises = exercises
+        }
+        return true
+    }
+
     func loadPlans() async {
         if let plans = try? await api.plans(weeks: 4), !plans.isEmpty {
             weeklyPlans = plans
@@ -391,6 +434,12 @@ class AthleteStore {
     var currentWeekMatches: [SessionMatch] {
         guard let week = currentWeek else { return [] }
         return PlanMatchingEngine.matches(week: week, activities: weekActivities)
+    }
+
+    /// Today's dashboard rows: planned sessions plus off-plan extras, shown
+    /// even when no plan week covers today.
+    var todayMatches: [SessionMatch] {
+        PlanMatchingEngine.todayMatches(week: currentWeek, activities: weekActivities)
     }
 
     // MARK: - Week navigation (§11)

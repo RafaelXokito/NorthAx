@@ -338,6 +338,32 @@ struct IntervalsWorkoutPushResponse: Decodable {
 
 // MARK: - Activities (§6.6)
 
+struct LoggedSetDTO: Codable {
+    var weightKg: Double?
+    var reps: Int
+}
+
+struct LoggedExerciseDTO: Codable {
+    var name: String
+    var muscleGroup: String
+    var sets: [LoggedSetDTO]
+}
+
+/// Create a `manual` activity — used to persist an in-app logged strength
+/// workout so the plan matcher marks the session done.
+struct ActivityCreateRequest: Encodable {
+    var name: String
+    var domain: String
+    var startTime: Date
+    var durationSeconds: Int
+    var strengthExercises: [LoggedExerciseDTO]?
+}
+
+/// Rewrite the exercise log of an in-app logged strength activity.
+struct ActivityExercisesPatch: Encodable {
+    var strengthExercises: [LoggedExerciseDTO]
+}
+
 struct ActivityDTO: Decodable {
     var id: String
     var externalId: String?
@@ -353,6 +379,7 @@ struct ActivityDTO: Decodable {
     var calories: Int?
     var trainingLoad: Double?
     var notes: String?
+    var strengthExercises: [LoggedExerciseDTO]?
     var createdAt: Date
 }
 

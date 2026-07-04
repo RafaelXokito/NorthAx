@@ -62,6 +62,12 @@ def _merge_by_priority(rows: list[Activity], priority: list[str]) -> list[schema
             for field in _MERGE_FILL_FLOAT:
                 if getattr(dto, field) is None and getattr(other, field) is not None:
                     setattr(dto, field, float(getattr(other, field)))
+            # A manually logged strength session merged under a watch-synced
+            # duplicate keeps its exercise log.
+            if dto.strength_exercises is None and other.strength_exercises is not None:
+                dto.strength_exercises = [
+                    schemas.LoggedExerciseDTO.model_validate(e) for e in other.strength_exercises
+                ]
         out.append(dto)
     return out
 
@@ -187,6 +193,11 @@ async def create_activity(
         calories=body.calories,
         training_load=body.training_load,
         notes=body.notes,
+        strength_exercises=(
+            [e.model_dump(by_alias=True) for e in body.strength_exercises]
+            if body.strength_exercises
+            else None
+        ),
     )
     session.add(row)
     await session.flush()
@@ -212,7 +223,15 @@ async def update_activity(
     row = await _load(session, user_id, activity_id)
     if row.source == "garmin":
         raise activity_garmin_immutable()
-    for field, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    if "strength_exercises" in data:
+        # Stored JSONB is camelCase (matches create + the DTO round-trip).
+        data["strength_exercises"] = (
+            [e.model_dump(by_alias=True) for e in body.strength_exercises]
+            if body.strength_exercises
+            else None
+        )
+    for field, value in data.items():
         setattr(row, field, value)
     return _dto(row)
 

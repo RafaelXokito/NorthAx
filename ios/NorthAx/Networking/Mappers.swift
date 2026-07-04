@@ -309,7 +309,28 @@ extension ActivityDTO {
             startTime: startTime, duration: TimeInterval(durationSeconds),
             distanceMeters: distanceMeters, elevationGain: elevationGain,
             avgHeartRate: avgHeartRate, maxHeartRate: maxHeartRate,
-            calories: calories, trainingLoad: trainingLoad
+            calories: calories, trainingLoad: trainingLoad,
+            strengthExercises: strengthExercises?.compactMap { $0.toDomain() },
+            source: source
+        )
+    }
+}
+
+extension LoggedExerciseDTO {
+    func toDomain() -> LoggedExercise? {
+        guard let mg = MuscleGroup(rawValue: muscleGroup) else { return nil }
+        return LoggedExercise(
+            name: name, muscleGroup: mg,
+            sets: sets.map { LoggedSet(weightKg: $0.weightKg, reps: $0.reps) }
+        )
+    }
+}
+
+extension LoggedExercise {
+    func toDTO() -> LoggedExerciseDTO {
+        LoggedExerciseDTO(
+            name: name, muscleGroup: muscleGroup.rawValue,
+            sets: sets.map { LoggedSetDTO(weightKg: $0.weightKg, reps: $0.reps) }
         )
     }
 }

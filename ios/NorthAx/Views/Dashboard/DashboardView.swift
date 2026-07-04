@@ -21,10 +21,14 @@ struct DashboardView: View {
                         compactReadiness(readiness)
                     }
 
+                    // Today's session always reflects today — independent of the
+                    // week being browsed in the strip below, and shown even when
+                    // no plan week covers today (off-plan extras still appear).
+                    if store.currentWeek != nil || !store.todayMatches.isEmpty {
+                        todaySection(store.todayMatches)
+                    }
+
                     if store.currentWeek != nil, let data = store.weekData(offset: weekOffset) {
-                        // Today's session always reflects today — independent of the
-                        // week being browsed in the strip below.
-                        todaySection(store.currentWeekMatches.filter { $0.day.isToday })
                         WeekGlanceView(week: data.week, matches: data.matches,
                                        offset: $weekOffset, maxForward: store.maxFutureWeekOffset) { date in
                             if let m = data.matches.first(where: { $0.day.date == date }) { selectedMatch = m }
@@ -36,7 +40,7 @@ struct DashboardView: View {
                         goalCheckSection
                     }
 
-                    if store.readiness == nil && store.currentWeek == nil {
+                    if store.readiness == nil && store.currentWeek == nil && store.todayMatches.isEmpty {
                         noDataSection
                     }
 #if DEBUG

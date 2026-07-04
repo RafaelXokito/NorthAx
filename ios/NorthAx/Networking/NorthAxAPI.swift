@@ -252,6 +252,22 @@ struct NorthAxAPI {
         _ = try await client.send("DELETE", "integrations/strava/disconnect")
     }
 
+    /// Persist an in-app logged workout as a `manual` activity.
+    @discardableResult
+    func createActivity(_ request: ActivityCreateRequest) async throws -> GarminActivity {
+        let dto: ActivityDTO = try await client.post("activities", body: request)
+        return dto.toGarminActivity()
+    }
+
+    /// Rewrite the exercise log of an in-app logged (manual) strength activity.
+    @discardableResult
+    func updateActivityExercises(id: String, exercises: [LoggedExerciseDTO]) async throws -> GarminActivity {
+        let dto: ActivityDTO = try await client.patch(
+            "activities/\(id)", body: ActivityExercisesPatch(strengthExercises: exercises)
+        )
+        return dto.toGarminActivity()
+    }
+
     func activities(limit: Int = 20, source: String? = nil) async throws -> [GarminActivity] {
         var query = [URLQueryItem(name: "limit", value: String(limit))]
         if let source { query.append(URLQueryItem(name: "source", value: source)) }

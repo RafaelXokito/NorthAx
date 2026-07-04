@@ -312,6 +312,17 @@ class GoalProgressDTO(_Base):
 
 
 # ── Activities (§6.6, §6.12) ─────────────────────────────────────────────────
+class LoggedSetDTO(_Base):
+    weight_kg: float | None = None  # None = bodyweight
+    reps: int = Field(gt=0)
+
+
+class LoggedExerciseDTO(_Base):
+    name: str = Field(min_length=1)
+    muscle_group: str
+    sets: list[LoggedSetDTO] = Field(min_length=1)
+
+
 class ActivityDTO(_Base):
     id: uuid.UUID
     external_id: str | None = None
@@ -327,6 +338,7 @@ class ActivityDTO(_Base):
     calories: int | None = None
     training_load: float | None = None
     notes: str | None = None
+    strength_exercises: list[LoggedExerciseDTO] | None = None
     created_at: dt.datetime
 
 
@@ -342,6 +354,7 @@ class ActivityInput(_Base):
     calories: int | None = None
     training_load: float | None = None
     notes: str | None = None
+    strength_exercises: list[LoggedExerciseDTO] | None = None
 
 
 class ActivityPatch(_Base):
@@ -356,6 +369,7 @@ class ActivityPatch(_Base):
     calories: int | None = None
     training_load: float | None = None
     notes: str | None = None
+    strength_exercises: list[LoggedExerciseDTO] | None = None
 
 
 class PaginatedActivities(_Base):

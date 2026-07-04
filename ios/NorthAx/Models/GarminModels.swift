@@ -35,6 +35,12 @@ struct GarminActivity: Identifiable, Codable {
     var maxHeartRate: Int?
     var calories: Int?
     var trainingLoad: Double?    // normalized TSS equivalent
+    var strengthExercises: [LoggedExercise]? = nil   // in-app logged sets (strength only)
+    var source: String? = nil    // backend source ("manual", "garmin", …); nil = local-only
+
+    /// Only in-app logged (manual) activities can be edited after the fact —
+    /// synced ones live in the source system, and their DTO id is external.
+    var isEditable: Bool { source == "manual" || source == nil }
 
     var formattedDuration: String {
         let m = Int(duration / 60)

@@ -204,6 +204,70 @@ async def test_create_manual_activity(api):
     assert (await client.get("/v1/activities", headers=headers)).json()["total"] == 1
 
 
+async def test_create_strength_activity_with_exercise_log(api):
+    # The per-set strength log must round-trip through the JSONB column in
+    # camelCase on both create and list.
+    client, headers, _ = api
+    exercises = [
+        {
+            "name": "Barbell Bench Press",
+            "muscleGroup": "Chest",
+            "sets": [{"weightKg": 60.0, "reps": 8}, {"weightKg": 62.5, "reps": 6}],
+        },
+        {
+            "name": "Pull-Ups",
+            "muscleGroup": "Back",
+            "sets": [{"weightKg": None, "reps": 10}],  # bodyweight
+        },
+    ]
+    body = {
+        "name": "Push Day",
+        "domain": "Strength",
+        "startTime": "2026-07-01T18:00:00Z",
+        "durationSeconds": 2700,
+        "strengthExercises": exercises,
+    }
+    r = await client.post("/v1/activities", headers=headers, json=body)
+    assert r.status_code == 201, r.text
+    assert r.json()["strengthExercises"] == exercises
+
+    items = (await client.get("/v1/activities", headers=headers)).json()["items"]
+    logged = next(a for a in items if a["domain"] == "Strength")
+    assert logged["strengthExercises"] == exercises
+
+
+async def test_patch_strength_exercise_log(api):
+    # Editing a done workout's exercises/weights rewrites the JSONB log while
+    # leaving the rest of the activity untouched.
+    client, headers, _ = api
+    body = {
+        "name": "Leg Day",
+        "domain": "Strength",
+        "startTime": "2026-07-02T18:00:00Z",
+        "durationSeconds": 3000,
+        "strengthExercises": [
+            {"name": "Back Squat", "muscleGroup": "Legs", "sets": [{"weightKg": 80.0, "reps": 5}]},
+        ],
+    }
+    created = (await client.post("/v1/activities", headers=headers, json=body)).json()
+
+    edited = [
+        {"name": "Front Squat", "muscleGroup": "Legs",
+         "sets": [{"weightKg": 60.0, "reps": 8}, {"weightKg": 65.0, "reps": 6}]},
+        {"name": "Leg Press", "muscleGroup": "Legs", "sets": [{"weightKg": 120.0, "reps": 10}]},
+    ]
+    r = await client.patch(
+        f"/v1/activities/{created['id']}", headers=headers,
+        json={"strengthExercises": edited},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["strengthExercises"] == edited
+    assert r.json()["durationSeconds"] == 3000
+
+    fetched = (await client.get(f"/v1/activities/{created['id']}", headers=headers)).json()
+    assert fetched["strengthExercises"] == edited
+
+
 async def test_garmin_activity_upsert(api):
     # Exercises the Garmin upsert ON CONFLICT against the *partial* unique index
     # (regression for the full-constraint vs partial-index mismatch found on the

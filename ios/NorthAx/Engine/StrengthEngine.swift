@@ -119,6 +119,11 @@ struct StrengthEngine {
         ]
     ]
 
+    /// Movement names for one muscle group — the pick list for the live logger.
+    static func movements(for group: MuscleGroup) -> [String] {
+        (db[group] ?? []).map(\.name)
+    }
+
     private static func buildExercises(for muscleGroups: [MuscleGroup], intensity: Intensity) -> [ExerciseSuggestion] {
         let exercisesPerGroup = muscleGroups.count <= 2 ? 3 : 2
         var result: [ExerciseSuggestion] = []

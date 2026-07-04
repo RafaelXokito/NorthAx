@@ -132,6 +132,27 @@ enum PlanMatchingEngine {
             .map(\.element)
     }
 
+    /// Today's rows for the dashboard: today's matches from the current week,
+    /// plus an extra entry for any workout done today that no plan day covers —
+    /// a lapsed or missing plan must not hide what the athlete actually did.
+    static func todayMatches(week: WeeklyPlan?, activities: [GarminActivity],
+                             today: Date = Date()) -> [SessionMatch] {
+        let cal = Calendar.current
+        let weekMatches = week.map { matches(week: $0, activities: activities, today: today) } ?? []
+        var out = weekMatches.filter { cal.isDate($0.day.date, inSameDayAs: today) }
+        let seen = Set(out.compactMap { $0.activity?.id })
+        let day = PlannedDay(date: cal.startOfDay(for: today), sessions: [], isRest: false)
+        for a in activities where cal.isDate(a.startTime, inSameDayAs: today) && !seen.contains(a.id) {
+            let session = PlannedSession(
+                domain: a.type.domain, title: a.name, subtitle: "",
+                duration: Int(a.duration / 60), intensityLabel: "Completed"
+            )
+            out.append(SessionMatch(id: session.id, day: day, session: session,
+                                    completion: .extra, activity: a))
+        }
+        return out
+    }
+
     /// Roll a day's session matches up to a single state for the week strip:
     /// rest → any missed → all done → otherwise planned.
     static func dayState(day: PlannedDay, matches: [SessionMatch]) -> SessionCompletion {

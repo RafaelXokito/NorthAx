@@ -10,6 +10,8 @@ struct WorkoutDetailView: View {
     @State private var marking = false
     @State private var streams: ActivityStreams?
     @State private var pushState: PushState = .idle
+    @State private var showLogger = false
+    @State private var showLogEditor = false
 
     private enum PushState { case idle, pushing, pushed, failed }
 
@@ -26,7 +28,11 @@ struct WorkoutDetailView: View {
                     // planned-vs-actual comparison are meaningless for them.
                     if match.completion != .extra { plannedTargets }
                     if match.completion != .extra, let activity = match.activity { actualVsPlanned(activity) }
+                    if let logged = match.activity?.strengthExercises, !logged.isEmpty {
+                        loggedExercisesSection(logged)
+                    }
                     if let streams, hasVisibleStreams(streams) { activityDataSection(streams) }
+                    if canStartWorkout { startWorkoutButton }
                     if !match.completion.isCompleted { switchSection }
                     if match.completion == .planned, store.intervals.connectionState.isConnected {
                         pushToGarminButton
@@ -46,6 +52,16 @@ struct WorkoutDetailView: View {
             .task {
                 if match.completion.isCompleted, let id = match.activity?.id {
                     streams = await store.activityStreams(for: id)
+                }
+            }
+            .sheet(isPresented: $showLogger) {
+                // Once saved, this view's `match` snapshot is stale — close it so
+                // the plan reappears with the session marked done.
+                StrengthLoggerView(match: match, onSaved: { dismiss() })
+            }
+            .sheet(isPresented: $showLogEditor) {
+                if let activity = match.activity {
+                    StrengthLoggerView(editing: activity, onSaved: { dismiss() })
                 }
             }
         }
@@ -271,6 +287,77 @@ struct WorkoutDetailView: View {
                         Text("Basic suggestions — smart recommendations aren't available right now.")
                             .font(.caption2).foregroundStyle(.axTertiary)
                             .padding(.top, 2)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Start workout (strength only): live in-app set logging
+
+    /// Only strength sessions can be started in-app; every other sport is
+    /// recorded by a watch/head unit and arrives via sync.
+    private var canStartWorkout: Bool {
+        session.domain == .strength && (match.completion == .planned || match.completion == .missed)
+    }
+
+    private var startWorkoutButton: some View {
+        Button { showLogger = true } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "play.fill")
+                Text("Start workout")
+            }
+            .font(.axDisplay(15, .bold))
+            .foregroundStyle(Color.axBackground)
+            .frame(maxWidth: .infinity).frame(height: 50)
+            .background(Color.axAccent)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+        }
+    }
+
+    /// Whether the exercise log can be edited after the fact — only in-app
+    /// logged (manual) activities; synced ones live in the source system.
+    private var canEditLog: Bool {
+        match.activity?.isEditable ?? false
+    }
+
+    private func loggedExercisesSection(_ logged: [LoggedExercise]) -> some View {
+        AxCard(radius: 18, padding: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    SectionLabel("LOGGED")
+                    Spacer()
+                    if canEditLog {
+                        Button { showLogEditor = true } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 9, weight: .bold))
+                                Text("EDIT")
+                                    .font(.axMono(10, .semibold))
+                                    .tracking(1.2)
+                            }
+                            .foregroundStyle(.axAccent)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                loggedExerciseRows(logged)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func loggedExerciseRows(_ logged: [LoggedExercise]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(logged) { ex in
+                HStack(alignment: .top, spacing: 10) {
+                    IconTile(systemName: ExerciseIcons.symbol(for: ex.name, group: ex.muscleGroup),
+                             color: ex.muscleGroup.color, size: 30, radius: 8)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ex.name).font(.axDisplay(14, .bold)).foregroundStyle(.axPrimary)
+                        Text(ex.sets.map(\.display).joined(separator: " · "))
+                            .font(.axMono(10)).foregroundStyle(.axSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
