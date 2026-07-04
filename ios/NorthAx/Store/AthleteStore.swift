@@ -282,10 +282,13 @@ class AthleteStore {
     /// Today's raw HealthKit readings, or empty when reading is disabled.
     private func healthKitReadings() async -> HealthKitReadings {
         guard health.readEnabled else { return HealthKitReadings() }
+        let night = await health.lastNightSleep()
         return HealthKitReadings(
             hrv: await health.latestHRV(),
             restingHR: await health.latestRestingHR(),
-            sleepHours: await health.lastNightSleepHours(),
+            sleepHours: night?.totalHours,
+            remSleep: night?.remHours,
+            deepSleep: night?.deepHours,
             weight: await health.latestWeight()
         )
     }
@@ -307,7 +310,7 @@ class AthleteStore {
             restingHRBaseline: r.restingHR ?? 0,
             sleepDuration: r.sleepHours ?? 0,
             sleepScore: r.sleepHours.map { min(100, Int($0 / 8.0 * 100)) } ?? 0,
-            remSleep: 0, deepSleep: 0, sleepDebt: 0,
+            remSleep: r.remSleep ?? 0, deepSleep: r.deepSleep ?? 0, sleepDebt: 0,
             acuteLoad: 0, chronicLoad: 0,    // no HealthKit load model → neutral balance
             todayLoad: 0, weeklyLoadChange: 0,
             bodyWeight: r.weight

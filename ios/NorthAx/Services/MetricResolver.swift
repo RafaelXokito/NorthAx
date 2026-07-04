@@ -6,6 +6,9 @@ struct HealthKitReadings {
     var hrv: Double?
     var restingHR: Int?
     var sleepHours: Double?
+    /// REM/deep hours accompanying `sleepHours`; 0 when the source logs no stages.
+    var remSleep: Double?
+    var deepSleep: Double?
     var weight: Double?
 
     var isEmpty: Bool { hrv == nil && restingHR == nil && sleepHours == nil && weight == nil }
@@ -66,6 +69,10 @@ enum MetricResolver {
             if s == .healthkit, let v = hk?.sleepHours {
                 base.sleepDuration = v
                 base.sleepScore = min(100, Int(v / 8.0 * 100))
+                // Winner supplies the whole sleep group (matches server-side
+                // resolution), so the stage breakdown comes along too.
+                base.remSleep = hk?.remSleep ?? 0
+                base.deepSleep = hk?.deepSleep ?? 0
             }
             provenance[MergeableMetric.sleep.rawValue] = s
         }

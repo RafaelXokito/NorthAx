@@ -104,8 +104,18 @@ class HealthKitService {
         await todaySum(.distanceWalkingRunning, unit: .meter())
     }
 
-    /// Last night's asleep duration (hours), summing all "asleep" category values.
-    func lastNightSleepHours() async -> Double? {
+    /// Last night's sleep in hours, total plus the REM/deep stage breakdown.
+    /// Stages are 0 when the source only logs `asleepUnspecified` (e.g. non-Apple
+    /// trackers or pre-iOS 16 data).
+    struct SleepNight {
+        var totalHours: Double
+        var remHours: Double
+        var deepHours: Double
+    }
+
+    /// Last night's asleep duration, summing all "asleep" category values and
+    /// tallying the REM/deep stages separately.
+    func lastNightSleep() async -> SleepNight? {
         guard isAvailable, readEnabled,
               let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return nil }
 
@@ -124,10 +134,14 @@ class HealthKitService {
         return await withCheckedContinuation { cont in
             let q = HKSampleQuery(sampleType: type, predicate: predicate,
                                   limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
-                let total = (samples as? [HKCategorySample])?
-                    .filter { asleepValues.contains($0.value) }
-                    .reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) } ?? 0
-                cont.resume(returning: total > 0 ? total / 3600.0 : nil)
+                var night = SleepNight(totalHours: 0, remHours: 0, deepHours: 0)
+                for s in (samples as? [HKCategorySample]) ?? [] where asleepValues.contains(s.value) {
+                    let hours = s.endDate.timeIntervalSince(s.startDate) / 3600.0
+                    night.totalHours += hours
+                    if s.value == HKCategoryValueSleepAnalysis.asleepREM.rawValue { night.remHours += hours }
+                    if s.value == HKCategoryValueSleepAnalysis.asleepDeep.rawValue { night.deepHours += hours }
+                }
+                cont.resume(returning: night.totalHours > 0 ? night : nil)
             }
             store.execute(q)
         }
