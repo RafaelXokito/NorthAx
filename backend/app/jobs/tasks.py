@@ -131,7 +131,11 @@ async def intervals_sync(user_id: str) -> dict:
             activities += 1
 
         # 2. Wellness → daily_metrics (§9.3); ctl/atl come straight from intervals.icu.
-        raw_wellness = await client.fetch_wellness(access, since, until, api_key=is_key, athlete_id=athlete)
+        # Fetched for the full 90-day trend-graph window (not the incremental activity
+        # window): it's one small object per day and the upserts are idempotent, so this
+        # backfills history for existing connections and heals late-arriving readings.
+        wellness_since = until - dt.timedelta(days=90)
+        raw_wellness = await client.fetch_wellness(access, wellness_since, until, api_key=is_key, athlete_id=athlete)
         metrics_days = 0
         for raw in raw_wellness:
             wellness = normalize_intervals_wellness(raw)

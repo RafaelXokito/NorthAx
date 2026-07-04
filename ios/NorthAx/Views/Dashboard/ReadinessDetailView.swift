@@ -144,7 +144,8 @@ struct ReadinessDetailView: View {
                             .foregroundStyle(.axTertiary)
                     }
                 }
-                MetricChartView(values: g.values, dates: g.dates, color: g.color, format: g.format)
+                MetricChartView(values: g.values, dates: g.dates, color: g.color, format: g.format,
+                                interactive: true)
                     .frame(height: 150)
             }
         }
@@ -185,10 +186,13 @@ struct ReadinessDetailView: View {
                                  format: { "\(Int($0.rounded())) bpm" },
                                  source: m.source(for: .restingHR)?.displayName))
         }
+        // Days with no sleep reading are stored as 0 h; drop them so the line
+        // tracks real nights instead of dipping to the floor.
         let sleep = aligned(m.sleepSeries)
-        if !sleep.0.isEmpty {
+        let sleepNights = Array(zip(sleep.0, sleep.1).filter { $0.0 > 0 })
+        if sleepNights.count > 1 {
             out.append(GraphSpec(id: "sleep", title: "Sleep", color: .axPurple,
-                                 values: sleep.0, dates: sleep.1,
+                                 values: sleepNights.map(\.0), dates: sleepNights.map(\.1),
                                  format: { String(format: "%.1f h", $0) },
                                  source: m.source(for: .sleep)?.displayName))
         }

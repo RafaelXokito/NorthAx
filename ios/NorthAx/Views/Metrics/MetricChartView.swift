@@ -21,6 +21,7 @@ struct MetricChartView: View {
     private var minVal: Double { values.min() ?? 0 }
     private var maxVal: Double { values.max() ?? 1 }
     private var range: Double { Swift.max(maxVal - minVal, 0.0001) }
+    private var avgVal: Double { values.reduce(0, +) / Double(values.count) }
 
     var body: some View {
         if values.count < 2 {
@@ -84,6 +85,18 @@ struct MetricChartView: View {
                         startPoint: .top, endPoint: .bottom
                     )
                 )
+
+                // Series average as a dashed line (same style as ActivityStreamChart).
+                let yAvg = vPad + (1 - (avgVal - minVal) / range) * (geo.size.height - vPad * 2)
+                Path { p in
+                    p.move(to: CGPoint(x: 0, y: yAvg))
+                    p.addLine(to: CGPoint(x: geo.size.width, y: yAvg))
+                }
+                .stroke(color.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                Text("AVG \(format(avgVal))")
+                    .font(.axMono(8, .semibold))
+                    .foregroundStyle(color.opacity(0.8))
+                    .position(x: geo.size.width - 34, y: yAvg < 14 ? yAvg + 9 : yAvg - 7)
 
                 // Line
                 Path { p in
