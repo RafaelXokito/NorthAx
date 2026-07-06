@@ -11,6 +11,9 @@ struct WorkoutDetailView: View {
     @State private var streams: ActivityStreams?
     @State private var segments: [SegmentEffort] = []
     @State private var selectedSegment: SegmentEffort?
+    @State private var segmentsExpanded = true
+    @State private var segmentsPage = 0
+    private let segmentsPageSize = 10
     @State private var pushState: PushState = .idle
     @State private var showLogger = false
     @State private var showLogEditor = false
@@ -123,37 +126,100 @@ struct WorkoutDetailView: View {
     // MARK: - Segments (§13): Strava segment efforts for this ride/run
 
     private var segmentsSection: some View {
-        card("SEGMENTS") {
-            VStack(spacing: 8) {
-                ForEach(segments) { effort in
-                    Button { selectedSegment = effort } label: {
-                        HStack(spacing: 10) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(effort.name)
-                                    .font(.axDisplay(14, .bold))
-                                    .foregroundStyle(.axPrimary)
-                                    .lineLimit(1)
-                                Text(effort.formattedBest.map { "\(effort.metaLine) · PB \($0)" } ?? effort.metaLine)
-                                    .font(.axMono(10))
-                                    .tracking(0.4)
-                                    .foregroundStyle(.axTertiary)
-                            }
-                            Spacer()
-                            Text(effort.formattedTime)
-                                .font(.axMono(12, .semibold))
-                                .foregroundStyle(.axPrimary)
-                            if let badge = rankBadge(effort) { badge }
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.axTertiary)
-                        }
-                        .padding(12)
-                        .background(Color.axInset)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+        AxCard(radius: 18, padding: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { segmentsExpanded.toggle() }
+                } label: {
+                    HStack {
+                        SectionLabel("SEGMENTS · \(segments.count)")
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.axTertiary)
+                            .rotationEffect(.degrees(segmentsExpanded ? 0 : -90))
                     }
-                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if segmentsExpanded {
+                    VStack(spacing: 8) {
+                        ForEach(pagedSegments) { effort in
+                            segmentRow(effort)
+                        }
+                    }
+                    if segmentsPageCount > 1 { segmentsPager }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func segmentRow(_ effort: SegmentEffort) -> some View {
+        Button { selectedSegment = effort } label: {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(effort.name)
+                        .font(.axDisplay(14, .bold))
+                        .foregroundStyle(.axPrimary)
+                        .lineLimit(1)
+                    Text(effort.formattedBest.map { "\(effort.metaLine) · PB \($0)" } ?? effort.metaLine)
+                        .font(.axMono(10))
+                        .tracking(0.4)
+                        .foregroundStyle(.axTertiary)
+                }
+                Spacer()
+                Text(effort.formattedTime)
+                    .font(.axMono(12, .semibold))
+                    .foregroundStyle(.axPrimary)
+                if let badge = rankBadge(effort) { badge }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.axTertiary)
+            }
+            .padding(12)
+            .background(Color.axInset)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var pagedSegments: [SegmentEffort] {
+        Array(segments.dropFirst(segmentsPage * segmentsPageSize).prefix(segmentsPageSize))
+    }
+
+    private var segmentsPageCount: Int {
+        (segments.count + segmentsPageSize - 1) / segmentsPageSize
+    }
+
+    private var segmentsPager: some View {
+        HStack(spacing: 18) {
+            Spacer()
+            Button { segmentsPage -= 1 } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(segmentsPage > 0 ? .axSecondary : .axTertiary.opacity(0.4))
+                    .frame(width: 32, height: 32)
+                    .background(Color.axInset)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(segmentsPage == 0)
+            Text("\(segmentsPage + 1)/\(segmentsPageCount)")
+                .font(.axMono(11, .semibold))
+                .foregroundStyle(.axSecondary)
+            Button { segmentsPage += 1 } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(segmentsPage < segmentsPageCount - 1 ? .axSecondary : .axTertiary.opacity(0.4))
+                    .frame(width: 32, height: 32)
+                    .background(Color.axInset)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(segmentsPage >= segmentsPageCount - 1)
+            Spacer()
         }
     }
 

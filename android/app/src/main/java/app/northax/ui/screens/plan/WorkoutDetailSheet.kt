@@ -15,7 +15,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -29,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -255,14 +258,55 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
                 }
             }
 
-            // Strava segment efforts (§13)
+            // Strava segment efforts (§13): collapsible, paged by 10.
             if (segments.isNotEmpty()) {
+                var segmentsExpanded by remember { mutableStateOf(true) }
+                var segmentsPage by remember { mutableStateOf(0) }
+                val pageSize = 10
+                val pageCount = (segments.size + pageSize - 1) / pageSize
                 AxCard(modifier = Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SectionLabel("Segments")
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            segments.forEach { effort ->
-                                SegmentEffortRow(effort) { selectedSegment = effort }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { segmentsExpanded = !segmentsExpanded },
+                        ) {
+                            SectionLabel("Segments · ${segments.size}")
+                            Spacer(modifier = Modifier.weight(1f))
+                            Icon(
+                                Icons.Filled.ExpandMore,
+                                contentDescription = if (segmentsExpanded) "Collapse" else "Expand",
+                                tint = Ax.Tertiary,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .rotate(if (segmentsExpanded) 0f else -90f),
+                            )
+                        }
+                        if (segmentsExpanded) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                segments.drop(segmentsPage * pageSize).take(pageSize).forEach { effort ->
+                                    SegmentEffortRow(effort) { selectedSegment = effort }
+                                }
+                            }
+                            if (pageCount > 1) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    PagerArrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, enabled = segmentsPage > 0) {
+                                        segmentsPage -= 1
+                                    }
+                                    Text(
+                                        "${segmentsPage + 1}/$pageCount",
+                                        style = axMono(11, FontWeight.SemiBold),
+                                        color = Ax.Secondary,
+                                    )
+                                    PagerArrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, enabled = segmentsPage < pageCount - 1) {
+                                        segmentsPage += 1
+                                    }
+                                }
                             }
                         }
                     }
@@ -342,6 +386,25 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
 }
 
 private enum class PushState { Idle, Pushing, Pushed, Failed }
+
+@Composable
+private fun PagerArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(32.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Ax.Inset)
+            .clickable(enabled = enabled, onClick = onClick),
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (enabled) Ax.Secondary else Ax.Tertiary.copy(alpha = 0.4f),
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
 
 @Composable
 private fun SegmentEffortRow(effort: SegmentEffort, onClick: () -> Unit) {
