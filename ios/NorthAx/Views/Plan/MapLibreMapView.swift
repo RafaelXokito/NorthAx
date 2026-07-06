@@ -34,6 +34,10 @@ struct MapLibreMapView: UIViewRepresentable {
         let mapView = MLNMapView(frame: .zero, styleURL: styleURL)
         mapView.delegate = context.coordinator
         mapView.compassView.isHidden = true
+        // Chrome: no wordmark anywhere; the OSM attribution (license
+        // requirement) stays as the small ⓘ on the full-screen map only.
+        mapView.logoView.isHidden = true
+        mapView.attributionButton.isHidden = !interactive
         if !interactive {
             // Inert but still tappable: kill camera gestures, keep touch alive
             // so highlight badges can be hit-tested.
@@ -74,9 +78,17 @@ struct MapLibreMapView: UIViewRepresentable {
             let route = parent.route
             let routeSource = MLNShapeSource(identifier: "route", shape: Self.polyline(route))
             style.addSource(routeSource)
+            // Dark casing under the route so it pops off roads of similar hue.
+            let casingLayer = MLNLineStyleLayer(identifier: "route-casing", source: routeSource)
+            casingLayer.lineColor = NSExpression(forConstantValue: UIColor(Color.axBackground))
+            casingLayer.lineWidth = NSExpression(forConstantValue: 6)
+            casingLayer.lineOpacity = NSExpression(forConstantValue: 0.85)
+            casingLayer.lineCap = NSExpression(forConstantValue: "round")
+            casingLayer.lineJoin = NSExpression(forConstantValue: "round")
+            style.addLayer(casingLayer)
             let routeLayer = MLNLineStyleLayer(identifier: "route-line", source: routeSource)
             routeLayer.lineColor = NSExpression(forConstantValue: UIColor(parent.routeColor))
-            routeLayer.lineWidth = NSExpression(forConstantValue: 3)
+            routeLayer.lineWidth = NSExpression(forConstantValue: 3.5)
             routeLayer.lineCap = NSExpression(forConstantValue: "round")
             routeLayer.lineJoin = NSExpression(forConstantValue: "round")
             style.addLayer(routeLayer)

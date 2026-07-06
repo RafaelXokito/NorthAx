@@ -61,6 +61,7 @@ import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
+import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.geojson.Feature
@@ -205,6 +206,10 @@ private fun RouteMapView(
                     refs.map = map
                     map.uiSettings.setAllGesturesEnabled(interactive)
                     map.uiSettings.isCompassEnabled = false
+                    // Chrome: no wordmark anywhere; the OSM attribution (license
+                    // requirement) stays as the small ⓘ on the full-screen map only.
+                    map.uiSettings.isLogoEnabled = false
+                    map.uiSettings.isAttributionEnabled = interactive
                     if (interactive && onHighlightTap != null) {
                         map.addOnMapClickListener { latLng ->
                             val p = map.projection.toScreenLocation(latLng)
@@ -328,10 +333,20 @@ private fun crownPath(cx: Float, cy: Float, density: Float): android.graphics.Pa
 
 private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Color, density: Float) {
     style.addSource(org.maplibre.android.style.sources.GeoJsonSource("route", lineString(points)))
+    // Dark casing under the route so it pops off roads of similar hue.
+    style.addLayer(
+        LineLayer("route-casing", "route").withProperties(
+            lineColor(Ax.Background.toArgb()),
+            lineWidth(6f),
+            lineOpacity(0.85f),
+            lineCap(Property.LINE_CAP_ROUND),
+            lineJoin(Property.LINE_JOIN_ROUND),
+        ),
+    )
     style.addLayer(
         LineLayer("route-line", "route").withProperties(
             lineColor(color.toArgb()),
-            lineWidth(3f),
+            lineWidth(3.5f),
             lineCap(Property.LINE_CAP_ROUND),
             lineJoin(Property.LINE_JOIN_ROUND),
         ),
