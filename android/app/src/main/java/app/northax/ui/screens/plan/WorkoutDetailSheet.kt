@@ -47,6 +47,7 @@ import app.northax.ui.components.AxPillStyle
 import app.northax.ui.components.AxSheet
 import app.northax.ui.components.CompletionPill
 import app.northax.ui.components.IconTile
+import app.northax.ui.components.MapHighlight
 import app.northax.ui.components.RouteMapCard
 import app.northax.ui.components.SectionLabel
 import app.northax.ui.components.StatTile
@@ -224,7 +225,17 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         SectionLabel("Activity data")
                         if (isMotionDomain && s.latLng.size > 1) {
-                            RouteMapCard(points = s.latLng, color = session.domain.color)
+                            // Markers where this ride hit a ranked segment result.
+                            val highlights = segments.mapNotNull { effort ->
+                                val start = effort.points?.firstOrNull() ?: return@mapNotNull null
+                                when {
+                                    effort.komRank != null -> MapHighlight(start, MapHighlight.Kind.Kom)
+                                    effort.rank == 1 -> MapHighlight(start, MapHighlight.Kind.Best)
+                                    effort.rank == 2 || effort.rank == 3 -> MapHighlight(start, MapHighlight.Kind.Podium)
+                                    else -> null
+                                }
+                            }
+                            RouteMapCard(points = s.latLng, color = session.domain.color, highlights = highlights)
                         }
                         ActivityStreamCharts(
                             streams = s,

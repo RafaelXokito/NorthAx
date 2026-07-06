@@ -6,11 +6,12 @@ import SwiftUI
 /// Strava's activity page. Segment paths live in the per-segment sheet.
 struct RouteMapCard: View {
     let latLng: [[Double]]   // [[lat, lng], …], ≥ 2 pairs (caller-checked)
+    var highlights: [MapHighlight] = []   // where BEST/2nd/3rd/KOM were hit
     let color: Color
     @State private var showFullMap = false
 
     var body: some View {
-        MapLibreMapView(route: latLng, routeColor: color)
+        MapLibreMapView(route: latLng, routeColor: color, highlights: highlights)
             .allowsHitTesting(false)
             .frame(height: 180)
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -26,7 +27,7 @@ struct RouteMapCard: View {
             .onTapGesture { showFullMap = true }
             .sheet(isPresented: $showFullMap) {
                 NavigationStack {
-                    MapLibreMapView(route: latLng, routeColor: color, interactive: true)
+                    MapLibreMapView(route: latLng, routeColor: color, highlights: highlights, interactive: true)
                         .ignoresSafeArea(edges: .bottom)
                         .navigationTitle("Route")
                         .navigationBarTitleDisplayMode(.inline)

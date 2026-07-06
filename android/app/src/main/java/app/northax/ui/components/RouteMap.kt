@@ -59,16 +59,29 @@ import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 
+/** A ranked-segment marker on the route map: where a BEST/2nd/3rd/KOM was hit. */
+data class MapHighlight(val point: List<Double>, val kind: Kind) {
+    enum class Kind { Best, Podium, Kom }
+
+    val color: Color
+        get() = when (kind) {
+            Kind.Best -> Ax.Accent
+            Kind.Podium -> Ax.Amber
+            Kind.Kom -> Ax.Purple
+        }
+}
+
 /**
  * GPS route of a completed outdoor workout on the NorthAx-styled MapLibre map
- * (OpenFreeMap vector tiles, custom dark style in assets/northax-dark.json).
- * The inline map is inert; tapping it opens an interactive full-screen dialog
- * — mirrors iOS. Segment paths live in the per-segment sheet.
+ * (OpenFreeMap vector tiles, custom dark style in assets/northax-dark.json),
+ * with markers where this ride hit ranked segment results. The inline map is
+ * inert; tapping it opens an interactive full-screen dialog — mirrors iOS.
  */
 @Composable
 fun RouteMapCard(
     points: List<List<Double>>,
     color: Color,
+    highlights: List<MapHighlight> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     var showFullMap by remember { mutableStateOf(false) }
@@ -79,7 +92,7 @@ fun RouteMapCard(
             .height(180.dp)
             .clip(RoundedCornerShape(12.dp)),
     ) {
-        RouteMapView(points, color, interactive = false, modifier = Modifier.fillMaxSize())
+        RouteMapView(points, color, highlights, interactive = false, modifier = Modifier.fillMaxSize())
         // Transparent scrim: the MapView never sees touches; the card just taps.
         Box(
             modifier = Modifier
@@ -94,7 +107,7 @@ fun RouteMapCard(
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
             Box(modifier = Modifier.fillMaxSize().background(Ax.Background)) {
-                RouteMapView(points, color, interactive = true, modifier = Modifier.fillMaxSize())
+                RouteMapView(points, color, highlights, interactive = true, modifier = Modifier.fillMaxSize())
                 IconButton(
                     onClick = { showFullMap = false },
                     modifier = Modifier
@@ -118,19 +131,27 @@ fun SegmentMiniMap(points: List<List<Double>>, modifier: Modifier = Modifier) {
             .height(140.dp)
             .clip(RoundedCornerShape(12.dp)),
     ) {
-        RouteMapView(points, Ax.Purple, interactive = false, modifier = Modifier.fillMaxSize())
+        RouteMapView(points, Ax.Purple, emptyList(), interactive = false, modifier = Modifier.fillMaxSize())
         Box(modifier = Modifier.matchParentSize()) // swallow touches
     }
+}
+
+/** Holds the live style so recompositions can update the highlight markers. */
+private class MapRefs {
+    var style: Style? = null
+    var renderedHighlights: List<MapHighlight>? = null
 }
 
 @Composable
 private fun RouteMapView(
     points: List<List<Double>>,
     color: Color,
+    highlights: List<MapHighlight>,
     interactive: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
+    val refs = remember { MapRefs() }
     var mapView by remember { mutableStateOf<MapView?>(null) }
 
     AndroidView(
@@ -144,7 +165,9 @@ private fun RouteMapView(
                     map.uiSettings.setAllGesturesEnabled(interactive)
                     map.uiSettings.isCompassEnabled = false
                     map.setStyle(Style.Builder().fromUri("asset://northax-dark.json")) { style ->
+                        refs.style = style
                         addRouteLayers(style, points, color)
+                        setHighlights(refs, highlights)
                         val bounds = LatLngBounds.Builder()
                             .apply { points.forEach { include(LatLng(it[0], it[1])) } }
                             .build()
@@ -156,6 +179,7 @@ private fun RouteMapView(
                 mapView = this
             }
         },
+        update = { setHighlights(refs, highlights) },   // segments load after the map
     )
 
     DisposableEffect(lifecycleOwner) {
@@ -192,6 +216,19 @@ private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Colo
             lineJoin(Property.LINE_JOIN_ROUND),
         ),
     )
+    // One source+layer per highlight kind; features filled by setHighlights.
+    for (kind in MapHighlight.Kind.entries) {
+        val id = "highlight-${kind.name}"
+        style.addSource(org.maplibre.android.style.sources.GeoJsonSource(id, FeatureCollection.fromFeatures(emptyList())))
+        style.addLayer(
+            CircleLayer("$id-circle", id).withProperties(
+                circleColor(MapHighlight(emptyList(), kind).color.toArgb()),
+                circleRadius(6f),
+                circleStrokeColor(Ax.Background.toArgb()),
+                circleStrokeWidth(2f),
+            ),
+        )
+    }
     val endpoints = FeatureCollection.fromFeatures(
         listOf(
             Feature.fromGeometry(Point.fromLngLat(points.first()[1], points.first()[0])).apply { addStringProperty("kind", "start") },
@@ -221,6 +258,19 @@ private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Colo
             org.maplibre.android.style.expressions.Expression.literal("end"),
         )),
     )
+}
+
+private fun setHighlights(refs: MapRefs, highlights: List<MapHighlight>) {
+    val style = refs.style ?: return
+    if (refs.renderedHighlights == highlights) return
+    refs.renderedHighlights = highlights
+    for (kind in MapHighlight.Kind.entries) {
+        val features = highlights.filter { it.kind == kind }.map {
+            Feature.fromGeometry(Point.fromLngLat(it.point[1], it.point[0]))
+        }
+        style.getSourceAs<org.maplibre.android.style.sources.GeoJsonSource>("highlight-${kind.name}")
+            ?.setGeoJson(FeatureCollection.fromFeatures(features))
+    }
 }
 
 /**
