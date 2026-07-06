@@ -78,7 +78,12 @@ sleep 4
 echo "    api=$(systemctl is-active northax-api) worker=$(systemctl is-active northax-worker)"
 
 echo "==> health"
-health="$(curl -s --max-time 10 http://localhost:8080/health || true)"
+health=""
+for attempt in $(seq 1 10); do
+  health="$(curl -s --max-time 10 http://localhost:8080/health || true)"
+  case "$health" in *'"status":"ok"'*) break ;; esac
+  if [ "$attempt" -lt 10 ]; then sleep 2; fi
+done
 echo "    ${health:-FAIL}"
 case "$health" in *'"status":"ok"'*) : ;; *) echo "    !! health check failed"; exit 1 ;; esac
 
