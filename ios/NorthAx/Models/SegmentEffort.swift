@@ -15,9 +15,7 @@ struct SegmentEffort: Identifiable {
     var komRank: Int?         // 1–10 leaderboard placement
     var points: [[Double]]?   // segment geometry [[lat, lng], …]
     var bestElapsedSeconds: Int?   // the athlete's all-time best on this segment
-
-    /// Whether this effort is (still) the athlete's fastest on the segment.
-    var isAllTimeBest: Bool { bestElapsedSeconds != nil && elapsedSeconds == bestElapsedSeconds }
+    var rank: Int?                 // 1-based all-time rank of this effort on the segment
 
     /// "7:05" or "1:02:45".
     var formattedTime: String {

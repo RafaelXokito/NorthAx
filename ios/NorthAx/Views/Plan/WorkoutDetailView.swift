@@ -156,10 +156,9 @@ struct WorkoutDetailView: View {
 
     private func rankBadge(_ effort: SegmentEffort) -> AxPill? {
         if let kom = effort.komRank { return AxPill(text: kom == 1 ? "KOM" : "#\(kom)", color: .axPurple) }
-        // Our DB is the source of truth for "still your best"; Strava's pr_rank
-        // was only true at ride time.
-        if effort.isAllTimeBest { return AxPill(text: "BEST", color: .axAccent) }
-        switch effort.prRank {
+        // All-time rank from our DB — Strava's pr_rank was only true at ride time.
+        switch effort.rank {
+        case 1: return AxPill(text: "BEST", color: .axAccent)
         case 2: return AxPill(text: "2nd", color: .axAmber, style: .outline)
         case 3: return AxPill(text: "3rd", color: .axAmber, style: .outline)
         default: return nil

@@ -282,7 +282,7 @@ extension SegmentEffortDTO {
                       climbCategory: climbCategory, elapsedSeconds: elapsedSeconds,
                       movingSeconds: movingSeconds, startDate: startDate,
                       prRank: prRank, komRank: komRank, points: points,
-                      bestElapsedSeconds: bestElapsedSeconds)
+                      bestElapsedSeconds: bestElapsedSeconds, rank: rank)
     }
 }
 

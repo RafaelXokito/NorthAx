@@ -350,13 +350,11 @@ private fun SegmentEffortRow(effort: SegmentEffort, onClick: () -> Unit) {
             )
         }
         Text(effort.formattedTime, style = axMono(12, FontWeight.SemiBold), color = Ax.Primary)
-        // Our DB is the source of truth for "still your best"; Strava's pr_rank
-        // was only true at ride time.
+        // All-time rank from our DB — Strava's pr_rank was only true at ride time.
         effort.komRank?.let { kom ->
             AxPill(if (kom == 1) "KOM" else "#$kom", Ax.Purple)
-        } ?: if (effort.isAllTimeBest) {
-            AxPill("BEST", Ax.Accent)
-        } else when (effort.prRank) {
+        } ?: when (effort.rank) {
+            1 -> AxPill("BEST", Ax.Accent)
             2 -> AxPill("2nd", Ax.Amber, AxPillStyle.Outline)
             3 -> AxPill("3rd", Ax.Amber, AxPillStyle.Outline)
             else -> {}

@@ -205,21 +205,38 @@ async def activity_segments(
     efforts = list(result.scalars().all())
     geom: dict[str, list] = {}
     best: dict[str, int] = {}
+    rank_by_id: dict[uuid.UUID, int] = {}
     if efforts:
         seg_ids = {e.segment_id for e in efforts}
         rows = (await session.execute(
             select(Segment).where(Segment.segment_id.in_(seg_ids))
         )).scalars().all()
         geom = {s.segment_id: s.points for s in rows if len(s.points or []) >= 2}
-        best_rows = await session.execute(
-            select(SegmentEffort.segment_id, func.min(SegmentEffort.elapsed_seconds))
+        # All-time rank of every effort on these segments (ties share a rank);
+        # rank 1's elapsed doubles as the segment's best time.
+        ranked = await session.execute(
+            select(
+                SegmentEffort.id,
+                SegmentEffort.segment_id,
+                SegmentEffort.elapsed_seconds,
+                func.rank().over(
+                    partition_by=SegmentEffort.segment_id,
+                    order_by=SegmentEffort.elapsed_seconds.asc(),
+                ).label("rank"),
+            )
             .where(SegmentEffort.user_id == uuid.UUID(user_id), SegmentEffort.segment_id.in_(seg_ids))
-            .group_by(SegmentEffort.segment_id)
         )
-        best = {sid: int(m) for sid, m in best_rows.all()}
+        for row_id, sid, elapsed, rnk in ranked.all():
+            rank_by_id[row_id] = int(rnk)
+            if rnk == 1:
+                best[sid] = int(elapsed)
     return [
         schemas.SegmentEffortDTO.model_validate(e).model_copy(
-            update={"points": geom.get(e.segment_id), "best_elapsed_seconds": best.get(e.segment_id)}
+            update={
+                "points": geom.get(e.segment_id),
+                "best_elapsed_seconds": best.get(e.segment_id),
+                "rank": rank_by_id.get(e.id),
+            }
         )
         for e in efforts
     ]

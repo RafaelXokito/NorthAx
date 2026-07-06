@@ -18,10 +18,8 @@ data class SegmentEffort(
     val komRank: Int? = null, // 1–10 leaderboard placement
     val points: List<List<Double>>? = null, // segment geometry [[lat, lng], …]
     val bestElapsedSeconds: Int? = null, // the athlete's all-time best on this segment
+    val rank: Int? = null, // 1-based all-time rank of this effort on the segment
 ) {
-    /** Whether this effort is (still) the athlete's fastest on the segment. */
-    val isAllTimeBest: Boolean
-        get() = bestElapsedSeconds != null && elapsedSeconds == bestElapsedSeconds
 
     /** "7:05" or "1:02:45". */
     val formattedTime: String

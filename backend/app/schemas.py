@@ -555,6 +555,9 @@ class SegmentEffortDTO(_Base):
     # The athlete's all-time best on this segment (activity-segments endpoint
     # only) — lets the list flag "this ride set your best time".
     best_elapsed_seconds: int | None = None
+    # This effort's 1-based all-time rank among the athlete's efforts on the
+    # segment (activity-segments endpoint only; ties share a rank).
+    rank: int | None = None
 
 
 class SegmentHistoryDTO(_Base):

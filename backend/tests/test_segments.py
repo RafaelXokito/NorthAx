@@ -174,14 +174,33 @@ async def test_activity_segments_joins_points(api):
     assert by_seg["77"] is None
 
 
-async def test_activity_segments_carries_all_time_best(api):
+async def test_activity_segments_carries_all_time_best_and_rank(api):
     """This ride's effort on 55 is 425; yesterday's e0 was 450 → 425 is the best."""
     client, headers, user_id = api
     await _seed(user_id)
     r = await client.get("/v1/activities/stv-1/segments", headers=headers)
     by_seg = {e["segmentId"]: e for e in r.json()}
     assert by_seg["55"]["bestElapsedSeconds"] == 425   # this effort IS the best
+    assert by_seg["55"]["rank"] == 1
     assert by_seg["77"]["bestElapsedSeconds"] == 610
+    assert by_seg["77"]["rank"] == 1                   # only effort on 77
+
+
+async def test_activity_segments_rank_counts_later_efforts(api):
+    """Yesterday's e0 (450) is now 2nd all-time behind today's 425."""
+    client, headers, user_id = api
+    await _seed(user_id)
+    async with session_scope(None) as s:
+        s.add(Activity(user_id=uuid.UUID(user_id), external_id="stv-0", source="strava",
+                       name="Old ride", domain="Cycling",
+                       start_time=START - dt.timedelta(days=1, seconds=1000),
+                       duration_seconds=3600))
+    r = await client.get("/v1/activities/stv-0/segments", headers=headers)
+    body = r.json()
+    assert len(body) == 1
+    assert body[0]["elapsedSeconds"] == 450
+    assert body[0]["rank"] == 2
+    assert body[0]["bestElapsedSeconds"] == 425
 
 
 async def test_segment_history_carries_points(api):
