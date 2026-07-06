@@ -231,7 +231,8 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
                                 when {
                                     effort.komRank != null -> MapHighlight(start, MapHighlight.Kind.Kom)
                                     effort.rank == 1 -> MapHighlight(start, MapHighlight.Kind.Best)
-                                    effort.rank == 2 || effort.rank == 3 -> MapHighlight(start, MapHighlight.Kind.Podium)
+                                    effort.rank == 2 -> MapHighlight(start, MapHighlight.Kind.Second)
+                                    effort.rank == 3 -> MapHighlight(start, MapHighlight.Kind.Third)
                                     else -> null
                                 }
                             }

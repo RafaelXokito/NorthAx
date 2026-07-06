@@ -161,7 +161,8 @@ struct WorkoutDetailView: View {
             if effort.komRank != nil { return MapHighlight(point: start, kind: .kom) }
             switch effort.rank {
             case 1: return MapHighlight(point: start, kind: .best)
-            case 2, 3: return MapHighlight(point: start, kind: .podium)
+            case 2: return MapHighlight(point: start, kind: .second)
+            case 3: return MapHighlight(point: start, kind: .third)
             default: return nil
             }
         }

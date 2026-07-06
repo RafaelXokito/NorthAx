@@ -1,5 +1,6 @@
 package app.northax.ui.components
 
+import android.graphics.Paint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -46,6 +47,9 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
+import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.circleColor
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
@@ -54,6 +58,7 @@ import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
@@ -61,13 +66,22 @@ import org.maplibre.geojson.Point
 
 /** A ranked-segment marker on the route map: where a BEST/2nd/3rd/KOM was hit. */
 data class MapHighlight(val point: List<Double>, val kind: Kind) {
-    enum class Kind { Best, Podium, Kom }
+    enum class Kind { Best, Second, Third, Kom }
 
     val color: Color
         get() = when (kind) {
             Kind.Best -> Ax.Accent
-            Kind.Podium -> Ax.Amber
+            Kind.Second, Kind.Third -> Ax.Amber
             Kind.Kom -> Ax.Purple
+        }
+
+    /** Badge glyph — unicode so iOS and Android render the same marks. */
+    val glyph: String
+        get() = when (kind) {
+            Kind.Best -> "★"
+            Kind.Second -> "2"
+            Kind.Third -> "3"
+            Kind.Kom -> "♛"
         }
 }
 
@@ -166,7 +180,7 @@ private fun RouteMapView(
                     map.uiSettings.isCompassEnabled = false
                     map.setStyle(Style.Builder().fromUri("asset://northax-dark.json")) { style ->
                         refs.style = style
-                        addRouteLayers(style, points, color)
+                        addRouteLayers(style, points, color, resources.displayMetrics.density)
                         setHighlights(refs, highlights)
                         val bounds = LatLngBounds.Builder()
                             .apply { points.forEach { include(LatLng(it[0], it[1])) } }
@@ -206,7 +220,30 @@ private fun RouteMapView(
 private fun lineString(path: List<List<Double>>): LineString =
     LineString.fromLngLats(path.map { Point.fromLngLat(it[1], it[0]) })
 
-private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Color) {
+/** 22dp circular badge in the kind's color with a centered glyph. */
+private fun badgeBitmap(color: Int, glyph: String, density: Float): android.graphics.Bitmap {
+    val size = (22 * density).toInt()
+    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val cx = size / 2f
+    val radius = cx - 1.5f * density
+    canvas.drawCircle(cx, cx, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+    canvas.drawCircle(cx, cx, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = Ax.Background.toArgb()
+        style = Paint.Style.STROKE
+        strokeWidth = 2f * density
+    })
+    val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = android.graphics.Color.WHITE
+        textSize = 11f * density
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+        textAlign = Paint.Align.CENTER
+    }
+    canvas.drawText(glyph, cx, cx - (text.descent() + text.ascent()) / 2, text)
+    return bitmap
+}
+
+private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Color, density: Float) {
     style.addSource(org.maplibre.android.style.sources.GeoJsonSource("route", lineString(points)))
     style.addLayer(
         LineLayer("route-line", "route").withProperties(
@@ -216,16 +253,19 @@ private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Colo
             lineJoin(Property.LINE_JOIN_ROUND),
         ),
     )
-    // One source+layer per highlight kind; features filled by setHighlights.
+    // One source + icon layer per highlight kind (★ / 2 / 3 / ♛ badges,
+    // rendered at runtime — the style ships no sprite sheet); features
+    // filled by setHighlights.
     for (kind in MapHighlight.Kind.entries) {
         val id = "highlight-${kind.name}"
+        val sample = MapHighlight(emptyList(), kind)
+        style.addImage(id, badgeBitmap(sample.color.toArgb(), sample.glyph, density))
         style.addSource(org.maplibre.android.style.sources.GeoJsonSource(id, FeatureCollection.fromFeatures(emptyList())))
         style.addLayer(
-            CircleLayer("$id-circle", id).withProperties(
-                circleColor(MapHighlight(emptyList(), kind).color.toArgb()),
-                circleRadius(6f),
-                circleStrokeColor(Ax.Background.toArgb()),
-                circleStrokeWidth(2f),
+            SymbolLayer("$id-icon", id).withProperties(
+                iconImage(id),
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true),
             ),
         )
     }

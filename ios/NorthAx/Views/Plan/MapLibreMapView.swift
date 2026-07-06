@@ -3,15 +3,25 @@ import MapLibre
 
 /// A ranked-segment marker on the route map: where a BEST/2nd/3rd/KOM was hit.
 struct MapHighlight: Equatable {
-    enum Kind: CaseIterable { case best, podium, kom }
+    enum Kind: CaseIterable { case best, second, third, kom }
     let point: [Double]   // [lat, lng] — the segment's start
     let kind: Kind
 
     var color: Color {
         switch kind {
         case .best: return .axAccent
-        case .podium: return .axAmber
+        case .second, .third: return .axAmber
         case .kom: return .axPurple
+        }
+    }
+
+    /// Badge glyph — unicode so iOS and Android render the same marks.
+    var glyph: String {
+        switch kind {
+        case .best: return "★"
+        case .second: return "2"
+        case .third: return "3"
+        case .kom: return "♛"
         }
     }
 }
@@ -71,16 +81,20 @@ struct MapLibreMapView: UIViewRepresentable {
             addCircleLayer(id: "endpoint-start", point: route.first, color: .axGreen, radius: 4, to: style)
             addCircleLayer(id: "endpoint-end", point: route.last, color: .axRed, radius: 4, to: style)
 
-            // One source+layer per highlight kind; shapes filled by updateHighlights.
+            // One source + icon layer per highlight kind (★ / 2 / 3 / ♛ badges,
+            // rendered at runtime — the style ships no sprite sheet); shapes
+            // filled by updateHighlights.
             for kind in MapHighlight.Kind.allCases {
+                let sample = MapHighlight(point: [], kind: kind)
+                style.setImage(Self.badgeImage(color: UIColor(sample.color), glyph: sample.glyph),
+                               forName: "highlight-\(kind)")
                 let source = MLNShapeSource(identifier: "highlight-\(kind)", shapes: [])
                 style.addSource(source)
                 highlightSources[kind] = source
-                let layer = MLNCircleStyleLayer(identifier: "highlight-\(kind)-circle", source: source)
-                layer.circleColor = NSExpression(forConstantValue: UIColor(MapHighlight(point: [], kind: kind).color))
-                layer.circleRadius = NSExpression(forConstantValue: 6)
-                layer.circleStrokeColor = NSExpression(forConstantValue: UIColor(Color.axBackground))
-                layer.circleStrokeWidth = NSExpression(forConstantValue: 2)
+                let layer = MLNSymbolStyleLayer(identifier: "highlight-\(kind)-icon", source: source)
+                layer.iconImageName = NSExpression(forConstantValue: "highlight-\(kind)")
+                layer.iconAllowsOverlap = NSExpression(forConstantValue: true)
+                layer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
                 style.addLayer(layer)
             }
             renderedHighlights = nil
@@ -120,6 +134,27 @@ struct MapLibreMapView: UIViewRepresentable {
             layer.circleStrokeColor = NSExpression(forConstantValue: UIColor(Color.axBackground))
             layer.circleStrokeWidth = NSExpression(forConstantValue: 2)
             style.addLayer(layer)
+        }
+
+        /// 22pt circular badge in the kind's color with a centered glyph.
+        static func badgeImage(color: UIColor, glyph: String) -> UIImage {
+            let size = CGSize(width: 22, height: 22)
+            return UIGraphicsImageRenderer(size: size).image { _ in
+                let rect = CGRect(origin: .zero, size: size).insetBy(dx: 1.5, dy: 1.5)
+                let circle = UIBezierPath(ovalIn: rect)
+                color.setFill()
+                circle.fill()
+                UIColor(Color.axBackground).setStroke()
+                circle.lineWidth = 2
+                circle.stroke()
+                let text = NSAttributedString(string: glyph, attributes: [
+                    .font: UIFont.systemFont(ofSize: 11, weight: .bold),
+                    .foregroundColor: UIColor.white,
+                ])
+                let textSize = text.size()
+                text.draw(at: CGPoint(x: (size.width - textSize.width) / 2,
+                                      y: (size.height - textSize.height) / 2))
+            }
         }
 
         private static func polyline(_ path: [[Double]]) -> MLNPolylineFeature {
