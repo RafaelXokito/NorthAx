@@ -181,6 +181,8 @@ class Activity(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Logged strength work: [{name, muscleGroup, sets: [{weightKg, reps}]}].
     strength_exercises: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Coarse GPS trace [[lat, lng], ...] for list thumbnails; NULL when indoor.
+    route_points: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

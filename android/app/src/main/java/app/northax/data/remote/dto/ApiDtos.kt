@@ -312,6 +312,7 @@ data class ActivityStreamsDto(
     val velocity: List<Double>,
     val altitude: List<Double>,
     val cadence: List<Double>,
+    val latLng: List<List<Double>> = emptyList(), // default: tolerates an older backend
     val source: String,
 )
 
@@ -388,6 +389,7 @@ data class ActivityDto(
     val trainingLoad: Double? = null,
     val notes: String? = null,
     val strengthExercises: List<LoggedExerciseDto>? = null,
+    val routePoints: List<List<Double>>? = null, // coarse [[lat, lng], …] for list thumbnails
     val createdAt: ApiInstant,
 )
 

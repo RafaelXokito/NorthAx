@@ -339,6 +339,8 @@ class ActivityDTO(_Base):
     training_load: float | None = None
     notes: str | None = None
     strength_exercises: list[LoggedExerciseDTO] | None = None
+    # Coarse GPS trace [[lat, lng], ...] for list thumbnails; None when indoor.
+    route_points: list[list[float]] | None = None
     created_at: dt.datetime
 
 
@@ -544,4 +546,7 @@ class ActivityStreamsDTO(_Base):
     velocity: list[float] = Field(default_factory=list)   # m/s (client → pace)
     altitude: list[float] = Field(default_factory=list)
     cadence: list[float] = Field(default_factory=list)
+    # GPS route as [[lat, lng], ...]; denser than the scalar arrays and NOT
+    # index-aligned with `time`. Empty for indoor/virtual activities.
+    lat_lng: list[list[float]] = Field(default_factory=list)
     source: str = "intervals.icu"

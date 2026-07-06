@@ -295,7 +295,12 @@ fun SyncedActivityRow(activity: GarminActivity) {
             .border(1.dp, Ax.Border, shape)
             .padding(14.dp),
     ) {
-        IconTile(icon = activity.type.domain.icon, color = activity.type.domain.color, size = 36.dp)
+        val route = activity.routePoints
+        if (route != null && route.size > 1) {
+            RouteThumbnail(points = route, color = activity.type.domain.color)
+        } else {
+            IconTile(icon = activity.type.domain.icon, color = activity.type.domain.color, size = 36.dp)
+        }
 
         Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.weight(1f)) {
             Text(

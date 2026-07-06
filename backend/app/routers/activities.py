@@ -68,6 +68,9 @@ def _merge_by_priority(rows: list[Activity], priority: list[str]) -> list[schema
                 dto.strength_exercises = [
                     schemas.LoggedExerciseDTO.model_validate(e) for e in other.strength_exercises
                 ]
+            # Keep whichever source had GPS for the route thumbnail.
+            if dto.route_points is None and other.route_points is not None:
+                dto.route_points = other.route_points
         out.append(dto)
     return out
 

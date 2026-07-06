@@ -38,6 +38,7 @@ import app.northax.ui.components.AxOutlineButton
 import app.northax.ui.components.AxSheet
 import app.northax.ui.components.CompletionPill
 import app.northax.ui.components.IconTile
+import app.northax.ui.components.RouteMapCard
 import app.northax.ui.components.SectionLabel
 import app.northax.ui.components.StatTile
 import app.northax.ui.theme.Ax
@@ -195,10 +196,19 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
             }
 
             // Activity data streams (completed only)
-            streams?.takeIf { match.completion.isCompleted && it.hasData }?.let { s ->
+            val isMotionDomain = session.domain in listOf(
+                TrainingDomain.Cycling, TrainingDomain.Running,
+                TrainingDomain.Swimming, TrainingDomain.Triathlon,
+            )
+            streams?.takeIf {
+                match.completion.isCompleted && (it.hasData || (isMotionDomain && it.latLng.size > 1))
+            }?.let { s ->
                 AxCard(modifier = Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         SectionLabel("Activity data")
+                        if (isMotionDomain && s.latLng.size > 1) {
+                            RouteMapCard(points = s.latLng, color = session.domain.color)
+                        }
                         ActivityStreamCharts(
                             streams = s,
                             domain = session.domain,

@@ -10,6 +10,7 @@ import datetime as dt
 import httpx
 
 from ..config import settings
+from .polyline import decode_polyline, downsample_route
 
 
 class StravaNotConfigured(RuntimeError):
@@ -79,7 +80,7 @@ class StravaClient:
     async def fetch_activity_streams(self, token: str, activity_id: str) -> dict:
         url = f"{self.api_base}/activities/{activity_id}/streams"
         params = {
-            "keys": "time,heartrate,velocity_smooth,watts,altitude,cadence",
+            "keys": "time,heartrate,velocity_smooth,watts,altitude,cadence,latlng",
             "key_by_type": "true",
         }
         async with httpx.AsyncClient(timeout=20) as http:
@@ -132,6 +133,10 @@ def normalize_strava_activity(raw: dict) -> dict:
         "calories": int(raw["calories"]) if raw.get("calories") is not None else None,
         # Strava's Suffer Score / relative effort is a rough load proxy.
         "training_load": float(raw["suffer_score"]) if raw.get("suffer_score") is not None else None,
+        # Coarse GPS trace from the summary polyline; None for indoor/virtual.
+        "route_points": downsample_route(
+            decode_polyline((raw.get("map") or {}).get("summary_polyline") or "")
+        ) or None,
     }
 
 

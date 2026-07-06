@@ -271,7 +271,7 @@ fun SwitchSuggestionDto.toDomain(): SwitchSuggestion? {
 fun ActivityStreamsDto.toDomain(): ActivityStreams = ActivityStreams(
     activityId = activityId, time = time, heartRate = heartRate,
     power = power, velocity = velocity, altitude = altitude,
-    cadence = cadence, source = source,
+    cadence = cadence, latLng = latLng, source = source,
 )
 
 // MARK: - intervals.icu
@@ -298,7 +298,7 @@ fun ActivityDto.toGarminActivity(): GarminActivity {
         avgHeartRate = avgHeartRate, maxHeartRate = maxHeartRate,
         calories = calories, trainingLoad = trainingLoad,
         strengthExercises = strengthExercises?.mapNotNull { it.toDomain() },
-        source = source,
+        source = source, routePoints = routePoints,
     )
 }
 

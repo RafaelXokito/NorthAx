@@ -76,6 +76,9 @@ struct WorkoutDetailView: View {
         let showsMotionStreams = motionStreamDomains.contains(session.domain)
         return card("ACTIVITY DATA") {
             VStack(alignment: .leading, spacing: 18) {
+                if showsMotionStreams, s.latLng.count > 1 {
+                    RouteMapCard(latLng: s.latLng, color: session.domain.color)
+                }
                 if !s.heartRate.isEmpty {
                     ActivityStreamChart(title: "Heart rate", values: s.heartRate, color: .axRed,
                                         unit: "bpm", zoneBands: hrZoneBands(), durationSeconds: s.durationSeconds, time: s.time)
@@ -111,7 +114,8 @@ struct WorkoutDetailView: View {
     /// Whether there's anything worth charting for this session's sport — for
     /// non-motion sports (e.g. strength) only heart rate counts.
     private func hasVisibleStreams(_ s: ActivityStreams) -> Bool {
-        motionStreamDomains.contains(session.domain) ? s.hasData : !s.heartRate.isEmpty
+        motionStreamDomains.contains(session.domain)
+            ? (s.hasData || s.latLng.count > 1) : !s.heartRate.isEmpty
     }
 
     /// HR zone bands as a fraction of the athlete's max HR (no bands if unset).

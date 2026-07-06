@@ -137,9 +137,12 @@ CREATE TABLE IF NOT EXISTS activities (
   notes             TEXT,
   -- Logged strength work: [{name, muscleGroup, sets: [{weightKg, reps}]}].
   strength_exercises JSONB,
+  -- Coarse GPS trace [[lat, lng], ...] for list thumbnails; NULL when indoor.
+  route_points      JSONB,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS strength_exercises JSONB;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS route_points JSONB;
 CREATE UNIQUE INDEX IF NOT EXISTS activities_external_uq
   ON activities(user_id, source, external_id) WHERE external_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS activities_user_start_idx ON activities(user_id, start_time DESC);

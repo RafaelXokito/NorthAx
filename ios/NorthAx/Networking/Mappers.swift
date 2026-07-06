@@ -279,7 +279,7 @@ extension ActivityStreamsDTO {
     func toDomain() -> ActivityStreams {
         ActivityStreams(activityId: activityId, time: time, heartRate: heartRate,
                         power: power, velocity: velocity, altitude: altitude,
-                        cadence: cadence, source: source)
+                        cadence: cadence, latLng: latLng ?? [], source: source)
     }
 }
 
@@ -311,7 +311,7 @@ extension ActivityDTO {
             avgHeartRate: avgHeartRate, maxHeartRate: maxHeartRate,
             calories: calories, trainingLoad: trainingLoad,
             strengthExercises: strengthExercises?.compactMap { $0.toDomain() },
-            source: source
+            source: source, routePoints: routePoints
         )
     }
 }

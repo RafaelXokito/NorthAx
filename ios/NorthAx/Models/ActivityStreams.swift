@@ -10,6 +10,9 @@ struct ActivityStreams {
     var velocity: [Double]   // m/s
     var altitude: [Double]
     var cadence: [Double]
+    /// GPS route as [[lat, lng], …]; denser than the scalar arrays and NOT
+    /// index-aligned with `time`. Empty for indoor/virtual activities.
+    var latLng: [[Double]] = []
     var source: String
 
     var hasData: Bool {

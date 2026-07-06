@@ -39,6 +39,7 @@ data class GarminActivity(
     val trainingLoad: Double? = null, // normalized TSS equivalent
     val strengthExercises: List<LoggedExercise>? = null, // in-app logged sets (strength only)
     val source: String? = null, // backend source ("manual", "garmin", …); null = local-only
+    val routePoints: List<List<Double>>? = null, // coarse GPS trace [[lat, lng], …]; null = indoor
 ) {
     /** Only in-app logged (manual) activities can be edited after the fact —
      *  synced ones live in the source system, and their DTO id is external. */

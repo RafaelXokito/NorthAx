@@ -122,12 +122,18 @@ class IntervalsClient:
             return resp.json()
 
     async def fetch_activity_streams(
-        self, token: str, activity_id: str, *, api_key: bool = False
+        self,
+        token: str,
+        activity_id: str,
+        *,
+        api_key: bool = False,
+        types: str = "time,heartrate,watts,velocity_smooth,altitude,cadence,latlng",
     ) -> list | dict:
         """Time-series streams for one activity (§10). Requests only the metrics we
-        chart to keep the payload small."""
+        chart to keep the payload small; the sync job passes types="latlng" for a
+        cheap route-only fetch."""
         url = f"{self.api_base}/activity/{activity_id}/streams"
-        params = {"types": "time,heartrate,watts,velocity_smooth,altitude,cadence"}
+        params = {"types": types}
         async with httpx.AsyncClient(timeout=20) as http:
             resp = await http.get(url, params=params, **self._auth_kwargs(token, api_key))
             resp.raise_for_status()

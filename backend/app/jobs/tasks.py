@@ -9,7 +9,7 @@ import datetime as dt
 import logging
 import uuid
 
-from sqlalchemy import delete, literal_column, select
+from sqlalchemy import delete, literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..db import session_scope
@@ -23,7 +23,9 @@ from ..services.intervals import (
     normalize_intervals_activity,
     normalize_intervals_wellness,
 )
+from ..services.polyline import downsample_route
 from ..services.strava import StravaClient, normalize_strava_activity
+from ..services.streams import normalize_streams
 from ..services.metrics_assembly import assemble_daily_metrics, record_source_readings
 from ..services.plan_service import regenerate_plans
 
@@ -86,6 +88,31 @@ async def _upsert_activity(session, values: dict, merge_fields: tuple[str, ...])
 
 
 # ── intervals-sync ───────────────────────────────────────────────────────────
+# Sports whose activities can carry a GPS route worth fetching at sync time.
+_ROUTE_DOMAINS = {"Cycling", "Running", "Swimming", "Triathlon"}
+_ROUTE_FETCH_CAP = 20  # route-only streams calls per sync run
+
+
+async def _fetch_intervals_route(session, client, access, is_key, user_id, external_id) -> None:
+    """Best-effort: fetch the latlng stream for one activity and store a coarse
+    trace in route_points. Never fails the sync — routes are decorative."""
+    try:
+        raw = await client.fetch_activity_streams(access, external_id, api_key=is_key, types="latlng")
+        # normalize_streams zips intervals.icu's split latlng (data/data2) into pairs.
+        if pts := downsample_route(normalize_streams(external_id, raw).lat_lng):
+            await session.execute(
+                update(Activity)
+                .where(
+                    Activity.user_id == uuid.UUID(user_id),
+                    Activity.source == "garmin",
+                    Activity.external_id == external_id,
+                )
+                .values(route_points=pts)
+            )
+    except Exception:  # noqa: BLE001
+        log.warning("route fetch failed for intervals activity %s", external_id, exc_info=True)
+
+
 async def _valid_access_token(session, conn: IntervalsConnection) -> str:
     """Return a usable token. Personal API keys never expire; OAuth tokens are
     refreshed if expired/expiring."""
@@ -122,12 +149,23 @@ async def intervals_sync(user_id: str) -> dict:
         raw_activities = await client.fetch_activities(access, since, until, api_key=is_key, athlete_id=athlete)
         activities = 0
         new_domains: set[str] = set()
+        route_fetches = 0
         for raw in raw_activities:
             values = normalize_intervals_activity(raw) | {"user_id": uuid.UUID(user_id)}
             if not values.get("start_time"):
                 continue
             if await _upsert_activity(session, values, ("name", "start_time", "duration_seconds", "training_load")):
                 new_domains.add(values["domain"])
+                # The intervals.icu list response carries no GPS, so newly seen
+                # outdoor activities get one route-only streams call (capped so a
+                # first backfill can't fan out; missed routes are cosmetic).
+                if (
+                    values["domain"] in _ROUTE_DOMAINS
+                    and (values.get("distance_meters") or 0) > 0
+                    and route_fetches < _ROUTE_FETCH_CAP
+                ):
+                    route_fetches += 1
+                    await _fetch_intervals_route(session, client, access, is_key, user_id, values["external_id"])
             activities += 1
 
         # 2. Wellness → daily_metrics (§9.3); ctl/atl come straight from intervals.icu.
@@ -156,7 +194,7 @@ async def intervals_sync(user_id: str) -> dict:
 # ── strava-sync (§13) ────────────────────────────────────────────────────────
 _ACTIVITY_MERGE_FIELDS = (
     "name", "start_time", "duration_seconds", "distance_meters", "elevation_gain",
-    "avg_heart_rate", "max_heart_rate", "calories", "training_load",
+    "avg_heart_rate", "max_heart_rate", "calories", "training_load", "route_points",
 )
 
 

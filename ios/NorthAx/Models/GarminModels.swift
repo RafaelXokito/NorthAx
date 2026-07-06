@@ -37,6 +37,7 @@ struct GarminActivity: Identifiable, Codable {
     var trainingLoad: Double?    // normalized TSS equivalent
     var strengthExercises: [LoggedExercise]? = nil   // in-app logged sets (strength only)
     var source: String? = nil    // backend source ("manual", "garmin", …); nil = local-only
+    var routePoints: [[Double]]? = nil   // coarse GPS trace [[lat, lng], …]; nil = indoor
 
     /// Only in-app logged (manual) activities can be edited after the fact —
     /// synced ones live in the source system, and their DTO id is external.

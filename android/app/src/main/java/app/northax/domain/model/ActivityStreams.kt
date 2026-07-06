@@ -12,6 +12,11 @@ data class ActivityStreams(
     val velocity: List<Double>, // m/s
     val altitude: List<Double>,
     val cadence: List<Double>,
+    /**
+     * GPS route as [[lat, lng], …]; denser than the scalar arrays and NOT
+     * index-aligned with `time`. Empty for indoor/virtual activities.
+     */
+    val latLng: List<List<Double>> = emptyList(),
     val source: String,
 ) {
     val hasData: Boolean

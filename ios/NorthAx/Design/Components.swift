@@ -226,7 +226,11 @@ struct SyncedActivityRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            IconTile(systemName: activity.type.domain.icon, color: activity.type.domain.color, size: 36)
+            if let route = activity.routePoints, route.count > 1 {
+                RouteThumbnail(points: route, color: activity.type.domain.color)
+            } else {
+                IconTile(systemName: activity.type.domain.icon, color: activity.type.domain.color, size: 36)
+            }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(activity.name)
@@ -256,6 +260,40 @@ struct SyncedActivityRow: View {
         if let dist = activity.formattedDistance { parts.append(dist) }
         if let hr = activity.avgHeartRate { parts.append("\(hr) bpm") }
         return parts.joined(separator: " · ").uppercased()
+    }
+}
+
+/// Tile-less GPS trace for outdoor activities — takes the IconTile slot in
+/// `SyncedActivityRow` when the activity carries coarse route points.
+struct RouteThumbnail: View {
+    let points: [[Double]]   // [[lat, lng], …], ≥ 2 pairs (caller-checked)
+    let color: Color
+
+    var body: some View {
+        Canvas { ctx, size in
+            let lats = points.map { $0[0] }, lngs = points.map { $0[1] }
+            guard let minLat = lats.min(), let maxLat = lats.max(),
+                  let minLng = lngs.min(), let maxLng = lngs.max() else { return }
+            // Equirectangular projection: shrink x by cos(midLat) so routes away
+            // from the equator aren't horizontally squashed.
+            let midLat = (minLat + maxLat) / 2 * .pi / 180
+            let w = (maxLng - minLng) * cos(midLat), h = maxLat - minLat
+            let inset: CGFloat = 4
+            let scale = min((size.width - inset * 2) / max(w, 1e-6),
+                            (size.height - inset * 2) / max(h, 1e-6))
+            func project(_ p: [Double]) -> CGPoint {
+                CGPoint(x: size.width / 2 + ((p[1] - (minLng + maxLng) / 2) * cos(midLat)) * scale,
+                        y: size.height / 2 - (p[0] - (minLat + maxLat) / 2) * scale)
+            }
+            var path = Path()
+            path.move(to: project(points[0]))
+            for p in points.dropFirst() { path.addLine(to: project(p)) }
+            ctx.stroke(path, with: .color(color),
+                       style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+        }
+        .frame(width: 36, height: 36)
+        .background(Color.axInset)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 

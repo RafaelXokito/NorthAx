@@ -291,6 +291,7 @@ struct ActivityStreamsDTO: Decodable {
     var velocity: [Double]
     var altitude: [Double]
     var cadence: [Double]
+    var latLng: [[Double]]?   // optional: tolerates an older backend
     var source: String
 }
 
@@ -380,6 +381,7 @@ struct ActivityDTO: Decodable {
     var trainingLoad: Double?
     var notes: String?
     var strengthExercises: [LoggedExerciseDTO]?
+    var routePoints: [[Double]]?   // coarse [[lat, lng], …] for list thumbnails
     var createdAt: Date
 }
 
