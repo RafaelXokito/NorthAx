@@ -210,25 +210,28 @@ async def _fetch_strava_segments(session, client, access, user_id, external_id) 
     sync ignores it, the backfill stops (a 429 shouldn't be hammered)."""
     try:
         raw = await client.fetch_activity_detail(access, external_id)
-        for effort in normalize_segment_efforts(raw):
-            stmt = (
-                pg_insert(SegmentEffort)
-                .values(**effort, user_id=uuid.UUID(user_id))
-                .on_conflict_do_update(
-                    constraint="segment_efforts_user_effort_uq",
-                    set_={k: effort[k] for k in ("name", "elapsed_seconds", "moving_seconds", "pr_rank", "kom_rank")},
+        # Savepoint: a failed statement must not abort the caller's transaction
+        # (it would take the rest of the sync/backfill down with it).
+        async with session.begin_nested():
+            for effort in normalize_segment_efforts(raw):
+                stmt = (
+                    pg_insert(SegmentEffort)
+                    .values(**effort, user_id=uuid.UUID(user_id))
+                    .on_conflict_do_update(
+                        index_elements=[SegmentEffort.user_id, SegmentEffort.effort_id],
+                        set_={k: effort[k] for k in ("name", "elapsed_seconds", "moving_seconds", "pr_rank", "kom_rank")},
+                    )
                 )
+                await session.execute(stmt)
+            await session.execute(
+                update(Activity)
+                .where(
+                    Activity.user_id == uuid.UUID(user_id),
+                    Activity.source == "strava",
+                    Activity.external_id == external_id,
+                )
+                .values(efforts_synced_at=dt.datetime.now(dt.timezone.utc))
             )
-            await session.execute(stmt)
-        await session.execute(
-            update(Activity)
-            .where(
-                Activity.user_id == uuid.UUID(user_id),
-                Activity.source == "strava",
-                Activity.external_id == external_id,
-            )
-            .values(efforts_synced_at=dt.datetime.now(dt.timezone.utc))
-        )
         return True
     except Exception:  # noqa: BLE001
         log.warning("segment fetch failed for strava activity %s", external_id, exc_info=True)
@@ -278,6 +281,24 @@ async def strava_sync(user_id: str) -> dict:
                     segment_fetches += 1
                     await _fetch_strava_segments(session, client, access, user_id, values["external_id"])
             activities += 1
+
+        # Older activities not yet checked drain within the same per-sync cap —
+        # the app syncs on launch, so segment history imports in the background
+        # a batch at a time (no manual backfill needed).
+        if segment_fetches < _SEGMENT_FETCH_CAP:
+            pending = (await session.execute(
+                select(Activity.external_id).where(
+                    Activity.user_id == uuid.UUID(user_id),
+                    Activity.source == "strava",
+                    Activity.domain.in_(_SEGMENT_DOMAINS),
+                    Activity.external_id.isnot(None),
+                    Activity.efforts_synced_at.is_(None),
+                ).order_by(Activity.start_time.desc()).limit(_SEGMENT_FETCH_CAP - segment_fetches)
+            )).scalars().all()
+            for external_id in pending:
+                if not await _fetch_strava_segments(session, client, access, user_id, external_id):
+                    break  # a 429/network error shouldn't be hammered — resume next sync
+
         conn.last_sync_at = dt.datetime.now(dt.timezone.utc)
     if new_domains:
         goal_progress.schedule_analysis(user_id, new_domains)  # best-effort, non-blocking

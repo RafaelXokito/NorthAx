@@ -191,7 +191,9 @@ class Activity(Base):
 class SegmentEffort(Base):
     __tablename__ = "segment_efforts"
     __table_args__ = (
-        UniqueConstraint("user_id", "effort_id", name="segment_efforts_user_effort_uq"),
+        # Unique INDEX (not constraint) — matches sql/schema.sql exactly so the
+        # upsert's ON CONFLICT (user_id, effort_id) infers it in prod and tests.
+        Index("segment_efforts_user_effort_uq", "user_id", "effort_id", unique=True),
         Index("segment_efforts_user_segment_idx", "user_id", "segment_id", text("start_date DESC")),
         Index("segment_efforts_user_start_idx", "user_id", "start_date"),
     )

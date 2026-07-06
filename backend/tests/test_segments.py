@@ -141,3 +141,40 @@ async def test_backfill_without_connection(api):
     r = await client.post("/v1/integrations/strava/segments/backfill", headers=headers)
     assert r.status_code == 200
     assert r.json() == {"processed": 0, "remaining": 0}
+
+
+class _FakeStravaClient:
+    def __init__(self, payload):
+        self.payload = payload
+
+    async def fetch_activity_detail(self, token, activity_id):
+        return self.payload
+
+
+async def test_fetch_strava_segments_upserts_and_marks_checked(api):
+    """Real INSERT ... ON CONFLICT against the actual unique index, twice
+    (idempotent re-fetch), plus the efforts_synced_at stamp."""
+    from sqlalchemy import select
+
+    from app.jobs.tasks import _fetch_strava_segments
+
+    _, _, user_id = api
+    uid = uuid.UUID(user_id)
+    payload = {
+        "id": 42,
+        "segment_efforts": [_effort(), _effort(id=222, elapsed_time=500,
+                                             segment={"id": 77, "name": "Flat Sprint"})],
+    }
+    async with session_scope(None) as s:
+        s.add(Activity(user_id=uid, external_id="42", source="strava", name="Ride",
+                       domain="Cycling", start_time=START, duration_seconds=3600))
+
+    async with session_scope(None) as s:
+        assert await _fetch_strava_segments(s, _FakeStravaClient(payload), "tok", user_id, "42")
+        assert await _fetch_strava_segments(s, _FakeStravaClient(payload), "tok", user_id, "42")  # idempotent
+
+    async with session_scope(None) as s:
+        efforts = (await s.execute(select(SegmentEffort).where(SegmentEffort.user_id == uid))).scalars().all()
+        assert sorted(e.effort_id for e in efforts) == ["111", "222"]
+        row = (await s.execute(select(Activity).where(Activity.user_id == uid))).scalars().one()
+        assert row.efforts_synced_at is not None
