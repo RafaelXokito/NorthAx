@@ -1,8 +1,9 @@
 package app.northax.ui.components
 
 import android.graphics.Paint
+import android.graphics.RectF
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,6 +44,7 @@ import kotlin.math.cos
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
@@ -65,7 +68,7 @@ import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 
 /** A ranked-segment marker on the route map: where a BEST/2nd/3rd/KOM was hit. */
-data class MapHighlight(val point: List<Double>, val kind: Kind) {
+data class MapHighlight(val point: List<Double>, val kind: Kind, val segmentId: String = "") {
     enum class Kind { Best, Second, Third, Kom }
 
     val color: Color
@@ -96,9 +99,11 @@ fun RouteMapCard(
     points: List<List<Double>>,
     color: Color,
     highlights: List<MapHighlight> = emptyList(),
+    onHighlightTap: ((String) -> Unit)? = null,   // badge tap → segment overview
     modifier: Modifier = Modifier,
 ) {
     var showFullMap by remember { mutableStateOf(false) }
+    val inlineRefs = remember { MapRefs() }
 
     Box(
         modifier = modifier
@@ -106,22 +111,40 @@ fun RouteMapCard(
             .height(180.dp)
             .clip(RoundedCornerShape(12.dp)),
     ) {
-        RouteMapView(points, color, highlights, interactive = false, modifier = Modifier.fillMaxSize())
-        // Transparent scrim: the MapView never sees touches; the card just taps.
+        RouteMapView(points, color, highlights, inlineRefs, interactive = false, modifier = Modifier.fillMaxSize())
+        // Transparent scrim: the MapView never sees touches; the scrim hit-tests
+        // highlight badges and otherwise opens the full-screen map.
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .clickable { showFullMap = true },
+                .pointerInput(onHighlightTap) {
+                    detectTapGestures { offset ->
+                        val segmentId = inlineRefs.hitTestHighlight(offset.x, offset.y)
+                        if (segmentId != null && onHighlightTap != null) {
+                            onHighlightTap(segmentId)
+                        } else {
+                            showFullMap = true
+                        }
+                    }
+                },
         )
     }
 
     if (showFullMap) {
+        val fullRefs = remember { MapRefs() }
         Dialog(
             onDismissRequest = { showFullMap = false },
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
             Box(modifier = Modifier.fillMaxSize().background(Ax.Background)) {
-                RouteMapView(points, color, highlights, interactive = true, modifier = Modifier.fillMaxSize())
+                RouteMapView(
+                    points, color, highlights, fullRefs, interactive = true,
+                    onHighlightTap = { segmentId ->
+                        showFullMap = false
+                        onHighlightTap?.invoke(segmentId)
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
                 IconButton(
                     onClick = { showFullMap = false },
                     modifier = Modifier
@@ -145,15 +168,25 @@ fun SegmentMiniMap(points: List<List<Double>>, modifier: Modifier = Modifier) {
             .height(140.dp)
             .clip(RoundedCornerShape(12.dp)),
     ) {
-        RouteMapView(points, Ax.Purple, emptyList(), interactive = false, modifier = Modifier.fillMaxSize())
+        RouteMapView(points, Ax.Purple, emptyList(), remember { MapRefs() }, interactive = false, modifier = Modifier.fillMaxSize())
         Box(modifier = Modifier.matchParentSize()) // swallow touches
     }
 }
 
-/** Holds the live style so recompositions can update the highlight markers. */
+/** Holds the live map/style so recompositions can update markers + hit-test taps. */
 private class MapRefs {
+    var map: MapLibreMap? = null
     var style: Style? = null
     var renderedHighlights: List<MapHighlight>? = null
+
+    /** The segmentId of a highlight badge near (x, y) screen px, if any. */
+    fun hitTestHighlight(x: Float, y: Float): String? {
+        val m = map ?: return null
+        val rect = RectF(x - 48f, y - 48f, x + 48f, y + 48f)
+        val layers = MapHighlight.Kind.entries.map { "highlight-${it.name}-icon" }.toTypedArray()
+        return m.queryRenderedFeatures(rect, *layers).firstOrNull()
+            ?.getStringProperty("segmentId")?.takeIf { it.isNotEmpty() }
+    }
 }
 
 @Composable
@@ -161,11 +194,12 @@ private fun RouteMapView(
     points: List<List<Double>>,
     color: Color,
     highlights: List<MapHighlight>,
+    refs: MapRefs,
     interactive: Boolean,
+    onHighlightTap: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val refs = remember { MapRefs() }
     var mapView by remember { mutableStateOf<MapView?>(null) }
 
     AndroidView(
@@ -176,8 +210,15 @@ private fun RouteMapView(
                 onStart()
                 onResume()
                 getMapAsync { map ->
+                    refs.map = map
                     map.uiSettings.setAllGesturesEnabled(interactive)
                     map.uiSettings.isCompassEnabled = false
+                    if (interactive && onHighlightTap != null) {
+                        map.addOnMapClickListener { latLng ->
+                            val p = map.projection.toScreenLocation(latLng)
+                            refs.hitTestHighlight(p.x, p.y)?.let { onHighlightTap(it); true } ?: false
+                        }
+                    }
                     map.setStyle(Style.Builder().fromUri("asset://northax-dark.json")) { style ->
                         refs.style = style
                         addRouteLayers(style, points, color, resources.displayMetrics.density)
@@ -305,8 +346,9 @@ private fun setHighlights(refs: MapRefs, highlights: List<MapHighlight>) {
     if (refs.renderedHighlights == highlights) return
     refs.renderedHighlights = highlights
     for (kind in MapHighlight.Kind.entries) {
-        val features = highlights.filter { it.kind == kind }.map {
-            Feature.fromGeometry(Point.fromLngLat(it.point[1], it.point[0]))
+        val features = highlights.filter { it.kind == kind }.map { h ->
+            Feature.fromGeometry(Point.fromLngLat(h.point[1], h.point[0]))
+                .apply { addStringProperty("segmentId", h.segmentId) }
         }
         style.getSourceAs<org.maplibre.android.style.sources.GeoJsonSource>("highlight-${kind.name}")
             ?.setGeoJson(FeatureCollection.fromFeatures(features))

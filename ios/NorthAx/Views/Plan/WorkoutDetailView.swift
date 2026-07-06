@@ -88,7 +88,10 @@ struct WorkoutDetailView: View {
         return card("ACTIVITY DATA") {
             VStack(alignment: .leading, spacing: 18) {
                 if showsMotionStreams, s.latLng.count > 1 {
-                    RouteMapCard(latLng: s.latLng, highlights: mapHighlights, color: session.domain.color)
+                    RouteMapCard(latLng: s.latLng, highlights: mapHighlights, color: session.domain.color,
+                                 onHighlightTap: { segmentId in
+                                     selectedSegment = segments.first { $0.segmentId == segmentId }
+                                 })
                 }
                 if !s.heartRate.isEmpty {
                     ActivityStreamChart(title: "Heart rate", values: s.heartRate, color: .axRed,
@@ -158,13 +161,18 @@ struct WorkoutDetailView: View {
     private var mapHighlights: [MapHighlight] {
         segments.compactMap { effort in
             guard let start = effort.points?.first else { return nil }
-            if effort.komRank != nil { return MapHighlight(point: start, kind: .kom) }
-            switch effort.rank {
-            case 1: return MapHighlight(point: start, kind: .best)
-            case 2: return MapHighlight(point: start, kind: .second)
-            case 3: return MapHighlight(point: start, kind: .third)
-            default: return nil
+            let kind: MapHighlight.Kind
+            if effort.komRank != nil {
+                kind = .kom
+            } else {
+                switch effort.rank {
+                case 1: kind = .best
+                case 2: kind = .second
+                case 3: kind = .third
+                default: return nil
+                }
             }
+            return MapHighlight(point: start, kind: kind, segmentId: effort.segmentId)
         }
     }
 

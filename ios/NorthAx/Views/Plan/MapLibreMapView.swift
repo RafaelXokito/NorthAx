@@ -6,6 +6,7 @@ struct MapHighlight: Equatable {
     enum Kind: CaseIterable { case best, second, third, kom }
     let point: [Double]   // [lat, lng] — the segment's start
     let kind: Kind
+    var segmentId: String = ""   // tap target → segment overview
 
     var color: Color {
         switch kind {
@@ -35,13 +36,25 @@ struct MapLibreMapView: UIViewRepresentable {
     let routeColor: Color
     var highlights: [MapHighlight] = []
     var interactive: Bool = false
+    var onHighlightTap: ((String) -> Void)? = nil   // segmentId of a tapped badge
+    var onMapTap: (() -> Void)? = nil               // non-badge tap on an inert map
 
     func makeUIView(context: Context) -> MLNMapView {
         let styleURL = Bundle.main.url(forResource: "northax-dark", withExtension: "json")
         let mapView = MLNMapView(frame: .zero, styleURL: styleURL)
         mapView.delegate = context.coordinator
-        mapView.isUserInteractionEnabled = interactive
         mapView.compassView.isHidden = true
+        if !interactive {
+            // Inert but still tappable: kill camera gestures, keep touch alive
+            // so highlight badges can be hit-tested.
+            mapView.allowsScrolling = false
+            mapView.allowsZooming = false
+            mapView.allowsRotating = false
+            mapView.allowsTilting = false
+        }
+        mapView.addGestureRecognizer(
+            UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+        )
         return mapView
     }
 
@@ -116,9 +129,25 @@ struct MapLibreMapView: UIViewRepresentable {
                 let features = parent.highlights.filter { $0.kind == kind }.map { h -> MLNPointFeature in
                     let f = MLNPointFeature()
                     f.coordinate = CLLocationCoordinate2D(latitude: h.point[0], longitude: h.point[1])
+                    f.attributes = ["segmentId": h.segmentId]
                     return f
                 }
                 highlightSources[kind]?.shape = MLNShapeCollectionFeature(shapes: features)
+            }
+        }
+
+        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard let mapView = gesture.view as? MLNMapView else { return }
+            let point = gesture.location(in: mapView)
+            let hitRect = CGRect(x: point.x - 22, y: point.y - 22, width: 44, height: 44)
+            let layerIds = Set(MapHighlight.Kind.allCases.map { "highlight-\($0)-icon" })
+            let tapped = mapView.visibleFeatures(in: hitRect, styleLayerIdentifiers: layerIds)
+                .compactMap { $0.attribute(forKey: "segmentId") as? String }
+                .first
+            if let tapped, !tapped.isEmpty {
+                parent.onHighlightTap?(tapped)
+            } else if !parent.interactive {
+                parent.onMapTap?()
             }
         }
 

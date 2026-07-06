@@ -228,15 +228,23 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
                             // Markers where this ride hit a ranked segment result.
                             val highlights = segments.mapNotNull { effort ->
                                 val start = effort.points?.firstOrNull() ?: return@mapNotNull null
-                                when {
-                                    effort.komRank != null -> MapHighlight(start, MapHighlight.Kind.Kom)
-                                    effort.rank == 1 -> MapHighlight(start, MapHighlight.Kind.Best)
-                                    effort.rank == 2 -> MapHighlight(start, MapHighlight.Kind.Second)
-                                    effort.rank == 3 -> MapHighlight(start, MapHighlight.Kind.Third)
-                                    else -> null
+                                val kind = when {
+                                    effort.komRank != null -> MapHighlight.Kind.Kom
+                                    effort.rank == 1 -> MapHighlight.Kind.Best
+                                    effort.rank == 2 -> MapHighlight.Kind.Second
+                                    effort.rank == 3 -> MapHighlight.Kind.Third
+                                    else -> return@mapNotNull null
                                 }
+                                MapHighlight(start, kind, effort.segmentId)
                             }
-                            RouteMapCard(points = s.latLng, color = session.domain.color, highlights = highlights)
+                            RouteMapCard(
+                                points = s.latLng,
+                                color = session.domain.color,
+                                highlights = highlights,
+                                onHighlightTap = { segmentId ->
+                                    selectedSegment = segments.firstOrNull { it.segmentId == segmentId }
+                                },
+                            )
                         }
                         ActivityStreamCharts(
                             streams = s,
