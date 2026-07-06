@@ -35,7 +35,8 @@ DerivedData/
 ## Swift Package Manager
 .build/
 Packages/
-Package.resolved
+# Package.resolved is committed: it pins app dependencies (e.g. MapLibre)
+# for reproducible builds.
 
 ## CocoaPods
 Pods/
