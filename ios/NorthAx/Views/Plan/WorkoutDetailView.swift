@@ -9,6 +9,8 @@ struct WorkoutDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var marking = false
     @State private var streams: ActivityStreams?
+    @State private var segments: [SegmentEffort] = []
+    @State private var selectedSegment: SegmentEffort?
     @State private var pushState: PushState = .idle
     @State private var showLogger = false
     @State private var showLogEditor = false
@@ -32,6 +34,7 @@ struct WorkoutDetailView: View {
                         loggedExercisesSection(logged)
                     }
                     if let streams, hasVisibleStreams(streams) { activityDataSection(streams) }
+                    if !segments.isEmpty { segmentsSection }
                     if canStartWorkout { startWorkoutButton }
                     if !match.completion.isCompleted { switchSection }
                     if match.completion == .planned, store.intervals.connectionState.isConnected {
@@ -52,7 +55,15 @@ struct WorkoutDetailView: View {
             .task {
                 if match.completion.isCompleted, let id = match.activity?.id {
                     streams = await store.activityStreams(for: id)
+                    // Strava segment efforts (§13) — the backend resolves the id
+                    // across sources, so no source gating here.
+                    if [.cycling, .running].contains(session.domain) {
+                        segments = await store.activitySegments(for: id) ?? []
+                    }
                 }
+            }
+            .sheet(item: $selectedSegment) { segment in
+                SegmentHistoryView(segment: segment)
             }
             .sheet(isPresented: $showLogger) {
                 // Once saved, this view's `match` snapshot is stale — close it so
@@ -103,6 +114,53 @@ struct WorkoutDetailView: View {
                 Label("From \(s.source)", systemImage: "antenna.radiowaves.left.and.right")
                     .font(.caption2).foregroundStyle(.axTertiary)
             }
+        }
+    }
+
+    // MARK: - Segments (§13): Strava segment efforts for this ride/run
+
+    private var segmentsSection: some View {
+        card("SEGMENTS") {
+            VStack(spacing: 8) {
+                ForEach(segments) { effort in
+                    Button { selectedSegment = effort } label: {
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(effort.name)
+                                    .font(.axDisplay(14, .bold))
+                                    .foregroundStyle(.axPrimary)
+                                    .lineLimit(1)
+                                Text(effort.metaLine)
+                                    .font(.axMono(10))
+                                    .tracking(0.4)
+                                    .foregroundStyle(.axTertiary)
+                            }
+                            Spacer()
+                            Text(effort.formattedTime)
+                                .font(.axMono(12, .semibold))
+                                .foregroundStyle(.axPrimary)
+                            if let badge = rankBadge(effort) { badge }
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.axTertiary)
+                        }
+                        .padding(12)
+                        .background(Color.axInset)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func rankBadge(_ effort: SegmentEffort) -> AxPill? {
+        if let kom = effort.komRank { return AxPill(text: kom == 1 ? "KOM" : "#\(kom)", color: .axPurple) }
+        switch effort.prRank {
+        case 1: return AxPill(text: "PR", color: .axAmber)
+        case 2: return AxPill(text: "2nd", color: .axAmber, style: .outline)
+        case 3: return AxPill(text: "3rd", color: .axAmber, style: .outline)
+        default: return nil
         }
     }
 

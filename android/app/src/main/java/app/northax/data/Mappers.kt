@@ -15,6 +15,8 @@ import app.northax.data.remote.dto.IntervalsStatusDto
 import app.northax.data.remote.dto.LoggedExerciseDto
 import app.northax.data.remote.dto.LoggedSetDto
 import app.northax.data.remote.dto.PlannedSessionDto
+import app.northax.data.remote.dto.SegmentEffortDto
+import app.northax.data.remote.dto.SegmentHistoryDto
 import app.northax.data.remote.dto.SportTargetDto
 import app.northax.data.remote.dto.StrengthSessionResponse
 import app.northax.data.remote.dto.SwitchSuggestionDto
@@ -38,6 +40,8 @@ import app.northax.domain.model.LoggedSet
 import app.northax.domain.model.MetricInsight
 import app.northax.domain.model.MetricSource
 import app.northax.domain.model.MetricSourcePriority
+import app.northax.domain.model.SegmentEffort
+import app.northax.domain.model.SegmentHistory
 import app.northax.domain.model.MuscleGroup
 import app.northax.domain.model.PaceUnit
 import app.northax.domain.model.PlannedDay
@@ -267,6 +271,19 @@ fun SwitchSuggestionDto.toDomain(): SwitchSuggestion? {
         isAI = true,
     )
 }
+
+fun SegmentEffortDto.toDomain(): SegmentEffort = SegmentEffort(
+    id = id, segmentId = segmentId, name = name,
+    distanceMeters = distanceMeters, avgGrade = avgGrade, climbCategory = climbCategory,
+    elapsedSeconds = elapsedSeconds, movingSeconds = movingSeconds, startDate = startDate,
+    prRank = prRank, komRank = komRank,
+)
+
+fun SegmentHistoryDto.toDomain(): SegmentHistory = SegmentHistory(
+    segmentId = segmentId, name = name, distanceMeters = distanceMeters,
+    avgGrade = avgGrade, climbCategory = climbCategory,
+    efforts = efforts.map { it.toDomain() },
+)
 
 fun ActivityStreamsDto.toDomain(): ActivityStreams = ActivityStreams(
     activityId = activityId, time = time, heartRate = heartRate,

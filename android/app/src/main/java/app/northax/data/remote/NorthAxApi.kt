@@ -26,7 +26,10 @@ import app.northax.data.remote.dto.CoachMessageDto
 import app.northax.data.remote.dto.PaginatedActivities
 import app.northax.data.remote.dto.PlannedSessionDto
 import app.northax.data.remote.dto.SchedulePatch
+import app.northax.data.remote.dto.SegmentEffortDto
+import app.northax.data.remote.dto.SegmentHistoryDto
 import app.northax.data.remote.dto.SportTargetsPatch
+import app.northax.data.remote.dto.StravaSegmentsBackfillDto
 import app.northax.data.remote.dto.StrengthGenerateRequest
 import app.northax.data.remote.dto.StrengthSessionResponse
 import app.northax.data.remote.dto.SwitchSuggestionRequest
@@ -51,6 +54,8 @@ import app.northax.domain.model.IntervalsConnectionState
 import app.northax.domain.model.MetricSourcePriority
 import app.northax.domain.model.MuscleGroup
 import app.northax.domain.model.PlannedSession
+import app.northax.domain.model.SegmentEffort
+import app.northax.domain.model.SegmentHistory
 import app.northax.domain.model.SportTarget
 import app.northax.domain.model.StrengthSession
 import app.northax.domain.model.SwitchSuggestion
@@ -232,6 +237,14 @@ class NorthAxApi(private val client: ApiClient) {
     suspend fun activityStreams(activityId: String): ActivityStreams =
         client.get<ActivityStreamsDto>("activities/$activityId/streams").toDomain()
 
+    /** Strava segment efforts for a completed activity (§13). Empty when none. */
+    suspend fun activitySegments(activityId: String): List<SegmentEffort> =
+        client.get<List<SegmentEffortDto>>("activities/$activityId/segments").map { it.toDomain() }
+
+    /** The athlete's effort history on one segment, newest first. */
+    suspend fun segmentHistory(segmentId: String): SegmentHistory =
+        client.get<SegmentHistoryDto>("segments/$segmentId/efforts").toDomain()
+
     // MARK: - Strava
 
     suspend fun stravaStatus(): IntervalsConnectionState =
@@ -249,6 +262,10 @@ class NorthAxApi(private val client: ApiClient) {
     suspend fun stravaDisconnect() {
         client.send("DELETE", "integrations/strava/disconnect")
     }
+
+    /** One bounded batch of segment-effort backfill; repeat until remaining == 0. */
+    suspend fun stravaSegmentsBackfill(): StravaSegmentsBackfillDto =
+        client.post<StravaSegmentsBackfillDto, Unit>("integrations/strava/segments/backfill", null, timeoutSeconds = 60)
 
     // MARK: - Activities
 

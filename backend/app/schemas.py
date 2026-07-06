@@ -535,6 +535,37 @@ class IntervalsWorkoutPushResponse(_Base):
     scheduled_date: dt.date
 
 
+# ── Segment efforts (§13) ────────────────────────────────────────────────────
+class SegmentEffortDTO(_Base):
+    id: uuid.UUID
+    segment_id: str
+    activity_external_id: str
+    name: str
+    distance_meters: float | None = None
+    avg_grade: float | None = None
+    climb_category: int | None = None
+    elapsed_seconds: int
+    moving_seconds: int | None = None
+    start_date: dt.datetime
+    pr_rank: int | None = None    # 1–3 or None
+    kom_rank: int | None = None   # 1–10 or None
+
+
+class SegmentHistoryDTO(_Base):
+    """One segment's metadata plus the athlete's efforts, newest first."""
+    segment_id: str
+    name: str
+    distance_meters: float | None = None
+    avg_grade: float | None = None
+    climb_category: int | None = None
+    efforts: list[SegmentEffortDTO]
+
+
+class StravaSegmentsBackfill(_Base):
+    processed: int
+    remaining: int
+
+
 # ── Activity streams (§10) ───────────────────────────────────────────────────
 class ActivityStreamsDTO(_Base):
     """Downsampled time-series for a completed activity. Arrays are index-aligned

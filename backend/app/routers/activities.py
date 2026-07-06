@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..deps import get_current_user_id, get_db
 from ..errors import activity_garmin_immutable, activity_not_found
-from ..models import Activity, UserPreferences
+from ..models import Activity, SegmentEffort, UserPreferences
 from ..rate_limit import limit
 
 router = APIRouter(prefix="/activities", tags=["activities"], dependencies=[Depends(limit("default", 300, 60))])
@@ -174,6 +174,35 @@ async def activity_streams(
     except Exception:  # noqa: BLE001
         return schemas.ActivityStreamsDTO(activity_id=external_id, source="intervals.icu")
     return normalize_streams(external_id, raw, source="intervals.icu")
+
+
+@router.get("/{external_id}/segments", response_model=list[schemas.SegmentEffortDTO])
+async def activity_segments(
+    external_id: str,
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> list[schemas.SegmentEffortDTO]:
+    """Strava segment efforts for a completed activity (§13), resolved by time
+    window rather than id: the client usually holds the intervals.icu external
+    id (merge winner) while efforts are keyed to the Strava twin."""
+    row = (await session.execute(
+        select(Activity).where(
+            Activity.user_id == uuid.UUID(user_id), Activity.external_id == external_id
+        )
+    )).scalars().first()
+    if row is None:
+        return []
+    tolerance = dt.timedelta(seconds=_DEDUPE_DURATION_TOLERANCE)
+    result = await session.execute(
+        select(SegmentEffort)
+        .where(
+            SegmentEffort.user_id == uuid.UUID(user_id),
+            SegmentEffort.start_date >= row.start_time - tolerance,
+            SegmentEffort.start_date <= row.start_time + dt.timedelta(seconds=row.duration_seconds) + tolerance,
+        )
+        .order_by(SegmentEffort.start_date)  # course order
+    )
+    return [schemas.SegmentEffortDTO.model_validate(e) for e in result.scalars().all()]
 
 
 @router.post("", response_model=schemas.ActivityDTO, status_code=201)

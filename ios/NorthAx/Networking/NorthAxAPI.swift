@@ -229,6 +229,18 @@ struct NorthAxAPI {
         return dto.toDomain()
     }
 
+    /// Strava segment efforts for a completed activity (§13). Empty when none.
+    func activitySegments(activityId: String) async throws -> [SegmentEffort] {
+        let dtos: [SegmentEffortDTO] = try await client.get("activities/\(activityId)/segments")
+        return dtos.map { $0.toDomain() }
+    }
+
+    /// The athlete's effort history on one segment, newest first.
+    func segmentHistory(segmentId: String) async throws -> SegmentHistory {
+        let dto: SegmentHistoryDTO = try await client.get("segments/\(segmentId)/efforts")
+        return dto.toDomain()
+    }
+
     // MARK: - Strava (§13)
 
     func stravaStatus() async throws -> IntervalsConnectionState {
@@ -250,6 +262,12 @@ struct NorthAxAPI {
 
     func stravaDisconnect() async throws {
         _ = try await client.send("DELETE", "integrations/strava/disconnect")
+    }
+
+    /// One bounded batch of segment-effort backfill for existing Strava
+    /// activities; repeat until `remaining == 0`.
+    func stravaSegmentsBackfill() async throws -> StravaSegmentsBackfillDTO {
+        try await client.post("integrations/strava/segments/backfill", timeout: 60)
     }
 
     /// Persist an in-app logged workout as a `manual` activity.

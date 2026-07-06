@@ -114,6 +114,24 @@ struct StravaConnectView: View {
                 }
                 .disabled(store.strava.isSyncing)
 
+                Button {
+                    Task { await store.strava.backfillSegments() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if store.strava.isBackfillingSegments { ProgressView().controlSize(.small).tint(.axSecondary) }
+                        Image(systemName: "clock.arrow.circlepath")
+                        Text(backfillLabel)
+                    }
+                    .font(.axDisplay(14, .semibold))
+                    .foregroundStyle(.axSecondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 46)
+                    .background(Color.axInset)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.axBorder, lineWidth: 1))
+                }
+                .disabled(store.strava.isBackfillingSegments || store.strava.segmentsBackfillRemaining == 0)
+
                 Button(role: .destructive) {
                     store.strava.disconnect()
                 } label: {
@@ -128,6 +146,15 @@ struct StravaConnectView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var backfillLabel: String {
+        if store.strava.isBackfillingSegments { return "Importing segments…" }
+        switch store.strava.segmentsBackfillRemaining {
+        case nil: return "Import segment history"
+        case 0: return "Segment history imported"
+        case let n?: return "\(n) left — tap to continue"
         }
     }
 

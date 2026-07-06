@@ -139,10 +139,13 @@ CREATE TABLE IF NOT EXISTS activities (
   strength_exercises JSONB,
   -- Coarse GPS trace [[lat, lng], ...] for list thumbnails; NULL when indoor.
   route_points      JSONB,
+  -- When this Strava activity's segment efforts were last fetched (§13).
+  efforts_synced_at TIMESTAMPTZ,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS strength_exercises JSONB;
 ALTER TABLE activities ADD COLUMN IF NOT EXISTS route_points JSONB;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS efforts_synced_at TIMESTAMPTZ;
 CREATE UNIQUE INDEX IF NOT EXISTS activities_external_uq
   ON activities(user_id, source, external_id) WHERE external_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS activities_user_start_idx ON activities(user_id, start_time DESC);
@@ -220,6 +223,30 @@ CREATE TABLE IF NOT EXISTS strava_connections (
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- segment_efforts  (Strava segment results per activity, §13)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS segment_efforts (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id              UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  activity_external_id TEXT NOT NULL,   -- Strava activity id (provenance)
+  effort_id            TEXT NOT NULL,   -- Strava effort id
+  segment_id           TEXT NOT NULL,
+  name                 TEXT NOT NULL,
+  distance_meters      NUMERIC(10,2),
+  avg_grade            NUMERIC(5,2),
+  climb_category       INTEGER,
+  elapsed_seconds      INTEGER NOT NULL,
+  moving_seconds       INTEGER,
+  start_date           TIMESTAMPTZ NOT NULL,
+  pr_rank              INTEGER,         -- 1–3 or NULL
+  kom_rank             INTEGER,         -- 1–10 or NULL
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS segment_efforts_user_effort_uq ON segment_efforts(user_id, effort_id);
+CREATE INDEX IF NOT EXISTS segment_efforts_user_segment_idx ON segment_efforts(user_id, segment_id, start_date DESC);
+CREATE INDEX IF NOT EXISTS segment_efforts_user_start_idx ON segment_efforts(user_id, start_date);
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Row-Level Security (§4) — defence in depth.
 -- The application sets `app.current_user_id` at the start of each transaction.
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -229,7 +256,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'refresh_tokens', 'daily_metrics', 'user_preferences',
     'activities', 'weekly_plans', 'coach_messages', 'intervals_connections',
-    'metric_readings', 'strava_connections', 'goal_progress'
+    'metric_readings', 'strava_connections', 'goal_progress', 'segment_efforts'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS user_isolation ON %I', t);

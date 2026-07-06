@@ -77,6 +77,17 @@ class StravaClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def fetch_activity_detail(self, token: str, activity_id: str) -> dict:
+        """Detailed activity including segment_efforts (§13)."""
+        url = f"{self.api_base}/activities/{activity_id}"
+        params = {"include_all_efforts": "true"}
+        async with httpx.AsyncClient(timeout=20) as http:
+            resp = await http.get(
+                url, params=params, headers={"Authorization": f"Bearer {token}"}
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     async def fetch_activity_streams(self, token: str, activity_id: str) -> dict:
         url = f"{self.api_base}/activities/{activity_id}/streams"
         params = {
@@ -138,6 +149,35 @@ def normalize_strava_activity(raw: dict) -> dict:
             decode_polyline((raw.get("map") or {}).get("summary_polyline") or "")
         ) or None,
     }
+
+
+def normalize_segment_efforts(raw: dict) -> list[dict]:
+    """DetailedActivity.segment_efforts → segment_efforts rows. Malformed
+    entries are skipped — efforts are decorative, never worth failing a sync."""
+    activity_id = str(raw.get("id") or "")
+    out: list[dict] = []
+    for e in raw.get("segment_efforts") or []:
+        if not isinstance(e, dict):
+            continue
+        segment = e.get("segment") or {}
+        start_date = _parse_dt(e.get("start_date"))
+        if not (e.get("id") and segment.get("id") and start_date and e.get("elapsed_time") is not None):
+            continue
+        out.append({
+            "activity_external_id": activity_id,
+            "effort_id": str(e["id"]),
+            "segment_id": str(segment["id"]),
+            "name": segment.get("name") or "Segment",
+            "distance_meters": float(segment["distance"]) if segment.get("distance") is not None else None,
+            "avg_grade": float(segment["average_grade"]) if segment.get("average_grade") is not None else None,
+            "climb_category": int(segment["climb_category"]) if segment.get("climb_category") is not None else None,
+            "elapsed_seconds": int(e["elapsed_time"]),
+            "moving_seconds": int(e["moving_time"]) if e.get("moving_time") is not None else None,
+            "start_date": start_date,
+            "pr_rank": int(e["pr_rank"]) if e.get("pr_rank") is not None else None,
+            "kom_rank": int(e["kom_rank"]) if e.get("kom_rank") is not None else None,
+        })
+    return out
 
 
 def normalize_strava_streams(raw: dict) -> dict:

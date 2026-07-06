@@ -12,8 +12,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,17 +28,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.northax.domain.engine.SessionCompletion
 import app.northax.domain.engine.SessionMatch
 import app.northax.domain.model.ActivityStreams
+import app.northax.domain.model.SegmentEffort
 import app.northax.domain.model.SwitchSuggestion
 import app.northax.domain.model.TrainingDomain
 import app.northax.store.AthleteStore
 import app.northax.ui.components.AxButton
 import app.northax.ui.components.AxCard
 import app.northax.ui.components.AxOutlineButton
+import app.northax.ui.components.AxPill
+import app.northax.ui.components.AxPillStyle
 import app.northax.ui.components.AxSheet
 import app.northax.ui.components.CompletionPill
 import app.northax.ui.components.IconTile
@@ -62,11 +71,19 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
     var showLogger by remember { mutableStateOf(false) }
     var showLogEditor by remember { mutableStateOf(false) }
     var streams by remember { mutableStateOf<ActivityStreams?>(null) }
+    var segments by remember { mutableStateOf<List<SegmentEffort>>(emptyList()) }
+    var selectedSegment by remember { mutableStateOf<SegmentEffort?>(null) }
     var pushState by remember { mutableStateOf(PushState.Idle) }
 
-    // Load the activity streams for completed workouts.
+    // Load the activity streams (and Strava segment efforts) for completed workouts.
     LaunchedEffect(match.activity?.id) {
-        match.activity?.let { streams = store.activityStreams(it.id) }
+        match.activity?.let {
+            streams = store.activityStreams(it.id)
+            // The backend resolves the id across sources, so no source gating here.
+            if (session.domain in listOf(TrainingDomain.Cycling, TrainingDomain.Running)) {
+                segments = store.activitySegments(it.id) ?: emptyList()
+            }
+        }
     }
 
     AxSheet(onDismiss = onDismiss, title = session.domain.raw) {
@@ -218,6 +235,20 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
                 }
             }
 
+            // Strava segment efforts (§13)
+            if (segments.isNotEmpty()) {
+                AxCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SectionLabel("Segments")
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            segments.forEach { effort ->
+                                SegmentEffortRow(effort) { selectedSegment = effort }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Start workout (strength, planned/missed)
             if (session.domain == TrainingDomain.Strength && !match.completion.isCompleted) {
                 AxButton(
@@ -256,6 +287,10 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
         }
     }
 
+    selectedSegment?.let { segment ->
+        SegmentHistorySheet(store = store, segment = segment, onDismiss = { selectedSegment = null })
+    }
+
     if (showLogger) {
         StrengthLoggerSheet(
             store = store,
@@ -287,6 +322,46 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
 }
 
 private enum class PushState { Idle, Pushing, Pushed, Failed }
+
+@Composable
+private fun SegmentEffortRow(effort: SegmentEffort, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Ax.Inset)
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.weight(1f)) {
+            Text(
+                effort.name,
+                style = axDisplay(14, FontWeight.Bold),
+                color = Ax.Primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(effort.metaLine, style = axMono(10).tracked(0.4), color = Ax.Tertiary)
+        }
+        Text(effort.formattedTime, style = axMono(12, FontWeight.SemiBold), color = Ax.Primary)
+        effort.komRank?.let { kom ->
+            AxPill(if (kom == 1) "KOM" else "#$kom", Ax.Purple)
+        } ?: when (effort.prRank) {
+            1 -> AxPill("PR", Ax.Amber)
+            2 -> AxPill("2nd", Ax.Amber, AxPillStyle.Outline)
+            3 -> AxPill("3rd", Ax.Amber, AxPillStyle.Outline)
+            else -> {}
+        }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Ax.Tertiary,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+}
 
 @Composable
 private fun DetailRow(label: String, value: String) {

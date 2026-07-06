@@ -20,6 +20,13 @@ class StravaService(private val api: NorthAxApi) {
     var isSyncing by mutableStateOf(false)
         private set
 
+    /** Segment-history import: null until first checked, then the count of
+     *  Strava activities still waiting for their segment efforts. */
+    var segmentsBackfillRemaining by mutableStateOf<Int?>(null)
+        private set
+    var isBackfillingSegments by mutableStateOf(false)
+        private set
+
     suspend fun refreshStatus() {
         try {
             val state = api.stravaStatus()
@@ -62,6 +69,20 @@ class StravaService(private val api: NorthAxApi) {
             // Keep the last good state; a transient sync failure isn't fatal.
         } finally {
             isSyncing = false
+        }
+    }
+
+    /** One bounded backfill batch (the backend caps each call for Strava's rate
+     *  limits); updates [segmentsBackfillRemaining] so the UI can offer "continue". */
+    suspend fun backfillSegments() {
+        if (!connectionState.isConnected || isBackfillingSegments) return
+        isBackfillingSegments = true
+        try {
+            segmentsBackfillRemaining = api.stravaSegmentsBackfill().remaining
+        } catch (_: Exception) {
+            // Keep the last state; the user can retry.
+        } finally {
+            isBackfillingSegments = false
         }
     }
 

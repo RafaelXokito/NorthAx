@@ -183,6 +183,35 @@ class Activity(Base):
     strength_exercises: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     # Coarse GPS trace [[lat, lng], ...] for list thumbnails; NULL when indoor.
     route_points: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # When this Strava activity's segment efforts were last fetched (§13).
+    efforts_synced_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SegmentEffort(Base):
+    __tablename__ = "segment_efforts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "effort_id", name="segment_efforts_user_effort_uq"),
+        Index("segment_efforts_user_segment_idx", "user_id", "segment_id", text("start_date DESC")),
+        Index("segment_efforts_user_start_idx", "user_id", "start_date"),
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    activity_external_id: Mapped[str] = mapped_column(Text, nullable=False)  # Strava activity id
+    effort_id: Mapped[str] = mapped_column(Text, nullable=False)  # Strava effort id
+    segment_id: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    distance_meters: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    avg_grade: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    climb_category: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    elapsed_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    moving_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    start_date: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    pr_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1–3 or NULL
+    kom_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1–10 or NULL
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

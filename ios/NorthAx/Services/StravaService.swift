@@ -11,6 +11,11 @@ class StravaService {
     var syncedActivities: [GarminActivity] = []
     var isSyncing: Bool = false
 
+    /// Segment-history import (§13): nil until first checked, then the count of
+    /// Strava activities still waiting for their segment efforts.
+    var segmentsBackfillRemaining: Int?
+    var isBackfillingSegments: Bool = false
+
     private let api = NorthAxAPI.shared
 
     func refreshStatus() async {
@@ -44,6 +49,17 @@ class StravaService {
             syncedActivities = (try? await api.activities(limit: 30, source: "strava")) ?? syncedActivities
         } catch {
             // Keep the last good state; a transient sync failure isn't fatal.
+        }
+    }
+
+    /// One bounded backfill batch (the backend caps each call for Strava's rate
+    /// limits); updates `segmentsBackfillRemaining` so the UI can offer "continue".
+    func backfillSegments() async {
+        guard connectionState.isConnected, !isBackfillingSegments else { return }
+        isBackfillingSegments = true
+        defer { isBackfillingSegments = false }
+        if let result = try? await api.stravaSegmentsBackfill() {
+            segmentsBackfillRemaining = result.remaining
         }
     }
 

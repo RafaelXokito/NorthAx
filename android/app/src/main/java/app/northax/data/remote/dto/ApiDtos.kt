@@ -302,6 +302,37 @@ data class SwitchSuggestionsResponse(val suggestions: List<SwitchSuggestionDto>)
 @Serializable
 data class DayOverrideRequest(val session: PlannedSessionDto?) // null → clear to a rest day
 
+/** One Strava segment result within an activity. */
+@Serializable
+data class SegmentEffortDto(
+    val id: String,
+    val segmentId: String,
+    val activityExternalId: String,
+    val name: String,
+    val distanceMeters: Double? = null,
+    val avgGrade: Double? = null,
+    val climbCategory: Int? = null,
+    val elapsedSeconds: Int,
+    val movingSeconds: Int? = null,
+    val startDate: ApiInstant,
+    val prRank: Int? = null,
+    val komRank: Int? = null,
+)
+
+/** A segment's metadata plus the athlete's efforts on it, newest first. */
+@Serializable
+data class SegmentHistoryDto(
+    val segmentId: String,
+    val name: String,
+    val distanceMeters: Double? = null,
+    val avgGrade: Double? = null,
+    val climbCategory: Int? = null,
+    val efforts: List<SegmentEffortDto> = emptyList(),
+)
+
+@Serializable
+data class StravaSegmentsBackfillDto(val processed: Int, val remaining: Int)
+
 /** Time-series streams for a completed activity. */
 @Serializable
 data class ActivityStreamsDto(

@@ -425,6 +425,26 @@ class AthleteStore {
         return streams
     }
 
+    /// Cached Strava segment efforts for the completed-workout detail (§13).
+    private var activitySegmentsCache: [String: [SegmentEffort]] = [:]
+    private var segmentHistoryCache: [String: SegmentHistory] = [:]
+
+    func activitySegments(for activityId: String) async -> [SegmentEffort]? {
+        if let cached = activitySegmentsCache[activityId] { return cached }
+        guard TokenStore.shared.hasSession,
+              let efforts = try? await api.activitySegments(activityId: activityId) else { return nil }
+        activitySegmentsCache[activityId] = efforts
+        return efforts
+    }
+
+    func segmentHistory(for segmentId: String) async -> SegmentHistory? {
+        if let cached = segmentHistoryCache[segmentId] { return cached }
+        guard TokenStore.shared.hasSession,
+              let history = try? await api.segmentHistory(segmentId: segmentId) else { return nil }
+        segmentHistoryCache[segmentId] = history
+        return history
+    }
+
     /// The plan for the current week (falls back to the first available week).
     var currentWeek: WeeklyPlan? {
         weeklyPlans.first(where: { $0.isCurrentWeek }) ?? weeklyPlans.first

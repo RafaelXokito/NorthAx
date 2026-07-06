@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..db import session_scope
 from ..engines import readiness as r_engine
-from ..models import Activity, CoachMessage, DailyMetrics, IntervalsConnection, StravaConnection, User
+from ..models import Activity, CoachMessage, DailyMetrics, IntervalsConnection, SegmentEffort, StravaConnection, User
 from ..security import decrypt_token, encrypt_token
 from ..services import ai, goal_progress, mappers
 from ..services.intervals import (
@@ -24,7 +24,7 @@ from ..services.intervals import (
     normalize_intervals_wellness,
 )
 from ..services.polyline import downsample_route
-from ..services.strava import StravaClient, normalize_strava_activity
+from ..services.strava import StravaClient, normalize_segment_efforts, normalize_strava_activity
 from ..services.streams import normalize_streams
 from ..services.metrics_assembly import assemble_daily_metrics, record_source_readings
 from ..services.plan_service import regenerate_plans
@@ -198,6 +198,43 @@ _ACTIVITY_MERGE_FIELDS = (
 )
 
 
+# Sports whose Strava activities can carry segment efforts worth fetching.
+_SEGMENT_DOMAINS = {"Cycling", "Running"}
+_SEGMENT_FETCH_CAP = 20  # activity-detail calls per sync run
+
+
+async def _fetch_strava_segments(session, client, access, user_id, external_id) -> bool:
+    """Best-effort: fetch one Strava activity's detail (include_all_efforts) and
+    upsert its segment efforts, marking the activity checked (even with zero
+    efforts) so the backfill doesn't retry it. Returns False on failure — the
+    sync ignores it, the backfill stops (a 429 shouldn't be hammered)."""
+    try:
+        raw = await client.fetch_activity_detail(access, external_id)
+        for effort in normalize_segment_efforts(raw):
+            stmt = (
+                pg_insert(SegmentEffort)
+                .values(**effort, user_id=uuid.UUID(user_id))
+                .on_conflict_do_update(
+                    constraint="segment_efforts_user_effort_uq",
+                    set_={k: effort[k] for k in ("name", "elapsed_seconds", "moving_seconds", "pr_rank", "kom_rank")},
+                )
+            )
+            await session.execute(stmt)
+        await session.execute(
+            update(Activity)
+            .where(
+                Activity.user_id == uuid.UUID(user_id),
+                Activity.source == "strava",
+                Activity.external_id == external_id,
+            )
+            .values(efforts_synced_at=dt.datetime.now(dt.timezone.utc))
+        )
+        return True
+    except Exception:  # noqa: BLE001
+        log.warning("segment fetch failed for strava activity %s", external_id, exc_info=True)
+        return False
+
+
 async def _valid_strava_token(session, conn: StravaConnection) -> str:
     """Return a usable Strava access token, refreshing if it's expired/expiring."""
     now = dt.datetime.now(dt.timezone.utc)
@@ -228,12 +265,18 @@ async def strava_sync(user_id: str) -> dict:
         raw_activities = await client.fetch_activities(access, after)
         activities = 0
         new_domains: set[str] = set()
+        segment_fetches = 0
         for raw in raw_activities:
             values = normalize_strava_activity(raw) | {"user_id": uuid.UUID(user_id)}
             if not values.get("start_time"):
                 continue
             if await _upsert_activity(session, values, _ACTIVITY_MERGE_FIELDS):
                 new_domains.add(values["domain"])
+                # New rides/runs get one detail call for segment efforts (capped;
+                # over-cap activities are picked up by the segments backfill).
+                if values["domain"] in _SEGMENT_DOMAINS and segment_fetches < _SEGMENT_FETCH_CAP:
+                    segment_fetches += 1
+                    await _fetch_strava_segments(session, client, access, user_id, values["external_id"])
             activities += 1
         conn.last_sync_at = dt.datetime.now(dt.timezone.utc)
     if new_domains:

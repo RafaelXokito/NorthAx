@@ -275,6 +275,24 @@ extension SwitchSuggestionDTO {
     }
 }
 
+extension SegmentEffortDTO {
+    func toDomain() -> SegmentEffort {
+        SegmentEffort(id: id, segmentId: segmentId, name: name,
+                      distanceMeters: distanceMeters, avgGrade: avgGrade,
+                      climbCategory: climbCategory, elapsedSeconds: elapsedSeconds,
+                      movingSeconds: movingSeconds, startDate: startDate,
+                      prRank: prRank, komRank: komRank)
+    }
+}
+
+extension SegmentHistoryDTO {
+    func toDomain() -> SegmentHistory {
+        SegmentHistory(segmentId: segmentId, name: name, distanceMeters: distanceMeters,
+                       avgGrade: avgGrade, climbCategory: climbCategory,
+                       efforts: efforts.map { $0.toDomain() })
+    }
+}
+
 extension ActivityStreamsDTO {
     func toDomain() -> ActivityStreams {
         ActivityStreams(activityId: activityId, time: time, heartRate: heartRate,

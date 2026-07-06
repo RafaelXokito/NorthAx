@@ -91,15 +91,28 @@ fun StravaConnectScreen(store: AthleteStore, onBack: () -> Unit) {
 
         if (strava.connectionState.isConnected) {
             AxCard(modifier = Modifier.fillMaxWidth()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    AxOutlineButton(
-                        label = if (strava.isSyncing) "Syncing…" else "Sync now",
-                        enabled = !strava.isSyncing,
-                        modifier = Modifier.weight(1f),
-                    ) { scope.launch { strava.sync() } }
-                    AxOutlineButton(label = "Disconnect", color = Ax.Red, modifier = Modifier.weight(1f)) {
-                        scope.launch { strava.disconnect() }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        AxOutlineButton(
+                            label = if (strava.isSyncing) "Syncing…" else "Sync now",
+                            enabled = !strava.isSyncing,
+                            modifier = Modifier.weight(1f),
+                        ) { scope.launch { strava.sync() } }
+                        AxOutlineButton(label = "Disconnect", color = Ax.Red, modifier = Modifier.weight(1f)) {
+                            scope.launch { strava.disconnect() }
+                        }
                     }
+                    AxOutlineButton(
+                        label = when {
+                            strava.isBackfillingSegments -> "Importing segments…"
+                            strava.segmentsBackfillRemaining == null -> "Import segment history"
+                            strava.segmentsBackfillRemaining == 0 -> "Segment history imported"
+                            else -> "${strava.segmentsBackfillRemaining} left — tap to continue"
+                        },
+                        color = Ax.Secondary,
+                        enabled = !strava.isBackfillingSegments && strava.segmentsBackfillRemaining != 0,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { scope.launch { strava.backfillSegments() } }
                 }
             }
 

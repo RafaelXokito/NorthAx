@@ -69,6 +69,10 @@ def activity_not_found():
     return AppError("ACTIVITY_NOT_FOUND", "Activity not found.", 404)
 
 
+def segment_not_found():
+    return AppError("SEGMENT_NOT_FOUND", "No efforts recorded for this segment.", 404)
+
+
 def activity_garmin_immutable():
     return AppError(
         "ACTIVITY_GARMIN_IMMUTABLE",

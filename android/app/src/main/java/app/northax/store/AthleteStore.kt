@@ -20,6 +20,8 @@ import app.northax.domain.engine.SessionMatch
 import app.northax.domain.engine.WeekData
 import app.northax.domain.model.ActivitySourcePriority
 import app.northax.domain.model.ActivityStreams
+import app.northax.domain.model.SegmentEffort
+import app.northax.domain.model.SegmentHistory
 import app.northax.domain.model.AthleteThresholds
 import app.northax.domain.model.AuthUser
 import app.northax.domain.model.CoachMessage
@@ -434,6 +436,26 @@ class AthleteStore(private val container: AppContainer) : ViewModel() {
         val streams = runCatching { api.activityStreams(activityId) }.getOrNull() ?: return null
         activityStreamsCache[activityId] = streams
         return streams
+    }
+
+    /** Cached Strava segment efforts for the completed-workout detail (§13). */
+    private val activitySegmentsCache = mutableMapOf<String, List<SegmentEffort>>()
+    private val segmentHistoryCache = mutableMapOf<String, SegmentHistory>()
+
+    suspend fun activitySegments(activityId: String): List<SegmentEffort>? {
+        activitySegmentsCache[activityId]?.let { return it }
+        if (!tokens.hasSession) return null
+        val efforts = runCatching { api.activitySegments(activityId) }.getOrNull() ?: return null
+        activitySegmentsCache[activityId] = efforts
+        return efforts
+    }
+
+    suspend fun segmentHistory(segmentId: String): SegmentHistory? {
+        segmentHistoryCache[segmentId]?.let { return it }
+        if (!tokens.hasSession) return null
+        val history = runCatching { api.segmentHistory(segmentId) }.getOrNull() ?: return null
+        segmentHistoryCache[segmentId] = history
+        return history
     }
 
     /** The plan for the current week (falls back to the first available week). */

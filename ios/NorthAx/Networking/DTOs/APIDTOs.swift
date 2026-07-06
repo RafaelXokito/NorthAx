@@ -282,6 +282,37 @@ struct DayOverrideRequest: Encodable {
     var session: PlannedSessionDTO?   // nil → clear to a rest day
 }
 
+/// One Strava segment result within an activity (§13).
+struct SegmentEffortDTO: Decodable {
+    var id: String
+    var segmentId: String
+    var activityExternalId: String
+    var name: String
+    var distanceMeters: Double?
+    var avgGrade: Double?
+    var climbCategory: Int?
+    var elapsedSeconds: Int
+    var movingSeconds: Int?
+    var startDate: Date
+    var prRank: Int?
+    var komRank: Int?
+}
+
+/// A segment's metadata plus the athlete's efforts on it, newest first.
+struct SegmentHistoryDTO: Decodable {
+    var segmentId: String
+    var name: String
+    var distanceMeters: Double?
+    var avgGrade: Double?
+    var climbCategory: Int?
+    var efforts: [SegmentEffortDTO]
+}
+
+struct StravaSegmentsBackfillDTO: Decodable {
+    var processed: Int
+    var remaining: Int
+}
+
 /// Time-series streams for a completed activity (§10).
 struct ActivityStreamsDTO: Decodable {
     var activityId: String

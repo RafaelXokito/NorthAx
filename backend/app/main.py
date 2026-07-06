@@ -25,7 +25,7 @@ from .errors import (
     http_exception_handler,
     validation_error_handler,
 )
-from .routers import activities, ai, auth, goals, intervals, metrics, plan, preferences, readiness, strava, user
+from .routers import activities, ai, auth, goals, intervals, metrics, plan, preferences, readiness, segments, strava, user
 
 logging.basicConfig(level=settings.log_level.upper())
 
@@ -94,7 +94,7 @@ app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 V1 = "/v1"
-for module in (auth, user, metrics, readiness, preferences, plan, activities, intervals, strava, ai, goals):
+for module in (auth, user, metrics, readiness, preferences, plan, activities, intervals, strava, ai, goals, segments):
     app.include_router(module.router, prefix=V1)
 
 

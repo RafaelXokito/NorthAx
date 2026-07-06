@@ -138,6 +138,45 @@ async def sync(user_id: str = Depends(get_current_user_id)):
         raise _not_configured() from exc
 
 
+@router.post("/segments/backfill", response_model=schemas.StravaSegmentsBackfill, dependencies=_authed)
+async def segments_backfill(
+    user_id: str = Depends(get_current_user_id), session: AsyncSession = Depends(get_db)
+) -> schemas.StravaSegmentsBackfill:
+    """Fetch segment efforts for existing Strava rides/runs not yet checked, one
+    bounded batch per call (Strava rate limits). The client repeats until
+    remaining == 0."""
+    from sqlalchemy import func, select
+
+    from ..jobs.tasks import _SEGMENT_DOMAINS, _fetch_strava_segments, _valid_strava_token
+    from ..models import Activity
+
+    conn = await session.get(StravaConnection, uuid.UUID(user_id))
+    if conn is None:
+        return schemas.StravaSegmentsBackfill(processed=0, remaining=0)
+
+    candidate_filter = (
+        Activity.user_id == uuid.UUID(user_id),
+        Activity.source == "strava",
+        Activity.domain.in_(_SEGMENT_DOMAINS),
+        Activity.external_id.isnot(None),
+        Activity.efforts_synced_at.is_(None),
+    )
+    rows = (await session.execute(
+        select(Activity.external_id).where(*candidate_filter).order_by(Activity.start_time.desc()).limit(25)
+    )).scalars().all()
+
+    client = StravaClient()
+    access = await _valid_strava_token(session, conn)
+    processed = 0
+    for external_id in rows:
+        if not await _fetch_strava_segments(session, client, access, user_id, external_id):
+            break  # a 429/network error shouldn't be hammered — resume next call
+        processed += 1
+
+    remaining = await session.scalar(select(func.count()).select_from(Activity).where(*candidate_filter))
+    return schemas.StravaSegmentsBackfill(processed=processed, remaining=remaining or 0)
+
+
 @router.delete("/disconnect", status_code=status.HTTP_204_NO_CONTENT, dependencies=_authed)
 async def disconnect(
     user_id: str = Depends(get_current_user_id), session: AsyncSession = Depends(get_db)
