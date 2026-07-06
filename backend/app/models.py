@@ -217,6 +217,22 @@ class SegmentEffort(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Segment(Base):
+    """Strava segment geometry — GLOBAL reference data (no user_id, no RLS):
+    a segment's public shape is identical for every athlete. Written only by
+    privileged sync jobs; read only through authed endpoints."""
+    __tablename__ = "segments"
+
+    segment_id: Mapped[str] = mapped_column(Text, primary_key=True)  # Strava segment id
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    distance_meters: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    avg_grade: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    climb_category: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # [[lat, lng], ...] <=200 pts; [] = fetched but the segment has no polyline.
+    points: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    fetched_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class WeeklyPlanRow(Base):
     __tablename__ = "weekly_plans"
     __table_args__ = (UniqueConstraint("user_id", "week_start", name="weekly_plans_user_week_uq"),)

@@ -549,6 +549,9 @@ class SegmentEffortDTO(_Base):
     start_date: dt.datetime
     pr_rank: int | None = None    # 1–3 or None
     kom_rank: int | None = None   # 1–10 or None
+    # Segment geometry [[lat, lng], ...] joined from the global segments table;
+    # None until the geometry drain has fetched this segment.
+    points: list[list[float]] | None = None
 
 
 class SegmentHistoryDTO(_Base):
@@ -558,6 +561,7 @@ class SegmentHistoryDTO(_Base):
     distance_meters: float | None = None
     avg_grade: float | None = None
     climb_category: int | None = None
+    points: list[list[float]] | None = None
     efforts: list[SegmentEffortDTO]
 
 

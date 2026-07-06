@@ -88,6 +88,14 @@ class StravaClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def fetch_segment_detail(self, token: str, segment_id: str) -> dict:
+        """DetailedSegment including map.polyline (full geometry, §13)."""
+        url = f"{self.api_base}/segments/{segment_id}"
+        async with httpx.AsyncClient(timeout=20) as http:
+            resp = await http.get(url, headers={"Authorization": f"Bearer {token}"})
+            resp.raise_for_status()
+            return resp.json()
+
     async def fetch_activity_streams(self, token: str, activity_id: str) -> dict:
         url = f"{self.api_base}/activities/{activity_id}/streams"
         params = {
@@ -178,6 +186,22 @@ def normalize_segment_efforts(raw: dict) -> list[dict]:
             "kom_rank": int(e["kom_rank"]) if e.get("kom_rank") is not None else None,
         })
     return out
+
+
+def normalize_segment_detail(raw: dict) -> dict | None:
+    """DetailedSegment → segments row. None when there's no id; points may be
+    [] (segment without a polyline) — still stored so the drain doesn't retry."""
+    if not isinstance(raw, dict) or not raw.get("id"):
+        return None
+    return {
+        "segment_id": str(raw["id"]),
+        "name": raw.get("name") or "Segment",
+        "distance_meters": float(raw["distance"]) if raw.get("distance") is not None else None,
+        "avg_grade": float(raw["average_grade"]) if raw.get("average_grade") is not None else None,
+        "climb_category": int(raw["climb_category"]) if raw.get("climb_category") is not None else None,
+        "points": downsample_route(decode_polyline((raw.get("map") or {}).get("polyline") or ""), max_points=200),
+        "fetched_at": dt.datetime.now(dt.timezone.utc),
+    }
 
 
 def normalize_strava_streams(raw: dict) -> dict:

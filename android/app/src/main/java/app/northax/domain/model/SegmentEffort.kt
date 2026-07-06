@@ -16,6 +16,7 @@ data class SegmentEffort(
     val startDate: Instant,
     val prRank: Int? = null, // 1–3 personal-record rank
     val komRank: Int? = null, // 1–10 leaderboard placement
+    val points: List<List<Double>>? = null, // segment geometry [[lat, lng], …]
 ) {
     /** "7:05" or "1:02:45". */
     val formattedTime: String
@@ -42,6 +43,7 @@ data class SegmentHistory(
     val distanceMeters: Double? = null,
     val avgGrade: Double? = null,
     val climbCategory: Int? = null,
+    val points: List<List<Double>>? = null,
     val efforts: List<SegmentEffort>,
 ) {
     val bestElapsedSeconds: Int? get() = efforts.minOfOrNull { it.elapsedSeconds }

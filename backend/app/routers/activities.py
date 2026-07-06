@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..deps import get_current_user_id, get_db
 from ..errors import activity_garmin_immutable, activity_not_found
-from ..models import Activity, SegmentEffort, UserPreferences
+from ..models import Activity, Segment, SegmentEffort, UserPreferences
 from ..rate_limit import limit
 
 router = APIRouter(prefix="/activities", tags=["activities"], dependencies=[Depends(limit("default", 300, 60))])
@@ -202,7 +202,17 @@ async def activity_segments(
         )
         .order_by(SegmentEffort.start_date)  # course order
     )
-    return [schemas.SegmentEffortDTO.model_validate(e) for e in result.scalars().all()]
+    efforts = list(result.scalars().all())
+    geom: dict[str, list] = {}
+    if efforts:
+        rows = (await session.execute(
+            select(Segment).where(Segment.segment_id.in_({e.segment_id for e in efforts}))
+        )).scalars().all()
+        geom = {s.segment_id: s.points for s in rows if len(s.points or []) >= 2}
+    return [
+        schemas.SegmentEffortDTO.model_validate(e).model_copy(update={"points": geom.get(e.segment_id)})
+        for e in efforts
+    ]
 
 
 @router.post("", response_model=schemas.ActivityDTO, status_code=201)

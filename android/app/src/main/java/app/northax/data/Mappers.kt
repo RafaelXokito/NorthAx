@@ -276,12 +276,12 @@ fun SegmentEffortDto.toDomain(): SegmentEffort = SegmentEffort(
     id = id, segmentId = segmentId, name = name,
     distanceMeters = distanceMeters, avgGrade = avgGrade, climbCategory = climbCategory,
     elapsedSeconds = elapsedSeconds, movingSeconds = movingSeconds, startDate = startDate,
-    prRank = prRank, komRank = komRank,
+    prRank = prRank, komRank = komRank, points = points,
 )
 
 fun SegmentHistoryDto.toDomain(): SegmentHistory = SegmentHistory(
     segmentId = segmentId, name = name, distanceMeters = distanceMeters,
-    avgGrade = avgGrade, climbCategory = climbCategory,
+    avgGrade = avgGrade, climbCategory = climbCategory, points = points,
     efforts = efforts.map { it.toDomain() },
 )
 

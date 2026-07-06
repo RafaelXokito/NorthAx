@@ -9,12 +9,13 @@ import datetime as dt
 import logging
 import uuid
 
-from sqlalchemy import delete, literal_column, select, update
+import httpx
+from sqlalchemy import delete, func, literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..db import session_scope
 from ..engines import readiness as r_engine
-from ..models import Activity, CoachMessage, DailyMetrics, IntervalsConnection, SegmentEffort, StravaConnection, User
+from ..models import Activity, CoachMessage, DailyMetrics, IntervalsConnection, Segment, SegmentEffort, StravaConnection, User
 from ..security import decrypt_token, encrypt_token
 from ..services import ai, goal_progress, mappers
 from ..services.intervals import (
@@ -24,7 +25,12 @@ from ..services.intervals import (
     normalize_intervals_wellness,
 )
 from ..services.polyline import downsample_route
-from ..services.strava import StravaClient, normalize_segment_efforts, normalize_strava_activity
+from ..services.strava import (
+    StravaClient,
+    normalize_segment_detail,
+    normalize_segment_efforts,
+    normalize_strava_activity,
+)
 from ..services.streams import normalize_streams
 from ..services.metrics_assembly import assemble_daily_metrics, record_source_readings
 from ..services.plan_service import regenerate_plans
@@ -201,6 +207,37 @@ _ACTIVITY_MERGE_FIELDS = (
 # Sports whose Strava activities can carry segment efforts worth fetching.
 _SEGMENT_DOMAINS = {"Cycling", "Running"}
 _SEGMENT_FETCH_CAP = 20  # activity-detail calls per sync run
+_SEGMENT_GEOMETRY_CAP = 15  # segment-detail calls per sync run
+
+
+async def _fetch_segment_geometry(session, client, access, segment_id) -> bool:
+    """Best-effort: fetch one segment's detail and upsert its geometry (global
+    table). A 404 (deleted/hazardous segment) stores an empty stub so the drain
+    doesn't wedge on it; other errors return False so the caller stops."""
+    values = None
+    try:
+        raw = await client.fetch_segment_detail(access, segment_id)
+        values = normalize_segment_detail(raw)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code != 404:
+            log.warning("segment geometry fetch failed for %s", segment_id, exc_info=True)
+            return False
+    except Exception:  # noqa: BLE001
+        log.warning("segment geometry fetch failed for %s", segment_id, exc_info=True)
+        return False
+    if values is None:  # 404 or unusable payload — stub it so the drain moves on
+        values = {"segment_id": segment_id, "name": "Segment", "points": [],
+                  "fetched_at": dt.datetime.now(dt.timezone.utc)}
+    async with session.begin_nested():
+        await session.execute(
+            pg_insert(Segment)
+            .values(**values)
+            .on_conflict_do_update(
+                index_elements=[Segment.segment_id],
+                set_={k: v for k, v in values.items() if k != "segment_id"},
+            )
+        )
+    return True
 
 
 async def _fetch_strava_segments(session, client, access, user_id, external_id) -> bool:
@@ -298,6 +335,24 @@ async def strava_sync(user_id: str) -> dict:
             for external_id in pending:
                 if not await _fetch_strava_segments(session, client, access, user_id, external_id):
                     break  # a 429/network error shouldn't be hammered — resume next sync
+
+        # Segment geometry (global table): fetch shapes for segments this user's
+        # efforts reference but that aren't stored yet — covers both segments
+        # seen this sync (efforts upserted above in the same transaction) and
+        # the pre-geometry backlog, newest-ridden first.
+        missing = (await session.execute(
+            select(SegmentEffort.segment_id)
+            .where(
+                SegmentEffort.user_id == uuid.UUID(user_id),
+                ~select(Segment.segment_id).where(Segment.segment_id == SegmentEffort.segment_id).exists(),
+            )
+            .group_by(SegmentEffort.segment_id)
+            .order_by(func.max(SegmentEffort.start_date).desc())
+            .limit(_SEGMENT_GEOMETRY_CAP)
+        )).scalars().all()
+        for sid in missing:
+            if not await _fetch_segment_geometry(session, client, access, sid):
+                break  # a 429/network error shouldn't be hammered — resume next sync
 
         conn.last_sync_at = dt.datetime.now(dt.timezone.utc)
     if new_domains:

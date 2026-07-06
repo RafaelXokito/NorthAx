@@ -224,7 +224,11 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         SectionLabel("Activity data")
                         if (isMotionDomain && s.latLng.size > 1) {
-                            RouteMapCard(points = s.latLng, color = session.domain.color)
+                            RouteMapCard(
+                                points = s.latLng,
+                                segments = segments.mapNotNull { it.points?.takeIf { p -> p.size > 1 } },
+                                color = session.domain.color,
+                            )
                         }
                         ActivityStreamCharts(
                             streams = s,

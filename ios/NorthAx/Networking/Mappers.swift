@@ -281,14 +281,14 @@ extension SegmentEffortDTO {
                       distanceMeters: distanceMeters, avgGrade: avgGrade,
                       climbCategory: climbCategory, elapsedSeconds: elapsedSeconds,
                       movingSeconds: movingSeconds, startDate: startDate,
-                      prRank: prRank, komRank: komRank)
+                      prRank: prRank, komRank: komRank, points: points)
     }
 }
 
 extension SegmentHistoryDTO {
     func toDomain() -> SegmentHistory {
         SegmentHistory(segmentId: segmentId, name: name, distanceMeters: distanceMeters,
-                       avgGrade: avgGrade, climbCategory: climbCategory,
+                       avgGrade: avgGrade, climbCategory: climbCategory, points: points,
                        efforts: efforts.map { $0.toDomain() })
     }
 }

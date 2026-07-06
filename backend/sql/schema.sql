@@ -247,6 +247,22 @@ CREATE INDEX IF NOT EXISTS segment_efforts_user_segment_idx ON segment_efforts(u
 CREATE INDEX IF NOT EXISTS segment_efforts_user_start_idx ON segment_efforts(user_id, start_date);
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- segments  (Strava segment geometry — GLOBAL reference data)
+-- Deliberately NOT in the RLS loop below: rows carry no user_id (a segment's
+-- public geometry is identical for every athlete). Writes happen only in
+-- privileged sync jobs; reads only through authenticated endpoints.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS segments (
+  segment_id      TEXT PRIMARY KEY,          -- Strava segment id
+  name            TEXT NOT NULL,
+  distance_meters NUMERIC(10,2),
+  avg_grade       NUMERIC(5,2),
+  climb_category  INTEGER,
+  points          JSONB NOT NULL DEFAULT '[]'::jsonb,  -- [[lat,lng],...] <=200; [] = fetched, no polyline
+  fetched_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Row-Level Security (§4) — defence in depth.
 -- The application sets `app.current_user_id` at the start of each transaction.
 -- ─────────────────────────────────────────────────────────────────────────────

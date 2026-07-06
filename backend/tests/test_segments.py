@@ -2,9 +2,11 @@
 import datetime as dt
 import uuid
 
+import httpx
+
 from app.db import session_scope
-from app.models import Activity, SegmentEffort
-from app.services.strava import normalize_segment_efforts
+from app.models import Activity, Segment, SegmentEffort
+from app.services.strava import normalize_segment_detail, normalize_segment_efforts
 
 UTC = dt.timezone.utc
 
@@ -63,6 +65,27 @@ def test_normalize_segment_efforts_skips_malformed():
 def test_normalize_segment_efforts_empty():
     assert normalize_segment_efforts(_detail([])) == []
     assert normalize_segment_efforts({"id": 1}) == []
+
+
+# ── normalize_segment_detail (no DB) ─────────────────────────────────────────
+def test_normalize_segment_detail_full():
+    row = normalize_segment_detail({
+        "id": 55, "name": "Serra Climb", "distance": 3200.5, "average_grade": 5.4,
+        "climb_category": 3, "map": {"polyline": "_p~iF~ps|U_ulLnnqC_mqNvxq`@"},
+    })
+    assert row["segment_id"] == "55"
+    assert row["name"] == "Serra Climb"
+    assert row["points"] == [[38.5, -120.2], [40.7, -120.95], [43.252, -126.453]]
+
+
+def test_normalize_segment_detail_no_polyline():
+    row = normalize_segment_detail({"id": 55, "name": "S"})
+    assert row["points"] == []
+
+
+def test_normalize_segment_detail_no_id():
+    assert normalize_segment_detail({}) is None
+    assert normalize_segment_detail("nope") is None
 
 
 # ── endpoints (DB via the api fixture) ───────────────────────────────────────
@@ -127,6 +150,86 @@ async def test_segment_history_newest_first(api):
     assert body["name"] == "Segment 55"
     assert body["distanceMeters"] == 3200.5
     assert [e["elapsedSeconds"] for e in body["efforts"]] == [425, 450]  # newest first
+
+
+# ── segment geometry (§13) ───────────────────────────────────────────────────
+_GEOM = [[40.0, -8.0], [40.01, -8.01], [40.02, -8.02]]
+
+
+async def _seed_geometry(segment_id: str = "55") -> None:
+    # merge: the segments table is global (no per-user cleanup), so seeding
+    # must be an upsert to survive earlier tests touching the same id.
+    async with session_scope(None) as s:
+        await s.merge(Segment(segment_id=segment_id, name="Serra Climb", points=_GEOM))
+
+
+async def test_activity_segments_joins_points(api):
+    client, headers, user_id = api
+    await _seed(user_id)
+    await _seed_geometry("55")  # 77 stays geometry-less (drain pending)
+    r = await client.get("/v1/activities/stv-1/segments", headers=headers)
+    body = r.json()
+    by_seg = {e["segmentId"]: e["points"] for e in body}
+    assert by_seg["55"] == _GEOM
+    assert by_seg["77"] is None
+
+
+async def test_segment_history_carries_points(api):
+    client, headers, user_id = api
+    await _seed(user_id)
+    await _seed_geometry("55")
+    r = await client.get("/v1/segments/55/efforts", headers=headers)
+    assert r.json()["points"] == _GEOM
+
+
+class _FakeSegmentClient:
+    """fetch_segment_detail stub: canned payloads by id, or an httpx error."""
+    def __init__(self, payloads: dict, error: Exception | None = None):
+        self.payloads = payloads
+        self.error = error
+
+    async def fetch_segment_detail(self, token, segment_id):
+        if self.error is not None:
+            raise self.error
+        return self.payloads[segment_id]
+
+
+def _http_error(status: int) -> httpx.HTTPStatusError:
+    req = httpx.Request("GET", "https://example/api")
+    return httpx.HTTPStatusError("err", request=req, response=httpx.Response(status, request=req))
+
+
+async def test_fetch_segment_geometry_upserts_idempotently(api):
+    from sqlalchemy import select
+
+    from app.jobs.tasks import _fetch_segment_geometry
+
+    payload = {"u55": {"id": "u55", "name": "Serra", "map": {"polyline": "_p~iF~ps|U_ulLnnqC_mqNvxq`@"}}}
+    async with session_scope(None) as s:
+        assert await _fetch_segment_geometry(s, _FakeSegmentClient(payload), "tok", "u55")
+        assert await _fetch_segment_geometry(s, _FakeSegmentClient(payload), "tok", "u55")  # idempotent
+    async with session_scope(None) as s:
+        seg = (await s.execute(select(Segment).where(Segment.segment_id == "u55"))).scalars().one()
+        assert len(seg.points) == 3
+
+
+async def test_fetch_segment_geometry_404_stores_stub(api):
+    from sqlalchemy import select
+
+    from app.jobs.tasks import _fetch_segment_geometry
+
+    async with session_scope(None) as s:
+        assert await _fetch_segment_geometry(s, _FakeSegmentClient({}, error=_http_error(404)), "tok", "gone")
+    async with session_scope(None) as s:
+        seg = (await s.execute(select(Segment).where(Segment.segment_id == "gone"))).scalars().one()
+        assert seg.points == []
+
+
+async def test_fetch_segment_geometry_other_error_returns_false(api):
+    from app.jobs.tasks import _fetch_segment_geometry
+
+    async with session_scope(None) as s:
+        assert not await _fetch_segment_geometry(s, _FakeSegmentClient({}, error=_http_error(429)), "tok", "55")
 
 
 async def test_segment_history_unknown_404(api):

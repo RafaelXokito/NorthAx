@@ -13,6 +13,12 @@ struct SegmentHistoryView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     header
+                    if let pts = segment.points ?? history?.points, pts.count > 1 {
+                        MapLibreMapView(route: pts, routeColor: .axPurple)
+                            .frame(height: 140)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .allowsHitTesting(false)
+                    }
                     if let history {
                         effortsCard(history)
                     } else {

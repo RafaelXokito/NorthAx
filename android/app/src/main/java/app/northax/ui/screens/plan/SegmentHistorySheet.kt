@@ -29,6 +29,7 @@ import app.northax.ui.components.AxCard
 import app.northax.ui.components.AxPill
 import app.northax.ui.components.AxSheet
 import app.northax.ui.components.SectionLabel
+import app.northax.ui.components.SegmentMiniMap
 import app.northax.ui.theme.Ax
 import app.northax.ui.theme.axDisplay
 import app.northax.ui.theme.axMono
@@ -60,6 +61,10 @@ fun SegmentHistorySheet(store: AthleteStore, segment: SegmentEffort, onDismiss: 
                     Text(segment.name, style = axDisplay(20, FontWeight.Black), color = Ax.Primary)
                     Text(segment.metaLine, style = axMono(11).tracked(0.6), color = Ax.Secondary)
                 }
+            }
+
+            (segment.points ?: history?.points)?.takeIf { it.size > 1 }?.let { pts ->
+                SegmentMiniMap(points = pts)
             }
 
             history?.let { h ->

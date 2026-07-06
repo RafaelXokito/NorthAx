@@ -296,6 +296,7 @@ struct SegmentEffortDTO: Decodable {
     var startDate: Date
     var prRank: Int?
     var komRank: Int?
+    var points: [[Double]]?   // segment geometry [[lat, lng], …]
 }
 
 /// A segment's metadata plus the athlete's efforts on it, newest first.
@@ -305,6 +306,7 @@ struct SegmentHistoryDTO: Decodable {
     var distanceMeters: Double?
     var avgGrade: Double?
     var climbCategory: Int?
+    var points: [[Double]]?
     var efforts: [SegmentEffortDTO]
 }
 

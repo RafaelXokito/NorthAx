@@ -317,6 +317,7 @@ data class SegmentEffortDto(
     val startDate: ApiInstant,
     val prRank: Int? = null,
     val komRank: Int? = null,
+    val points: List<List<Double>>? = null, // segment geometry [[lat, lng], …]
 )
 
 /** A segment's metadata plus the athlete's efforts on it, newest first. */
@@ -327,6 +328,7 @@ data class SegmentHistoryDto(
     val distanceMeters: Double? = null,
     val avgGrade: Double? = null,
     val climbCategory: Int? = null,
+    val points: List<List<Double>>? = null,
     val efforts: List<SegmentEffortDto> = emptyList(),
 )
 

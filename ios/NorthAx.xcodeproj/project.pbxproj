@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		89069ABA2FF4636300083FA1 /* Plan.txt in Resources */ = {isa = PBXBuildFile; fileRef = 89069AB92FF4635900083FA1 /* Plan.txt */; };
+		89ABCD032FF5AA0000000003 /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = 89ABCD022FF5AA0000000002 /* MapLibre */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				89ABCD032FF5AA0000000003 /* MapLibre in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +120,7 @@
 			);
 			name = NorthAx;
 			packageProductDependencies = (
+				89ABCD022FF5AA0000000002 /* MapLibre */,
 			);
 			productName = NorthAx;
 			productReference = 89D8F89A2FF1DE3100BD3588 /* NorthAx.app */;
@@ -201,6 +204,9 @@
 			);
 			mainGroup = 89D8F8912FF1DE3100BD3588;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				89ABCD012FF5AA0000000001 /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 89D8F89B2FF1DE3100BD3588 /* Products */;
 			projectDirPath = "";
@@ -588,6 +594,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		89ABCD012FF5AA0000000001 /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/maplibre/maplibre-gl-native-distribution";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.27.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		89ABCD022FF5AA0000000002 /* MapLibre */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 89ABCD012FF5AA0000000001 /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */;
+			productName = MapLibre;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 89D8F8922FF1DE3100BD3588 /* Project object */;
 }

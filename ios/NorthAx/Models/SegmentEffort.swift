@@ -13,6 +13,7 @@ struct SegmentEffort: Identifiable {
     var startDate: Date
     var prRank: Int?          // 1–3 personal-record rank
     var komRank: Int?         // 1–10 leaderboard placement
+    var points: [[Double]]?   // segment geometry [[lat, lng], …]
 
     /// "7:05" or "1:02:45".
     var formattedTime: String {
@@ -36,6 +37,7 @@ struct SegmentHistory {
     var distanceMeters: Double?
     var avgGrade: Double?
     var climbCategory: Int?
+    var points: [[Double]]?
     var efforts: [SegmentEffort]
 
     var bestElapsedSeconds: Int? { efforts.map(\.elapsedSeconds).min() }
