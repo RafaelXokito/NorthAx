@@ -41,7 +41,6 @@ import kotlin.math.cos
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
-import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
@@ -54,7 +53,6 @@ import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
-import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
@@ -63,14 +61,13 @@ import org.maplibre.geojson.Point
 
 /**
  * GPS route of a completed outdoor workout on the NorthAx-styled MapLibre map
- * (OpenFreeMap vector tiles, custom dark style in assets/northax-dark.json),
- * with Strava segment paths overlaid. The inline map is inert; tapping it
- * opens an interactive full-screen dialog — mirrors iOS.
+ * (OpenFreeMap vector tiles, custom dark style in assets/northax-dark.json).
+ * The inline map is inert; tapping it opens an interactive full-screen dialog
+ * — mirrors iOS. Segment paths live in the per-segment sheet.
  */
 @Composable
 fun RouteMapCard(
     points: List<List<Double>>,
-    segments: List<List<List<Double>>> = emptyList(),
     color: Color,
     modifier: Modifier = Modifier,
 ) {
@@ -82,7 +79,7 @@ fun RouteMapCard(
             .height(180.dp)
             .clip(RoundedCornerShape(12.dp)),
     ) {
-        RouteMapView(points, segments, color, interactive = false, modifier = Modifier.fillMaxSize())
+        RouteMapView(points, color, interactive = false, modifier = Modifier.fillMaxSize())
         // Transparent scrim: the MapView never sees touches; the card just taps.
         Box(
             modifier = Modifier
@@ -97,7 +94,7 @@ fun RouteMapCard(
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
             Box(modifier = Modifier.fillMaxSize().background(Ax.Background)) {
-                RouteMapView(points, segments, color, interactive = true, modifier = Modifier.fillMaxSize())
+                RouteMapView(points, color, interactive = true, modifier = Modifier.fillMaxSize())
                 IconButton(
                     onClick = { showFullMap = false },
                     modifier = Modifier
@@ -121,28 +118,19 @@ fun SegmentMiniMap(points: List<List<Double>>, modifier: Modifier = Modifier) {
             .height(140.dp)
             .clip(RoundedCornerShape(12.dp)),
     ) {
-        RouteMapView(points, emptyList(), Ax.Purple, interactive = false, modifier = Modifier.fillMaxSize())
+        RouteMapView(points, Ax.Purple, interactive = false, modifier = Modifier.fillMaxSize())
         Box(modifier = Modifier.matchParentSize()) // swallow touches
     }
-}
-
-/** Holds live map objects so recompositions can update the segments overlay. */
-private class MapRefs {
-    var map: MapLibreMap? = null
-    var style: Style? = null
-    var lastSegmentCount = -1
 }
 
 @Composable
 private fun RouteMapView(
     points: List<List<Double>>,
-    segments: List<List<List<Double>>>,
     color: Color,
     interactive: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val refs = remember { MapRefs() }
     var mapView by remember { mutableStateOf<MapView?>(null) }
 
     AndroidView(
@@ -153,23 +141,21 @@ private fun RouteMapView(
                 onStart()
                 onResume()
                 getMapAsync { map ->
-                    refs.map = map
                     map.uiSettings.setAllGesturesEnabled(interactive)
                     map.uiSettings.isCompassEnabled = false
                     map.setStyle(Style.Builder().fromUri("asset://northax-dark.json")) { style ->
-                        refs.style = style
                         addRouteLayers(style, points, color)
-                        setSegments(refs, segments)
                         val bounds = LatLngBounds.Builder()
                             .apply { points.forEach { include(LatLng(it[0], it[1])) } }
                             .build()
-                        map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 64))
+                        // post: fit the camera only after the view is laid out —
+                        // against a zero-size view the zoom lands far too low.
+                        post { map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 64)) }
                     }
                 }
                 mapView = this
             }
         },
-        update = { setSegments(refs, segments) },
     )
 
     DisposableEffect(lifecycleOwner) {
@@ -206,17 +192,6 @@ private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Colo
             lineJoin(Property.LINE_JOIN_ROUND),
         ),
     )
-    // Strava segment paths sit above the route in a contrasting color.
-    style.addSource(org.maplibre.android.style.sources.GeoJsonSource("segments", FeatureCollection.fromFeatures(emptyList())))
-    style.addLayer(
-        LineLayer("segments-line", "segments").withProperties(
-            lineColor(Ax.Purple.toArgb()),
-            lineOpacity(0.7f),
-            lineWidth(2.5f),
-            lineCap(Property.LINE_CAP_ROUND),
-            lineJoin(Property.LINE_JOIN_ROUND),
-        ),
-    )
     val endpoints = FeatureCollection.fromFeatures(
         listOf(
             Feature.fromGeometry(Point.fromLngLat(points.first()[1], points.first()[0])).apply { addStringProperty("kind", "start") },
@@ -246,14 +221,6 @@ private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Colo
             org.maplibre.android.style.expressions.Expression.literal("end"),
         )),
     )
-}
-
-private fun setSegments(refs: MapRefs, segments: List<List<List<Double>>>) {
-    val style = refs.style ?: return
-    if (refs.lastSegmentCount == segments.size) return
-    refs.lastSegmentCount = segments.size
-    val collection = FeatureCollection.fromFeatures(segments.map { Feature.fromGeometry(lineString(it)) })
-    style.getSourceAs<org.maplibre.android.style.sources.GeoJsonSource>("segments")?.setGeoJson(collection)
 }
 
 /**

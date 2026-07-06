@@ -1,17 +1,16 @@
 import SwiftUI
 
-/// GPS route of a completed outdoor workout on the NorthAx-styled map, with
-/// Strava segment paths overlaid. The inline map is inert (a pannable map
-/// inside a ScrollView steals drags); tapping it opens an interactive
-/// full-screen sheet — same behavior as Strava's activity page.
+/// GPS route of a completed outdoor workout on the NorthAx-styled map. The
+/// inline map is inert (a pannable map inside a ScrollView steals drags);
+/// tapping it opens an interactive full-screen sheet — same behavior as
+/// Strava's activity page. Segment paths live in the per-segment sheet.
 struct RouteMapCard: View {
-    let latLng: [[Double]]             // [[lat, lng], …], ≥ 2 pairs (caller-checked)
-    var segments: [[[Double]]] = []    // segment paths drawn over the route
+    let latLng: [[Double]]   // [[lat, lng], …], ≥ 2 pairs (caller-checked)
     let color: Color
     @State private var showFullMap = false
 
     var body: some View {
-        MapLibreMapView(route: latLng, segments: segments, routeColor: color)
+        MapLibreMapView(route: latLng, routeColor: color)
             .allowsHitTesting(false)
             .frame(height: 180)
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -27,7 +26,7 @@ struct RouteMapCard: View {
             .onTapGesture { showFullMap = true }
             .sheet(isPresented: $showFullMap) {
                 NavigationStack {
-                    MapLibreMapView(route: latLng, segments: segments, routeColor: color, interactive: true)
+                    MapLibreMapView(route: latLng, routeColor: color, interactive: true)
                         .ignoresSafeArea(edges: .bottom)
                         .navigationTitle("Route")
                         .navigationBarTitleDisplayMode(.inline)

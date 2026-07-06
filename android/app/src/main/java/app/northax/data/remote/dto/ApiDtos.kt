@@ -318,6 +318,7 @@ data class SegmentEffortDto(
     val prRank: Int? = null,
     val komRank: Int? = null,
     val points: List<List<Double>>? = null, // segment geometry [[lat, lng], …]
+    val bestElapsedSeconds: Int? = null,
 )
 
 /** A segment's metadata plus the athlete's efforts on it, newest first. */

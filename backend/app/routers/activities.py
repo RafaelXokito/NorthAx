@@ -204,13 +204,23 @@ async def activity_segments(
     )
     efforts = list(result.scalars().all())
     geom: dict[str, list] = {}
+    best: dict[str, int] = {}
     if efforts:
+        seg_ids = {e.segment_id for e in efforts}
         rows = (await session.execute(
-            select(Segment).where(Segment.segment_id.in_({e.segment_id for e in efforts}))
+            select(Segment).where(Segment.segment_id.in_(seg_ids))
         )).scalars().all()
         geom = {s.segment_id: s.points for s in rows if len(s.points or []) >= 2}
+        best_rows = await session.execute(
+            select(SegmentEffort.segment_id, func.min(SegmentEffort.elapsed_seconds))
+            .where(SegmentEffort.user_id == uuid.UUID(user_id), SegmentEffort.segment_id.in_(seg_ids))
+            .group_by(SegmentEffort.segment_id)
+        )
+        best = {sid: int(m) for sid, m in best_rows.all()}
     return [
-        schemas.SegmentEffortDTO.model_validate(e).model_copy(update={"points": geom.get(e.segment_id)})
+        schemas.SegmentEffortDTO.model_validate(e).model_copy(
+            update={"points": geom.get(e.segment_id), "best_elapsed_seconds": best.get(e.segment_id)}
+        )
         for e in efforts
     ]
 

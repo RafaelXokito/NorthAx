@@ -224,11 +224,7 @@ fun WorkoutDetailSheet(store: AthleteStore, match: SessionMatch, onDismiss: () -
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         SectionLabel("Activity data")
                         if (isMotionDomain && s.latLng.size > 1) {
-                            RouteMapCard(
-                                points = s.latLng,
-                                segments = segments.mapNotNull { it.points?.takeIf { p -> p.size > 1 } },
-                                color = session.domain.color,
-                            )
+                            RouteMapCard(points = s.latLng, color = session.domain.color)
                         }
                         ActivityStreamCharts(
                             streams = s,
@@ -347,13 +343,20 @@ private fun SegmentEffortRow(effort: SegmentEffort, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(effort.metaLine, style = axMono(10).tracked(0.4), color = Ax.Tertiary)
+            Text(
+                effort.formattedBest?.let { "${effort.metaLine} · PB $it" } ?: effort.metaLine,
+                style = axMono(10).tracked(0.4),
+                color = Ax.Tertiary,
+            )
         }
         Text(effort.formattedTime, style = axMono(12, FontWeight.SemiBold), color = Ax.Primary)
+        // Our DB is the source of truth for "still your best"; Strava's pr_rank
+        // was only true at ride time.
         effort.komRank?.let { kom ->
             AxPill(if (kom == 1) "KOM" else "#$kom", Ax.Purple)
-        } ?: when (effort.prRank) {
-            1 -> AxPill("PR", Ax.Amber)
+        } ?: if (effort.isAllTimeBest) {
+            AxPill("BEST", Ax.Accent)
+        } else when (effort.prRank) {
             2 -> AxPill("2nd", Ax.Amber, AxPillStyle.Outline)
             3 -> AxPill("3rd", Ax.Amber, AxPillStyle.Outline)
             else -> {}

@@ -88,9 +88,7 @@ struct WorkoutDetailView: View {
         return card("ACTIVITY DATA") {
             VStack(alignment: .leading, spacing: 18) {
                 if showsMotionStreams, s.latLng.count > 1 {
-                    RouteMapCard(latLng: s.latLng,
-                                 segments: segments.compactMap { ($0.points?.count ?? 0) > 1 ? $0.points : nil },
-                                 color: session.domain.color)
+                    RouteMapCard(latLng: s.latLng, color: session.domain.color)
                 }
                 if !s.heartRate.isEmpty {
                     ActivityStreamChart(title: "Heart rate", values: s.heartRate, color: .axRed,
@@ -132,7 +130,7 @@ struct WorkoutDetailView: View {
                                     .font(.axDisplay(14, .bold))
                                     .foregroundStyle(.axPrimary)
                                     .lineLimit(1)
-                                Text(effort.metaLine)
+                                Text(effort.formattedBest.map { "\(effort.metaLine) · PB \($0)" } ?? effort.metaLine)
                                     .font(.axMono(10))
                                     .tracking(0.4)
                                     .foregroundStyle(.axTertiary)
@@ -158,8 +156,10 @@ struct WorkoutDetailView: View {
 
     private func rankBadge(_ effort: SegmentEffort) -> AxPill? {
         if let kom = effort.komRank { return AxPill(text: kom == 1 ? "KOM" : "#\(kom)", color: .axPurple) }
+        // Our DB is the source of truth for "still your best"; Strava's pr_rank
+        // was only true at ride time.
+        if effort.isAllTimeBest { return AxPill(text: "BEST", color: .axAccent) }
         switch effort.prRank {
-        case 1: return AxPill(text: "PR", color: .axAmber)
         case 2: return AxPill(text: "2nd", color: .axAmber, style: .outline)
         case 3: return AxPill(text: "3rd", color: .axAmber, style: .outline)
         default: return nil

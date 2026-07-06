@@ -174,6 +174,16 @@ async def test_activity_segments_joins_points(api):
     assert by_seg["77"] is None
 
 
+async def test_activity_segments_carries_all_time_best(api):
+    """This ride's effort on 55 is 425; yesterday's e0 was 450 → 425 is the best."""
+    client, headers, user_id = api
+    await _seed(user_id)
+    r = await client.get("/v1/activities/stv-1/segments", headers=headers)
+    by_seg = {e["segmentId"]: e for e in r.json()}
+    assert by_seg["55"]["bestElapsedSeconds"] == 425   # this effort IS the best
+    assert by_seg["77"]["bestElapsedSeconds"] == 610
+
+
 async def test_segment_history_carries_points(api):
     client, headers, user_id = api
     await _seed(user_id)

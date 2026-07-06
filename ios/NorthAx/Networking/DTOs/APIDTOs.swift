@@ -297,6 +297,7 @@ struct SegmentEffortDTO: Decodable {
     var prRank: Int?
     var komRank: Int?
     var points: [[Double]]?   // segment geometry [[lat, lng], …]
+    var bestElapsedSeconds: Int?
 }
 
 /// A segment's metadata plus the athlete's efforts on it, newest first.

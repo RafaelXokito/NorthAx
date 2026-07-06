@@ -281,7 +281,8 @@ extension SegmentEffortDTO {
                       distanceMeters: distanceMeters, avgGrade: avgGrade,
                       climbCategory: climbCategory, elapsedSeconds: elapsedSeconds,
                       movingSeconds: movingSeconds, startDate: startDate,
-                      prRank: prRank, komRank: komRank, points: points)
+                      prRank: prRank, komRank: komRank, points: points,
+                      bestElapsedSeconds: bestElapsedSeconds)
     }
 }
 

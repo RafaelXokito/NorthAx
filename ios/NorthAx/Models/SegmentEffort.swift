@@ -14,10 +14,21 @@ struct SegmentEffort: Identifiable {
     var prRank: Int?          // 1–3 personal-record rank
     var komRank: Int?         // 1–10 leaderboard placement
     var points: [[Double]]?   // segment geometry [[lat, lng], …]
+    var bestElapsedSeconds: Int?   // the athlete's all-time best on this segment
+
+    /// Whether this effort is (still) the athlete's fastest on the segment.
+    var isAllTimeBest: Bool { bestElapsedSeconds != nil && elapsedSeconds == bestElapsedSeconds }
 
     /// "7:05" or "1:02:45".
     var formattedTime: String {
         let h = elapsedSeconds / 3600, m = (elapsedSeconds % 3600) / 60, s = elapsedSeconds % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
+    }
+
+    /// The all-time best as "6:45", when known and not this effort.
+    var formattedBest: String? {
+        guard let best = bestElapsedSeconds, best != elapsedSeconds else { return nil }
+        let h = best / 3600, m = (best % 3600) / 60, s = best % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 

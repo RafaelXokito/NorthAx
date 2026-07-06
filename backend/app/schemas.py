@@ -552,6 +552,9 @@ class SegmentEffortDTO(_Base):
     # Segment geometry [[lat, lng], ...] joined from the global segments table;
     # None until the geometry drain has fetched this segment.
     points: list[list[float]] | None = None
+    # The athlete's all-time best on this segment (activity-segments endpoint
+    # only) — lets the list flag "this ride set your best time".
+    best_elapsed_seconds: int | None = None
 
 
 class SegmentHistoryDTO(_Base):
