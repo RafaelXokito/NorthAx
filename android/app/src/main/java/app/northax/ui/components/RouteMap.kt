@@ -51,6 +51,7 @@ import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.circleColor
@@ -76,15 +77,6 @@ data class MapHighlight(val point: List<Double>, val kind: Kind, val segmentId: 
             Kind.Best -> Ax.Accent
             Kind.Second, Kind.Third -> Ax.Amber
             Kind.Kom -> Ax.Purple
-        }
-
-    /** Badge glyph — unicode so iOS and Android render the same marks. */
-    val glyph: String
-        get() = when (kind) {
-            Kind.Best -> "★"
-            Kind.Second -> "2"
-            Kind.Third -> "3"
-            Kind.Kom -> "♛"
         }
 }
 
@@ -261,27 +253,77 @@ private fun RouteMapView(
 private fun lineString(path: List<List<Double>>): LineString =
     LineString.fromLngLats(path.map { Point.fromLngLat(it[1], it[0]) })
 
-/** 22dp circular badge in the kind's color with a centered glyph. */
-private fun badgeBitmap(color: Int, glyph: String, density: Float): android.graphics.Bitmap {
-    val size = (22 * density).toInt()
-    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+/**
+ * 26×34dp teardrop map pin in the kind's color; the head carries a path-drawn
+ * star (BEST), crown (KOM), or a bold digit (2nd/3rd). Geometry mirrors the
+ * iOS renderer so both apps match.
+ */
+private fun pinBitmap(kind: MapHighlight.Kind, density: Float): android.graphics.Bitmap {
+    fun d(v: Float) = v * density
+    val bitmap = android.graphics.Bitmap.createBitmap(d(26f).toInt(), d(34f).toInt(), android.graphics.Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
-    val cx = size / 2f
-    val radius = cx - 1.5f * density
-    canvas.drawCircle(cx, cx, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
-    canvas.drawCircle(cx, cx, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.color = Ax.Background.toArgb()
+    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = MapHighlight(emptyList(), kind).color.toArgb() }
+    val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Ax.Background.toArgb()
         style = Paint.Style.STROKE
-        strokeWidth = 2f * density
-    })
-    val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.color = android.graphics.Color.WHITE
-        textSize = 11f * density
-        typeface = android.graphics.Typeface.DEFAULT_BOLD
-        textAlign = Paint.Align.CENTER
+        strokeWidth = d(2f)
     }
-    canvas.drawText(glyph, cx, cx - (text.descent() + text.ascent()) / 2, text)
+
+    val tail = android.graphics.Path().apply {
+        moveTo(d(7.5f), d(19.5f))
+        lineTo(d(13f), d(32.5f))
+        lineTo(d(18.5f), d(19.5f))
+        close()
+    }
+    canvas.drawPath(tail, fill)
+    canvas.drawPath(tail, Paint(outline).apply { strokeWidth = d(1.5f) })
+
+    canvas.drawCircle(d(13f), d(13f), d(11f), fill)
+    canvas.drawCircle(d(13f), d(13f), d(11f), outline)
+
+    val white = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+    when (kind) {
+        MapHighlight.Kind.Best -> canvas.drawPath(starPath(d(13f), d(13f), d(6.5f), d(2.7f)), white)
+        MapHighlight.Kind.Kom -> canvas.drawPath(crownPath(d(13f), d(13f), density), white)
+        MapHighlight.Kind.Second, MapHighlight.Kind.Third -> {
+            val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.WHITE
+                textSize = d(12.5f)
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT_BOLD, android.graphics.Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+            val glyph = if (kind == MapHighlight.Kind.Second) "2" else "3"
+            canvas.drawText(glyph, d(13f), d(13f) - (text.descent() + text.ascent()) / 2, text)
+        }
+    }
     return bitmap
+}
+
+private fun starPath(cx: Float, cy: Float, outer: Float, inner: Float): android.graphics.Path {
+    val path = android.graphics.Path()
+    for (i in 0 until 10) {
+        val angle = -Math.PI / 2 + i * Math.PI / 5
+        val radius = if (i % 2 == 0) outer else inner
+        val x = cx + (kotlin.math.cos(angle) * radius).toFloat()
+        val y = cy + (kotlin.math.sin(angle) * radius).toFloat()
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    return path
+}
+
+private fun crownPath(cx: Float, cy: Float, density: Float): android.graphics.Path {
+    fun d(v: Float) = v * density
+    return android.graphics.Path().apply {
+        moveTo(cx - d(5.5f), cy + d(4.5f))   // base left
+        lineTo(cx - d(5.5f), cy - d(1.5f))   // left spike
+        lineTo(cx - d(2.7f), cy + d(0.8f))
+        lineTo(cx, cy - d(4f))               // middle spike
+        lineTo(cx + d(2.7f), cy + d(0.8f))
+        lineTo(cx + d(5.5f), cy - d(1.5f))   // right spike
+        lineTo(cx + d(5.5f), cy + d(4.5f))   // base right
+        close()
+    }
 }
 
 private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Color, density: Float) {
@@ -294,17 +336,18 @@ private fun addRouteLayers(style: Style, points: List<List<Double>>, color: Colo
             lineJoin(Property.LINE_JOIN_ROUND),
         ),
     )
-    // One source + icon layer per highlight kind (★ / 2 / 3 / ♛ badges,
-    // rendered at runtime — the style ships no sprite sheet); features
-    // filled by setHighlights.
+    // One source + icon layer per highlight kind (pin badges with a drawn
+    // star/digit/crown, rendered at runtime — the style ships no sprite
+    // sheet); features filled by setHighlights. The pin's tip marks the
+    // segment start, so icons anchor at the bottom.
     for (kind in MapHighlight.Kind.entries) {
         val id = "highlight-${kind.name}"
-        val sample = MapHighlight(emptyList(), kind)
-        style.addImage(id, badgeBitmap(sample.color.toArgb(), sample.glyph, density))
+        style.addImage(id, pinBitmap(kind, density))
         style.addSource(org.maplibre.android.style.sources.GeoJsonSource(id, FeatureCollection.fromFeatures(emptyList())))
         style.addLayer(
             SymbolLayer("$id-icon", id).withProperties(
                 iconImage(id),
+                iconAnchor(Property.ICON_ANCHOR_BOTTOM),
                 iconAllowOverlap(true),
                 iconIgnorePlacement(true),
             ),

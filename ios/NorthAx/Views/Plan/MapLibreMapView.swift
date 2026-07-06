@@ -15,16 +15,6 @@ struct MapHighlight: Equatable {
         case .kom: return .axPurple
         }
     }
-
-    /// Badge glyph — unicode so iOS and Android render the same marks.
-    var glyph: String {
-        switch kind {
-        case .best: return "★"
-        case .second: return "2"
-        case .third: return "3"
-        case .kom: return "♛"
-        }
-    }
 }
 
 /// NorthAx-styled MapLibre map (OpenFreeMap vector tiles, custom dark style in
@@ -94,18 +84,18 @@ struct MapLibreMapView: UIViewRepresentable {
             addCircleLayer(id: "endpoint-start", point: route.first, color: .axGreen, radius: 4, to: style)
             addCircleLayer(id: "endpoint-end", point: route.last, color: .axRed, radius: 4, to: style)
 
-            // One source + icon layer per highlight kind (★ / 2 / 3 / ♛ badges,
-            // rendered at runtime — the style ships no sprite sheet); shapes
-            // filled by updateHighlights.
+            // One source + icon layer per highlight kind (pin badges with a
+            // drawn star/digit/crown, rendered at runtime — the style ships no
+            // sprite sheet); shapes filled by updateHighlights. The pin's tip
+            // marks the segment start, so icons anchor at the bottom.
             for kind in MapHighlight.Kind.allCases {
-                let sample = MapHighlight(point: [], kind: kind)
-                style.setImage(Self.badgeImage(color: UIColor(sample.color), glyph: sample.glyph),
-                               forName: "highlight-\(kind)")
+                style.setImage(Self.pinImage(for: kind), forName: "highlight-\(kind)")
                 let source = MLNShapeSource(identifier: "highlight-\(kind)", shapes: [])
                 style.addSource(source)
                 highlightSources[kind] = source
                 let layer = MLNSymbolStyleLayer(identifier: "highlight-\(kind)-icon", source: source)
                 layer.iconImageName = NSExpression(forConstantValue: "highlight-\(kind)")
+                layer.iconAnchor = NSExpression(forConstantValue: "bottom")
                 layer.iconAllowsOverlap = NSExpression(forConstantValue: true)
                 layer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
                 style.addLayer(layer)
@@ -165,25 +155,70 @@ struct MapLibreMapView: UIViewRepresentable {
             style.addLayer(layer)
         }
 
-        /// 22pt circular badge in the kind's color with a centered glyph.
-        static func badgeImage(color: UIColor, glyph: String) -> UIImage {
-            let size = CGSize(width: 22, height: 22)
-            return UIGraphicsImageRenderer(size: size).image { _ in
-                let rect = CGRect(origin: .zero, size: size).insetBy(dx: 1.5, dy: 1.5)
-                let circle = UIBezierPath(ovalIn: rect)
+        /// 26×34pt teardrop map pin in the kind's color; the head carries a
+        /// path-drawn star (BEST), crown (KOM), or a bold digit (2nd/3rd).
+        /// Geometry mirrors the Android renderer so both apps match.
+        static func pinImage(for kind: MapHighlight.Kind) -> UIImage {
+            let color = UIColor(MapHighlight(point: [], kind: kind).color)
+            let outline = UIColor(Color.axBackground)
+            return UIGraphicsImageRenderer(size: CGSize(width: 26, height: 34)).image { _ in
+                let tail = UIBezierPath()
+                tail.move(to: CGPoint(x: 7.5, y: 19.5))
+                tail.addLine(to: CGPoint(x: 13, y: 32.5))
+                tail.addLine(to: CGPoint(x: 18.5, y: 19.5))
+                tail.close()
                 color.setFill()
-                circle.fill()
-                UIColor(Color.axBackground).setStroke()
-                circle.lineWidth = 2
-                circle.stroke()
-                let text = NSAttributedString(string: glyph, attributes: [
-                    .font: UIFont.systemFont(ofSize: 11, weight: .bold),
-                    .foregroundColor: UIColor.white,
-                ])
-                let textSize = text.size()
-                text.draw(at: CGPoint(x: (size.width - textSize.width) / 2,
-                                      y: (size.height - textSize.height) / 2))
+                tail.fill()
+                outline.setStroke()
+                tail.lineWidth = 1.5
+                tail.stroke()
+
+                let head = UIBezierPath(ovalIn: CGRect(x: 2, y: 2, width: 22, height: 22))
+                color.setFill()
+                head.fill()
+                head.lineWidth = 2
+                head.stroke()
+
+                UIColor.white.setFill()
+                switch kind {
+                case .best:
+                    star(center: CGPoint(x: 13, y: 13), outer: 6.5, inner: 2.7).fill()
+                case .kom:
+                    crown(center: CGPoint(x: 13, y: 13)).fill()
+                case .second, .third:
+                    let digit = NSAttributedString(string: kind == .second ? "2" : "3", attributes: [
+                        .font: UIFont.systemFont(ofSize: 12.5, weight: .heavy),
+                        .foregroundColor: UIColor.white,
+                    ])
+                    let s = digit.size()
+                    digit.draw(at: CGPoint(x: 13 - s.width / 2, y: 13 - s.height / 2))
+                }
             }
+        }
+
+        private static func star(center: CGPoint, outer: CGFloat, inner: CGFloat) -> UIBezierPath {
+            let path = UIBezierPath()
+            for i in 0..<10 {
+                let angle = -CGFloat.pi / 2 + CGFloat(i) * .pi / 5
+                let radius = i.isMultiple(of: 2) ? outer : inner
+                let point = CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
+                i == 0 ? path.move(to: point) : path.addLine(to: point)
+            }
+            path.close()
+            return path
+        }
+
+        private static func crown(center c: CGPoint) -> UIBezierPath {
+            let path = UIBezierPath()
+            path.move(to: CGPoint(x: c.x - 5.5, y: c.y + 4.5))       // base left
+            path.addLine(to: CGPoint(x: c.x - 5.5, y: c.y - 1.5))    // left spike
+            path.addLine(to: CGPoint(x: c.x - 2.7, y: c.y + 0.8))
+            path.addLine(to: CGPoint(x: c.x, y: c.y - 4))            // middle spike
+            path.addLine(to: CGPoint(x: c.x + 2.7, y: c.y + 0.8))
+            path.addLine(to: CGPoint(x: c.x + 5.5, y: c.y - 1.5))    // right spike
+            path.addLine(to: CGPoint(x: c.x + 5.5, y: c.y + 4.5))    // base right
+            path.close()
+            return path
         }
 
         private static func polyline(_ path: [[Double]]) -> MLNPolylineFeature {
